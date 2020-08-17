@@ -16,9 +16,6 @@ user_schema = UserSchema()
 class UsersResource(Resource):
     """Application endpoint for User objects."""
 
-    def get(self):
-        return {'hello': 'world'}, HTTPStatus.OK
-
     def post(self):
         """Create a new user account."""
         try:
