@@ -1,7 +1,6 @@
 """Setup the test fixtures used by pytest."""
 
 import pytest
-
 from heimdall import create_app
 
 

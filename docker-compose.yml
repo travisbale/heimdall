@@ -3,6 +3,7 @@ version: '3.7'
 services:
   api:
     image: python:3.8.2-slim-buster
+    restart: always
     entrypoint: ./entrypoint.sh
     env_file: ./env/dev.env
     ports:
@@ -10,3 +11,15 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
+
+  postgres:
+    image: postgres:12-alpine
+    restart: always
+    env_file: ./env/postgres.env
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

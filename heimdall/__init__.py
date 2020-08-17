@@ -1,6 +1,12 @@
 """Initialize the heimdall service."""
 
 from flask import Flask
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
+
+
+db = SQLAlchemy()
+migrate = Migrate()
 
 
 def create_app(config='heimdall.config.Config'):
@@ -9,9 +15,15 @@ def create_app(config='heimdall.config.Config'):
 
     app.config.from_object(config)
 
+    _initialize_extensions(app)
     _register_blueprints(app)
 
     return app
+
+
+def _initialize_extensions(app):
+    db.init_app(app)
+    migrate.init_app(app, db)
 
 
 def _register_blueprints(app):
