@@ -9,7 +9,7 @@ from heimdall import create_app
 def client():
     """Initialize the application for testing."""
 
-    app = create_app()
+    app = create_app('heimdall.config.TestConfig')
     test_client = app.test_client()
 
     # Establish an application context before running the tests
