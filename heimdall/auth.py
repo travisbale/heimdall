@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (create_access_token, create_refresh_token,
     set_access_cookies, set_refresh_cookies, jwt_refresh_token_required)
-from flask_jwt_extended.utils import get_jwt_identity
+from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from heimdall.models import User
 from http import HTTPStatus
 
@@ -32,4 +32,12 @@ def refresh():
     email = get_jwt_identity()
     response = jsonify({'msg': 'refresh successful'})
     set_access_cookies(response, create_access_token(identity=email))
+    return response, HTTPStatus.OK
+
+
+@bp.route('/logout', methods=['DELETE'])
+def logout():
+    """Revoke the user's access and refresh tokens."""
+    response = jsonify({'msg': 'logout successful'})
+    unset_jwt_cookies(response)
     return response, HTTPStatus.OK
