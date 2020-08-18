@@ -29,6 +29,13 @@ class User(db.Model):
     def password(self, password):
         self._password = argon2.hash(password)
 
+    def authenticate(self, password):
+        """Check the provided password against the user's saved password."""
+        try:
+            return argon2.verify(password, self.password)
+        except (TypeError, ValueError):
+            return False
+
     def save(self):
         """Save the user to the database."""
         db.session.add(self)
