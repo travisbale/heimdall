@@ -2,7 +2,8 @@
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (create_access_token, create_refresh_token,
-    set_access_cookies, set_refresh_cookies)
+    set_access_cookies, set_refresh_cookies, jwt_refresh_token_required)
+from flask_jwt_extended.utils import get_jwt_identity
 from heimdall.models import User
 from http import HTTPStatus
 
@@ -22,3 +23,13 @@ def login():
         return response, HTTPStatus.OK
 
     return jsonify({'msg': 'login failed'}), HTTPStatus.UNAUTHORIZED
+
+
+@bp.route('/refresh', methods=['POST'])
+@jwt_refresh_token_required
+def refresh():
+    """Issue an authenticated user a new access token."""
+    email = get_jwt_identity()
+    response = jsonify({'msg': 'refresh successful'})
+    set_access_cookies(response, create_access_token(identity=email))
+    return response, HTTPStatus.OK

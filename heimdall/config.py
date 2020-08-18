@@ -14,7 +14,7 @@ class Config(object):
     JWT_TOKEN_LOCATION='cookies'
     JWT_ACCESS_COOKIE_PATH='/api'
     JWT_ACCESS_CSRF_COOKIE_PATH='/'
-    JWT_REFRESH_COOKIE_PATH='/api/refresh'
+    JWT_REFRESH_COOKIE_PATH='/api/v1/refresh'
     JWT_REFRESH_CSRF_COOKIE_PATH='/'
     JWT_COOKIE_CSRF_PROTECT=True
     JWT_COOKIE_SECURE=False
