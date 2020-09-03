@@ -2,9 +2,10 @@ version: '3.7'
 
 services:
   api:
-    image: python:3.8.2-slim-buster
+    image: python:3.8-slim
     restart: always
     entrypoint: ./entrypoint.sh
+    container_name: api
     env_file: ./env/dev.env
     ports:
       - '5000:5000'
@@ -15,6 +16,7 @@ services:
   postgres:
     image: postgres:12-alpine
     restart: always
+    container_name: postgres
     env_file: ./env/postgres.env
     ports:
       - '5432:5432'
@@ -22,8 +24,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4
     restart: always
+    container_name: pgadmin
     env_file: ./env/pgadmin.env
     links:
       - 'postgres:postgres-server'
