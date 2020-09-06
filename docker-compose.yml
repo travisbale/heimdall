@@ -4,8 +4,8 @@ services:
   api:
     image: python:3.8-slim
     restart: always
-    entrypoint: ./entrypoint.sh
     container_name: api
+    entrypoint: [./entrypoint.sh, development]
     env_file: ./env/dev.env
     ports:
       - '5000:5000'
