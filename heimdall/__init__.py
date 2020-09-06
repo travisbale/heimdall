@@ -35,5 +35,5 @@ def _initialize_extensions(app):
 def _register_blueprints(app):
     from heimdall import auth, resources
 
-    app.register_blueprint(auth.bp, url_prefix='/api/v1')
-    app.register_blueprint(resources.bp, url_prefix='/api/v1')
+    app.register_blueprint(auth.bp)
+    app.register_blueprint(resources.bp, url_prefix='/v1')
