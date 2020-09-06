@@ -25,7 +25,7 @@ class UsersResource(Resource):
                 user.save()
                 return user_schema.dump(user), HTTPStatus.CREATED
             else:
-                return {'error': 'email has already been registered'}, HTTPStatus.CONFLICT
+                return {'msg': 'Email has already been registered'}, HTTPStatus.CONFLICT
 
         except ValidationError as e:
             return e.messages, HTTPStatus.BAD_REQUEST

@@ -17,12 +17,12 @@ def login():
     user = User.query.filter_by(email=request.json.get('email')).first()
 
     if user is not None and user.authenticate(request.json.get('password')):
-        response = jsonify({'msg': 'login successful'})
+        response = jsonify({'msg': 'Login successful'})
         set_access_cookies(response, create_access_token(identity=user.email))
         set_refresh_cookies(response, create_refresh_token(identity=user.email))
         return response, HTTPStatus.OK
 
-    return jsonify({'msg': 'login failed'}), HTTPStatus.UNAUTHORIZED
+    return jsonify({'msg': 'Login failed'}), HTTPStatus.UNAUTHORIZED
 
 
 @bp.route('/refresh', methods=['POST'])
@@ -30,7 +30,7 @@ def login():
 def refresh():
     """Issue an authenticated user a new access token."""
     email = get_jwt_identity()
-    response = jsonify({'msg': 'refresh successful'})
+    response = jsonify({'msg': 'Refresh successful'})
     set_access_cookies(response, create_access_token(identity=email))
     return response, HTTPStatus.OK
 
@@ -38,6 +38,6 @@ def refresh():
 @bp.route('/logout', methods=['DELETE'])
 def logout():
     """Revoke the user's access and refresh tokens."""
-    response = jsonify({'msg': 'logout successful'})
+    response = jsonify({'msg': 'Logout successful'})
     unset_jwt_cookies(response)
     return response, HTTPStatus.OK
