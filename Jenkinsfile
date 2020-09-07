@@ -18,7 +18,7 @@ pipeline {
         // Don't fail the build if the container does not exist
         sh 'docker stop heimdall-rc || true'
         sh '''
-          docker run -d --rm -p 5000:5000 \
+          docker run -d --rm \
             --name heimdall-rc \
             --env-file /home/env/heimdall.env \
             --network=ec2-user_default \
