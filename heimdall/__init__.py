@@ -1,7 +1,10 @@
 """Initialize the heimdall service."""
 
+import os
+
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -16,6 +19,8 @@ def create_app(config='heimdall.config.Config'):
     app = Flask(__name__, instance_relative_config=True)
 
     app.config.from_object(config)
+
+    CORS(app, origins=os.getenv('CORS_ORIGIN', 'http://localhost:8081'), supports_credentials=True)
 
     _initialize_extensions(app)
     _register_blueprints(app)
