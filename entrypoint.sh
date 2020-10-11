@@ -15,5 +15,5 @@ then
     # Run the service
     flask run -h 0.0.0.0
 else
-    gunicorn --bind 0.0.0.0:5000 'heimdall:create_app()'
+    gunicorn -c gunicorn.py 'heimdall:create_app()'
 fi
