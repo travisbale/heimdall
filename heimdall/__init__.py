@@ -20,7 +20,7 @@ def create_app(config='heimdall.config.Config'):
 
     app.config.from_object(config)
 
-    CORS(app, origins=os.getenv('CORS_ORIGIN', 'http://localhost:8081'), supports_credentials=True)
+    CORS(app, origins=os.getenv('CORS_ORIGIN'), supports_credentials=True)
 
     _initialize_extensions(app)
     _register_blueprints(app)
