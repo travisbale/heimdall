@@ -20,7 +20,7 @@ pipeline {
         sh '''
           docker run -d --rm \
             --name heimdall-rc \
-            --env-file /home/env/heimdall.env \
+            --env-file /home/env/heimdall/staging.env \
             --network=ec2-user_default \
             heimdall:0.1-rc1
         '''
