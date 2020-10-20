@@ -1,28 +1,37 @@
 pipeline {
   agent any
+
+  environment {
+    IMAGE_TAG = "${env.BRANCH_NAME == 'master' ? '0.1' : '0.1-rc'}"
+    ENV_FILE = "${env.BRANCH_NAME == 'master' ? 'prod.env' : 'staging.env'}"
+    CONTAINER_NAME = "${env.BRANCH_NAME == 'master' ? 'heimdall' : 'heimdall-rc'}"
+  }
+
   stages {
     stage('Build') {
       steps {
         sh 'mkdir -p keys'
         sh 'cp /home/keys/heimdall.* keys'
-        sh 'docker build -t heimdall:0.1-rc1 .'
+        sh 'docker build -t heimdall:$IMAGE_TAG .'
       }
     }
+
     stage('Test') {
       steps {
-        sh 'docker run --rm --entrypoint python heimdall:0.1-rc1 -m pytest'
+        sh 'docker run --rm --entrypoint python heimdall:$IMAGE_TAG -m pytest'
       }
     }
+
     stage('Deploy') {
       steps {
         // Don't fail the build if the container does not exist
-        sh 'docker stop heimdall-rc || true'
+        sh 'docker stop $CONTAINER_NAME || true'
         sh '''
           docker run -d --rm \
-            --name heimdall-rc \
-            --env-file /home/env/heimdall/staging.env \
+            --name $CONTAINER_NAME \
+            --env-file /home/env/heimdall/$ENV_FILE \
             --network=ec2-user_default \
-            heimdall:0.1-rc1
+            heimdall:$IMAGE_TAG
         '''
       }
     }
