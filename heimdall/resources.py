@@ -2,7 +2,7 @@
 
 from flask import Blueprint, jsonify, request
 from flask.views import MethodView
-from flask_jwt_extended.utils import get_jwt_identity
+from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
 from marshmallow.exceptions import ValidationError
 from heimdall.models import User, UserSchema
@@ -39,7 +39,9 @@ class UserResource(MethodView):
 
         if user is not None and user.email == get_jwt_identity():
             user.delete()
-            return jsonify({'msg': 'User has been deleted'}), HTTPStatus.OK
+            response = jsonify({'msg': 'User has been deleted'})
+            unset_jwt_cookies(response)
+            return response, HTTPStatus.OK
 
         return jsonify({'msg': 'Cannot delete user'}), HTTPStatus.FORBIDDEN
 
