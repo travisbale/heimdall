@@ -5,13 +5,14 @@ pipeline {
     IMAGE_TAG = "${env.BRANCH_NAME == 'master' ? '0.1' : '0.1-rc'}"
     ENV_FILE = "${env.BRANCH_NAME == 'master' ? 'prod.env' : 'staging.env'}"
     CONTAINER_NAME = "${env.BRANCH_NAME == 'master' ? 'heimdall' : 'heimdall-rc'}"
+    KEY_DIR = "${env.BRANCH_NAME == 'master' ? 'prod' : 'staging'}"
   }
 
   stages {
     stage('Build') {
       steps {
         sh 'mkdir -p keys'
-        sh 'cp /home/keys/heimdall.* keys'
+        sh 'cp /home/keys/$KEY_DIR/heimdall.* keys'
         sh 'docker build -t heimdall:$IMAGE_TAG .'
       }
     }
