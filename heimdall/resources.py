@@ -1,6 +1,8 @@
 """API endpoints for the heimdall service."""
 
 from flask import Blueprint, request
+from flask_jwt_extended.utils import get_jwt_identity
+from flask_jwt_extended.view_decorators import jwt_required
 from flask_restful import Api, Resource
 from marshmallow.exceptions import ValidationError
 from heimdall.models import User, UserSchema
@@ -29,3 +31,18 @@ class UsersResource(Resource):
 
         except ValidationError as e:
             return e.messages, HTTPStatus.BAD_REQUEST
+
+
+@api.resource('/users/<int:id>', endpoint='user')
+class UserResource(Resource):
+    """Application endpoint for user objects."""
+
+    @jwt_required
+    def delete(self, id):
+        user = User.query.get(id)
+
+        if user is not None and user.email == get_jwt_identity():
+            user.delete()
+            return {'msg': 'User has been deleted'}, HTTPStatus.OK
+
+        return {'msg': 'Cannot delete user'}, HTTPStatus.FORBIDDEN

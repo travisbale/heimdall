@@ -41,6 +41,11 @@ class User(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def delete(self):
+        """Delete the user from the database."""
+        db.session.delete(self)
+        db.session.commit()
+
     def __repr__(self):
         """Return a human readable representation of the User."""
         return '<User {}>'.format(self.email)
