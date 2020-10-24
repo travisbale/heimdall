@@ -40,7 +40,7 @@ pipeline {
       environment {
         API_KEY = credentials('pm-apikey')
         COLLECTION_ID = credentials('pm-heimdall-collection-id')
-        ENVIRONMENT_ID = credentials('pm-heimdall-prod-env-id')
+        ENVIRONMENT_ID = credentials("${env.BRANCH_NAME == 'master' ? 'pm-heimdall-prod-env-id' : 'pm-heimdall-staging-env-id'}")
         USER_EMAIL = credentials('pm-heimdall-user-email')
         USER_PASSWORD = credentials('pm-heimdall-user-password')
       }
