@@ -14,6 +14,9 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['POST'])
 def login():
     """Issue authenticated users access and refresh tokens."""
+    if not request.is_json:
+        return jsonify({'msg': 'Body must contain json'}), HTTPStatus.BAD_REQUEST
+
     user = User.query.filter_by(email=request.json.get('email')).first()
 
     if user is not None and user.authenticate(request.json.get('password')):
