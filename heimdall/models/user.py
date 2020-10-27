@@ -39,7 +39,7 @@ class User(BaseModel):
 
     def __repr__(self):
         """Return a human readable representation of the User."""
-        return '<User {}>'.format(self.email)
+        return f'<User {self.email}>'
 
 
 class UserSchema(Schema):

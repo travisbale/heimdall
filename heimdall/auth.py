@@ -9,7 +9,6 @@ from http import HTTPStatus
 
 
 bp = Blueprint('auth', __name__)
-
 user_schema = UserSchema()
 
 
@@ -17,7 +16,7 @@ user_schema = UserSchema()
 def login():
     """Issue authenticated users access and refresh tokens."""
     if not request.is_json:
-        return jsonify({'msg': 'Body must contain json'}), HTTPStatus.BAD_REQUEST
+        return jsonify(msg='Body must contain json'), HTTPStatus.BAD_REQUEST
 
     user = User.query.filter_by(email=request.json.get('email')).first()
 
@@ -27,7 +26,7 @@ def login():
         set_refresh_cookies(response, create_refresh_token(identity=user.email))
         return response, HTTPStatus.OK
 
-    return jsonify({'msg': 'Login failed'}), HTTPStatus.UNAUTHORIZED
+    return jsonify(msg='Login failed'), HTTPStatus.UNAUTHORIZED
 
 
 @bp.route('/refresh', methods=['POST'])
@@ -42,12 +41,12 @@ def refresh():
         return response, HTTPStatus.OK
 
     # There is no user email associated with that JWT identity
-    return jsonify({'msg': 'Unable to retrieve new access token'}), HTTPStatus.UNAUTHORIZED
+    return jsonify(msg='Unable to retrieve new access token'), HTTPStatus.UNAUTHORIZED
 
 
 @bp.route('/logout', methods=['DELETE'])
 def logout():
     """Revoke the user's access and refresh tokens."""
-    response = jsonify({'msg': 'Logout successful'})
+    response = jsonify(msg='Logout successful')
     unset_jwt_cookies(response)
     return response, HTTPStatus.OK

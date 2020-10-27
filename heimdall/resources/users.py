@@ -24,7 +24,7 @@ class UsersResource(MethodView):
                 user.save()
                 return jsonify(user_schema.dump(user)), HTTPStatus.CREATED
             else:
-                return jsonify({'msg': 'Email has already been registered'}), HTTPStatus.CONFLICT
+                return jsonify(msg='Email has already been registered'), HTTPStatus.CONFLICT
 
         except ValidationError as e:
             return jsonify(e.messages), HTTPStatus.BAD_REQUEST
@@ -39,11 +39,11 @@ class UserResource(MethodView):
 
         if user is not None and user.email == get_jwt_identity():
             user.delete()
-            response = jsonify({'msg': 'User has been deleted'})
+            response = jsonify(msg='User has been deleted')
             unset_jwt_cookies(response)
             return response, HTTPStatus.OK
 
-        return jsonify({'msg': 'Cannot delete user'}), HTTPStatus.FORBIDDEN
+        return jsonify(msg='Cannot delete user'), HTTPStatus.FORBIDDEN
 
 
 bp.add_url_rule('/users', view_func=UsersResource.as_view('users_resource'))
