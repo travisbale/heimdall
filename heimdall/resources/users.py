@@ -1,6 +1,6 @@
 """API endpoints for the heimdall service."""
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
@@ -9,8 +9,8 @@ from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
 
 
-bp = Blueprint('users_api', __name__)
 user_schema = UserSchema()
+
 
 class UsersResource(MethodView):
     """Application endpoint for User objects."""
@@ -46,5 +46,6 @@ class UserResource(MethodView):
         return jsonify(msg='Cannot delete user'), HTTPStatus.FORBIDDEN
 
 
-bp.add_url_rule('/users', view_func=UsersResource.as_view('users_resource'))
-bp.add_url_rule('/users/<int:id>', view_func=UserResource.as_view('user_resource'))
+def register_resources(bp):
+    bp.add_url_rule('/users', view_func=UsersResource.as_view('users_resource'))
+    bp.add_url_rule('/users/<int:id>', view_func=UserResource.as_view('user_resource'))
