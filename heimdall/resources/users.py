@@ -5,11 +5,11 @@ from flask.views import MethodView
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
 from marshmallow.exceptions import ValidationError
-from heimdall.models import User, UserSchema
+from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
 
 
-bp = Blueprint('api', __name__)
+bp = Blueprint('users_api', __name__)
 user_schema = UserSchema()
 
 class UsersResource(MethodView):

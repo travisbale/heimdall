@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (create_access_token, create_refresh_token,
     set_access_cookies, set_refresh_cookies, jwt_refresh_token_required)
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
-from heimdall.models import User, UserSchema
+from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
 
 
