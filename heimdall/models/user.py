@@ -2,10 +2,11 @@
 
 from datetime import datetime
 from heimdall import db
+from heimdall.models import BaseModel
 from marshmallow import Schema, fields, post_load
 from passlib.hash import argon2
 
-class User(db.Model):
+class User(BaseModel):
     """User model for storing user related details."""
 
     __tablename__ = 'users'
@@ -35,16 +36,6 @@ class User(db.Model):
             return argon2.verify(password, self.password)
         except (TypeError, ValueError):
             return False
-
-    def save(self):
-        """Save the user to the database."""
-        db.session.add(self)
-        db.session.commit()
-
-    def delete(self):
-        """Delete the user from the database."""
-        db.session.delete(self)
-        db.session.commit()
 
     def __repr__(self):
         """Return a human readable representation of the User."""
