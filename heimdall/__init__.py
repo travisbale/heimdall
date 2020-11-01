@@ -37,13 +37,13 @@ def _initialize_extensions(app):
 
 
 def _register_blueprints(app):
-    from heimdall import auth, resources, exceptions
+    from heimdall import auth, resources, exceptions, models
 
-    # Register exception handlers
+    # Register the models blueprint
+    app.register_blueprint(models.bp)
+    # Register the exception handlers
     app.register_blueprint(exceptions.bp)
-
-    # Register authentication routes
+    # Register the authentication routes
     app.register_blueprint(auth.bp)
-
-    # Register application endpoints
+    # Register the application endpoints
     app.register_blueprint(resources.bp, url_prefix='/v1')
