@@ -7,6 +7,7 @@ from flask_jwt_extended.view_decorators import jwt_required
 from marshmallow.exceptions import ValidationError
 from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
+from werkzeug.exceptions import Conflict, BadRequest, Forbidden
 
 
 user_schema = UserSchema()
@@ -17,17 +18,13 @@ class UsersResource(MethodView):
 
     def post(self):
         """Create a new user account."""
-        try:
-            user = user_schema.load(request.get_json())
+        user = user_schema.load(request.get_json())
 
-            if User.query.filter_by(email=user.email).count() == 0:
-                user.save()
-                return jsonify(user_schema.dump(user)), HTTPStatus.CREATED
-            else:
-                return jsonify(msg='Email has already been registered'), HTTPStatus.CONFLICT
-
-        except ValidationError as e:
-            return jsonify(e.messages), HTTPStatus.BAD_REQUEST
+        if User.query.filter_by(email=user.email).count() == 0:
+            user.save()
+            return jsonify(user_schema.dump(user)), HTTPStatus.CREATED
+        else:
+            raise Conflict(description='The user already exists')
 
 
 class UserResource(MethodView):
@@ -43,7 +40,7 @@ class UserResource(MethodView):
             unset_jwt_cookies(response)
             return response, HTTPStatus.OK
 
-        return jsonify(msg='Cannot delete user'), HTTPStatus.FORBIDDEN
+        raise Forbidden(description='The user cannot be deleted')
 
 
 def register_resources(bp):
