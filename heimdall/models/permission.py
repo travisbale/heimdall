@@ -1,6 +1,6 @@
-from . import BaseModel
+from . import BaseModel, BaseSchema
 from heimdall import db
-from marshmallow import fields, post_load, Schema
+from marshmallow import fields, post_load
 
 
 class Permission(BaseModel):
@@ -19,7 +19,7 @@ class Permission(BaseModel):
         return f'<Permission {self.name}>'
 
 
-class PermissionSchema(Schema):
+class PermissionSchema(BaseSchema):
     id = fields.Integer()
     name = fields.String(required=True)
     description = fields.String(required=True)

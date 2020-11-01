@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from heimdall import db
-from heimdall.models import BaseModel
-from marshmallow import Schema, fields, post_load
+from heimdall.models import BaseModel, BaseSchema
+from marshmallow import fields, post_load
 from passlib.hash import argon2
 
 class User(BaseModel):
@@ -43,7 +43,7 @@ class User(BaseModel):
         return f'<User {self.email}>'
 
 
-class UserSchema(Schema):
+class UserSchema(BaseSchema):
     """Class used to serialize and deserialize User objects."""
 
     id = fields.Integer()

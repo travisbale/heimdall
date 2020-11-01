@@ -1,6 +1,6 @@
 from heimdall import db
-from heimdall.models import BaseModel
-from marshmallow import fields, Schema
+from heimdall.models import BaseModel, BaseSchema
+from marshmallow import fields
 
 
 class RoleAssignment(BaseModel):
@@ -14,5 +14,5 @@ class RoleAssignment(BaseModel):
         self.role_id = role_id
 
 
-class RoleAssignmentSchema(Schema):
+class RoleAssignmentSchema(BaseSchema):
     roles = fields.List(fields.Integer, required=True)

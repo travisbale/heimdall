@@ -1,6 +1,6 @@
 from heimdall import db
-from heimdall.models import BaseModel
-from marshmallow import fields, post_load, Schema
+from heimdall.models import BaseModel, BaseSchema
+from marshmallow import fields, post_load
 
 
 class Role(BaseModel):
@@ -20,7 +20,7 @@ class Role(BaseModel):
         return f'<Role {self.name}>'
 
 
-class RoleSchema(Schema):
+class RoleSchema(BaseSchema):
     id = fields.Integer()
     name = fields.String(required=True)
     description = fields.String(required=True)
