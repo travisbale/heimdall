@@ -1,6 +1,7 @@
 """Models for the heimdall service."""
 
 from datetime import datetime
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity
 from heimdall import db
 from heimdall.models import BaseModel, BaseSchema
 from marshmallow import fields, post_load
@@ -16,6 +17,10 @@ class User(BaseModel):
     _password = db.Column('password', db.String(255), nullable=False)
     registered_on = db.Column(db.DateTime, default=datetime.now(), nullable=False)
     roles = db.relationship('RoleAssignment', backref='user', cascade='all, delete-orphan')
+
+    @classmethod
+    def get_current_user(cls):
+        return cls.query.filter_by(email=get_jwt_identity()).first()
 
     def __init__(self, email, password):
         """Create a new user given an email and a password."""
@@ -37,6 +42,15 @@ class User(BaseModel):
             return argon2.verify(password, self.password)
         except (TypeError, ValueError):
             return False
+
+    def create_access_token(self):
+        return create_access_token(identity=self.email)
+
+    def create_refresh_token(self):
+        return create_refresh_token(identity=self.email)
+
+    def is_current_user(self):
+        return self.email == get_jwt_identity()
 
     def __repr__(self):
         """Return a human readable representation of the User."""

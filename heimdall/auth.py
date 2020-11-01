@@ -1,9 +1,9 @@
 """Provide routes used to create and revoke access and refresh tokens."""
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import (create_access_token, create_refresh_token,
-    set_access_cookies, set_refresh_cookies, jwt_refresh_token_required)
-from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
+from flask_jwt_extended import set_access_cookies, set_refresh_cookies
+from flask_jwt_extended.view_decorators import jwt_refresh_token_required
+from flask_jwt_extended.utils import unset_jwt_cookies
 from werkzeug.exceptions import Unauthorized
 from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
@@ -20,8 +20,8 @@ def login():
 
     if user is not None and user.authenticate(request.json.get('password')):
         response = jsonify(user_schema.dump(user))
-        set_access_cookies(response, create_access_token(identity=user.email))
-        set_refresh_cookies(response, create_refresh_token(identity=user.email))
+        set_access_cookies(response, user.create_access_token())
+        set_refresh_cookies(response, user.create_refresh_token())
         return response, HTTPStatus.OK
 
     raise Unauthorized(description='The login attempt failed')
@@ -31,11 +31,11 @@ def login():
 @jwt_refresh_token_required
 def refresh():
     """Issue an authenticated user a new access token."""
-    user = User.query.filter_by(email=get_jwt_identity()).first()
+    user = User.get_current_user()
 
     if user is not None:
         response = jsonify(user_schema.dump(user))
-        set_access_cookies(response, create_access_token(identity=user.email))
+        set_access_cookies(response, user.create_access_token())
         return response, HTTPStatus.OK
 
     # There is no user email associated with that JWT identity
