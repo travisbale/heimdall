@@ -15,6 +15,7 @@ class User(BaseModel):
     email = db.Column(db.String(255), unique=True, nullable=False)
     _password = db.Column('password', db.String(255), nullable=False)
     registered_on = db.Column(db.DateTime, default=datetime.now(), nullable=False)
+    roles = db.relationship('RoleAssignment', backref='user', cascade='all, delete-orphan')
 
     def __init__(self, email, password):
         """Create a new user given an email and a password."""

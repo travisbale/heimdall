@@ -11,6 +11,10 @@ class BaseModel(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def merge(self):
+        db.session.merge(self)
+        db.session.commit()
+
     def delete(self):
         """Delete the object from the database."""
         db.session.delete(self)
