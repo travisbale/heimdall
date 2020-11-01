@@ -10,6 +10,7 @@ class Role(BaseModel):
     name = db.Column(db.String(32), nullable=False, unique=True)
     description = db.Column(db.Text, default='', nullable=False)
     users = db.relationship('RoleAssignment', backref='role', cascade='all, delete-orphan')
+    permissions = db.relationship('PermissionAssignment', backref='role', cascade='all, delete-orphan')
 
     def __init__(self, name, description):
         self.name = name
