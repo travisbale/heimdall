@@ -1,4 +1,4 @@
-"""Models for the heimdall service."""
+"""User module."""
 
 from datetime import datetime
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity
@@ -8,7 +8,7 @@ from marshmallow import fields, post_load
 from passlib.hash import argon2
 
 class User(BaseModel):
-    """User model for storing user related details."""
+    """Represents a User object."""
 
     __tablename__ = 'users'
 
@@ -20,16 +20,17 @@ class User(BaseModel):
 
     @classmethod
     def get_current_user(cls):
+        """Return the currently logged in user using the JWT identity."""
         return cls.query.filter_by(email=get_jwt_identity()).first()
 
     def __init__(self, email, password):
-        """Create a new user given an email and a password."""
         self.email = email
         self.password = password
         self.registered_on = datetime.now()
 
     @property
     def password(self):
+        """Return the hashed password."""
         return self._password
 
     @password.setter
@@ -44,12 +45,15 @@ class User(BaseModel):
             return False
 
     def create_access_token(self):
+        """Create and return a new JWT access token."""
         return create_access_token(identity=self.email)
 
     def create_refresh_token(self):
+        """Create and return a new JWT refresh token."""
         return create_refresh_token(identity=self.email)
 
     def is_current_user(self):
+        """Return whether or not the user is currently logged in."""
         return self.email == get_jwt_identity()
 
     def __repr__(self):
@@ -58,7 +62,7 @@ class User(BaseModel):
 
 
 class UserSchema(BaseSchema):
-    """Class used to serialize and deserialize User objects."""
+    """Serializes and deserializes User objects."""
 
     id = fields.Integer()
     email = fields.Email(required=True)
@@ -67,5 +71,5 @@ class UserSchema(BaseSchema):
 
     @post_load
     def load_user(self, data, **kwargs):
-        """Create a user object from the serialized values."""
+        """Create a user object using the deserialized values."""
         return User(**data)

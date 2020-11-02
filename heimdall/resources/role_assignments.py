@@ -1,3 +1,5 @@
+"""Role assignment module."""
+
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 from flask.views import MethodView
@@ -13,7 +15,7 @@ assignment_schema = RoleAssignmentSchema()
 
 
 class RoleAssignmentsResource(MethodView):
-    """Endpoint for role assignments."""
+    """Dispatches request methods to view or modify the roles assigned to a user."""
 
     @jwt_required
     def get(self, user_id):
@@ -62,4 +64,6 @@ class RoleAssignmentsResource(MethodView):
 
 
 def register_resources(bp):
-    bp.add_url_rule('/users/<int:user_id>/roles', view_func=RoleAssignmentsResource.as_view('role_assignments_resource'))
+    """Add the resource routes to the application blueprint."""
+    bp.add_url_rule('/users/<int:user_id>/roles',
+        view_func=RoleAssignmentsResource.as_view('role_assignments_resource'))

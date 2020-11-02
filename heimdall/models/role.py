@@ -1,9 +1,13 @@
+"""Role module."""
+
 from heimdall import db
 from heimdall.models import BaseModel, BaseSchema
 from marshmallow import fields, post_load
 
 
 class Role(BaseModel):
+    """Represents a Role object."""
+
     __tablename__ = 'roles'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -21,10 +25,13 @@ class Role(BaseModel):
 
 
 class RoleSchema(BaseSchema):
+    """Serializes and deserializes role objects."""
+
     id = fields.Integer()
     name = fields.String(required=True)
     description = fields.String(required=True)
 
     @post_load
     def load_role(self, data, **kwargs):
+        """Create a role object using the deserialized values."""
         return Role(**data)

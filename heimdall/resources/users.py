@@ -1,37 +1,42 @@
-"""API endpoints for the heimdall service."""
+"""Users module."""
 
 from flask import jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended.utils import unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
-from marshmallow.exceptions import ValidationError
 from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
-from werkzeug.exceptions import Conflict, BadRequest, Forbidden
+from werkzeug.exceptions import Conflict, Forbidden
 
 
 user_schema = UserSchema()
 
 
 class UsersResource(MethodView):
-    """Application endpoint for User objects."""
+    """Dispatches request methods to retrieve or create users."""
 
     def post(self):
-        """Create a new user account."""
+        """Create a new user."""
         user = user_schema.load(request.get_json())
 
-        if User.query.filter_by(email=user.email).count() == 0:
-            user.save()
-            return jsonify(user_schema.dump(user)), HTTPStatus.CREATED
-        else:
+        if User.query.filter_by(email=user.email).count() > 0:
             raise Conflict(description='The user already exists')
+
+        user.save()
+        return jsonify(user_schema.dump(user)), HTTPStatus.CREATED
 
 
 class UserResource(MethodView):
-    """Application endpoint for user objects."""
+    """Dispatches request methods to delete an existing user."""
 
     @jwt_required
     def delete(self, id):
+        """
+        Delete the user with the given ID.
+
+        User accounts are only able to be deleted by the owner of the account.
+        """
+        # Returning a 404 would create a user enumeration vulnerability
         user = User.query.get(id)
 
         if user is not None and user.is_current_user():
@@ -44,5 +49,6 @@ class UserResource(MethodView):
 
 
 def register_resources(bp):
+    """Add the resource routes to the application blueprint."""
     bp.add_url_rule('/users', view_func=UsersResource.as_view('users_resource'))
     bp.add_url_rule('/users/<int:id>', view_func=UserResource.as_view('user_resource'))

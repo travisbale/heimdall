@@ -1,12 +1,16 @@
+"""
+Flask module.
+
+This module is used to subclass some of the default Flask classes in order to
+modify the way json is parsed.
+"""
+
 from flask import Flask as _Flask, Request as _Request
 from werkzeug.exceptions import UnsupportedMediaType
 
 
 class Request(_Request):
-    """
-    Subclass the Flask Request class in order to override the get_json()
-    function.
-    """
+    """Subclasses the Flask Request class to override get_json()."""
 
     def get_json(self, **kwargs):
         """
@@ -24,7 +28,6 @@ class Request(_Request):
 
 
 class Flask(_Flask):
-    """
-    Subclass the Flask class so the default request class can be overridden.
-    """
+    """Subclasses the Flask class and overrides the default request class."""
+
     request_class = Request

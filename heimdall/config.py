@@ -4,6 +4,8 @@ import os
 
 
 class Config(object):
+    """The default application configuration."""
+
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -22,4 +24,6 @@ class Config(object):
 
 
 class TestConfig(Config):
+    """The application configuration for testing."""
+
     TESTING = True

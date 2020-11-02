@@ -1,9 +1,13 @@
+"""Permission module."""
+
 from . import BaseModel, BaseSchema
 from heimdall import db
 from marshmallow import fields, post_load
 
 
 class Permission(BaseModel):
+    """Represents a Permission object."""
+
     __tablename__ = 'permissions'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -20,10 +24,13 @@ class Permission(BaseModel):
 
 
 class PermissionSchema(BaseSchema):
+    """Serializes and deserializes permission objects."""
+
     id = fields.Integer()
     name = fields.String(required=True)
     description = fields.String(required=True)
 
     @post_load
     def load_permission(self, data, **kwargs):
+        """Create a permission object using the deserialized values."""
         return Permission(**data)

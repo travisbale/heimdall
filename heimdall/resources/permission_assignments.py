@@ -1,3 +1,5 @@
+"""Permission assignments module."""
+
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 from flask.views import MethodView
@@ -14,7 +16,7 @@ assignment_schema = PermissionAssignmentSchema()
 
 
 class PermissionAssignmentsResource(MethodView):
-    """Endpoint for permission assignments."""
+    """Dispatches request methods to view or modify the permissions assigned to a role."""
 
     @jwt_required
     def get(self, role_id):
@@ -48,10 +50,10 @@ class PermissionAssignmentsResource(MethodView):
 
     def _get_permissions(self, role_id):
         """Retreive the permissions based on the permission IDs in the request."""
-        # Verify that the role exists
+        # Verify that the role being assigned the permissions exists
         Role.query.get_or_404(role_id, 'The role does not exist')
 
-        # Get the list of permissions from the database
+        # Get the list of permissions to be assigned from the database
         request_json = assignment_schema.load(request.get_json())
         permissions = Permission.query.filter(Permission.id.in_(request_json['permissions']))
 

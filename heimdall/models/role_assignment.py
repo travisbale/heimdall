@@ -1,9 +1,13 @@
+"""Role assignment module."""
+
 from heimdall import db
 from heimdall.models import BaseModel, BaseSchema
 from marshmallow import fields
 
 
 class RoleAssignment(BaseModel):
+    """Represents the association between users and roles."""
+
     __tablename__ = 'role_assignments'
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
@@ -15,4 +19,12 @@ class RoleAssignment(BaseModel):
 
 
 class RoleAssignmentSchema(BaseSchema):
+    """
+    Deserializes a list of role IDs.
+
+    The role IDs are then combined with a user ID and are used to create or
+    delete RoleAssignment objects. The user ID is retrieved from the route and
+    does not require deserialization.
+    """
+
     roles = fields.List(fields.Integer, required=True)

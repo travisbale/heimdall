@@ -1,4 +1,9 @@
-"""Provide routes used to create and revoke access and refresh tokens."""
+"""
+Auth module.
+
+Provides routes used to create, issue, and revoke access and refresh tokens to
+authenticated users.
+"""
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import set_access_cookies, set_refresh_cookies
@@ -15,7 +20,7 @@ user_schema = UserSchema()
 
 @bp.route('/login', methods=['POST'])
 def login():
-    """Issue authenticated users access and refresh tokens."""
+    """Issue authenticated users access and refresh token cookies."""
     user = User.query.filter_by(email=request.json.get('email')).first()
 
     if user is not None and user.authenticate(request.json.get('password')):
@@ -30,7 +35,7 @@ def login():
 @bp.route('/refresh', methods=['POST'])
 @jwt_refresh_token_required
 def refresh():
-    """Issue an authenticated user a new access token."""
+    """Issue an authenticated user a new access token cookie."""
     user = User.get_current_user()
 
     if user is not None:
@@ -44,7 +49,7 @@ def refresh():
 
 @bp.route('/logout', methods=['DELETE'])
 def logout():
-    """Revoke the user's access and refresh tokens."""
+    """Revoke the user's access and refresh token cookies."""
     response = jsonify(msg='Logout successful')
     unset_jwt_cookies(response)
     return response, HTTPStatus.OK

@@ -1,3 +1,5 @@
+"""Permissions module."""
+
 from flask.views import MethodView
 from flask_jwt_extended.view_decorators import jwt_required
 from heimdall.models.permission import Permission, PermissionSchema
@@ -11,7 +13,7 @@ schema = PermissionSchema()
 
 
 class PermissionsResource(MethodView):
-    """Endpoint for permissions."""
+    """Dispatches request methods to retrieve or create permissions."""
 
     @jwt_required
     def get(self):
@@ -31,7 +33,7 @@ class PermissionsResource(MethodView):
 
 
 class PermissionResource(MethodView):
-    """Endpoint for permissions."""
+    """Dispatches request methods to retrieve or delete an existing permission."""
 
     @jwt_required
     def get(self, id):
