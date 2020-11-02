@@ -61,12 +61,17 @@ class User(BaseModel):
         return f'<User {self.email}>'
 
 
-class UserSchema(BaseSchema):
+class LoginSchema(BaseSchema):
+    """Deserializes and validates user login information."""
+
+    email = fields.Email(required=True)
+    password = fields.String(load_only=True, required=True)
+
+
+class UserSchema(LoginSchema):
     """Serializes and deserializes User objects."""
 
     id = fields.Integer()
-    email = fields.Email(required=True)
-    password = fields.String(load_only=True, required=True)
     registered_on = fields.DateTime(dump_only=True)
 
     @post_load

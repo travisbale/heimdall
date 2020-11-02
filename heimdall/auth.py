@@ -10,20 +10,22 @@ from flask_jwt_extended import set_access_cookies, set_refresh_cookies
 from flask_jwt_extended.view_decorators import jwt_refresh_token_required
 from flask_jwt_extended.utils import unset_jwt_cookies
 from werkzeug.exceptions import Unauthorized
-from heimdall.models.user import User, UserSchema
+from heimdall.models.user import LoginSchema, User, UserSchema
 from http import HTTPStatus
 
 
 bp = Blueprint('auth', __name__)
+login_schema = LoginSchema()
 user_schema = UserSchema()
 
 
 @bp.route('/login', methods=['POST'])
 def login():
     """Issue authenticated users access and refresh token cookies."""
-    user = User.query.filter_by(email=request.json.get('email')).first()
+    login_data = login_schema.load(request.get_json())
+    user = User.query.filter_by(email=login_data['email']).first()
 
-    if user is not None and user.authenticate(request.json.get('password')):
+    if user is not None and user.authenticate(login_data['password']):
         response = jsonify(user_schema.dump(user))
         set_access_cookies(response, user.create_access_token())
         set_refresh_cookies(response, user.create_refresh_token())
