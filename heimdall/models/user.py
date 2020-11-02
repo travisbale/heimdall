@@ -3,9 +3,9 @@
 from datetime import datetime
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity
 from heimdall import db
-from heimdall.models import BaseModel, BaseSchema
 from marshmallow import fields, post_load
 from passlib.hash import argon2
+from .base import BaseModel, BaseSchema
 
 class User(BaseModel):
     """Represents a User object."""

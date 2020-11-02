@@ -1,8 +1,8 @@
 """Permission assignment module."""
 
 from heimdall import db
-from heimdall.models import BaseModel, BaseSchema
 from marshmallow import fields
+from .base import BaseModel, BaseSchema
 
 
 class PermissionAssignment(BaseModel):

@@ -1,7 +1,7 @@
 """Role assignment module."""
 
 from heimdall import db
-from heimdall.models import BaseModel, BaseSchema
+from .base import BaseModel, BaseSchema
 from marshmallow import fields
 
 
