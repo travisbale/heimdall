@@ -27,4 +27,4 @@ class PermissionAssignmentSchema(BaseSchema):
     route and does not require deserialization.
     """
 
-    permissions = fields.List(fields.Integer, required=True)
+    permission_ids = fields.List(fields.Integer, required=True)

@@ -55,10 +55,10 @@ class PermissionAssignmentsResource(MethodView):
 
         # Get the list of permissions to be assigned from the database
         request_json = assignment_schema.load(request.get_json())
-        permissions = Permission.query.filter(Permission.id.in_(request_json['permissions']))
+        permissions = Permission.query.filter(Permission.id.in_(request_json['permission_ids']))
 
         # Check that all the permissions exist
-        if permissions.count() != len(request_json['permissions']):
+        if permissions.count() != len(request_json['permission_ids']):
             raise BadRequest(description='One or more of the permissions do not exist')
 
         return permissions

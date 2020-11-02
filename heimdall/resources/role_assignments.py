@@ -54,10 +54,10 @@ class RoleAssignmentsResource(MethodView):
 
         # Get the list of roles from the database
         request_json = assignment_schema.load(request.get_json())
-        roles = Role.query.filter(Role.id.in_(request_json['roles']))
+        roles = Role.query.filter(Role.id.in_(request_json['role_ids']))
 
         # Check that all the roles exist
-        if roles.count() != len(request_json['roles']):
+        if roles.count() != len(request_json['role_ids']):
             raise BadRequest(description='One or more of the roles do not exist')
 
         return roles

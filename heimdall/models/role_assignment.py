@@ -27,4 +27,4 @@ class RoleAssignmentSchema(BaseSchema):
     does not require deserialization.
     """
 
-    roles = fields.List(fields.Integer, required=True)
+    role_ids = fields.List(fields.Integer, required=True)
