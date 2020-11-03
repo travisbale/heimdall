@@ -4,7 +4,7 @@ argon2-cffi==20.1.0
 attrs==19.3.0
 cffi==1.14.2
 click==7.1.2
-cryptography==3.0
+cryptography==3.2
 Flask==1.1.2
 Flask-Cors==3.0.9
 Flask-JWT-Extended==3.24.1
