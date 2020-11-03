@@ -1,9 +1,10 @@
 """Users module."""
 
+from heimdall.auth import get_jwt_identity
+from heimdall.resources.view_decorators import permission_required
 from flask import jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended.utils import unset_jwt_cookies
-from flask_jwt_extended.view_decorators import jwt_required
 from heimdall.models.user import User, UserSchema
 from http import HTTPStatus
 from werkzeug.exceptions import Conflict, Forbidden
@@ -15,6 +16,7 @@ user_schema = UserSchema()
 class UsersResource(MethodView):
     """Dispatches request methods to retrieve or create users."""
 
+    @permission_required('create:users')
     def post(self):
         """Create a new user."""
         user = user_schema.load(request.get_json())
@@ -29,23 +31,14 @@ class UsersResource(MethodView):
 class UserResource(MethodView):
     """Dispatches request methods to delete an existing user."""
 
-    @jwt_required
+    @permission_required('delete:users')
     def delete(self, id):
-        """
-        Delete the user with the given ID.
-
-        User accounts are only able to be deleted by the owner of the account.
-        """
-        # Returning a 404 would create a user enumeration vulnerability
-        user = User.query.get(id)
-
-        if user is not None and user.is_current_user():
-            user.delete()
-            response = jsonify(msg='User has been deleted')
-            unset_jwt_cookies(response)
-            return response, HTTPStatus.OK
-
-        raise Forbidden(description='The user cannot be deleted')
+        """Delete the user with the given ID."""
+        user = User.query.get_or_404(id, 'The user does not exist')
+        user.delete()
+        response = jsonify(message='The user has been deleted')
+        unset_jwt_cookies(response)
+        return response, HTTPStatus.OK
 
 
 def register_resources(bp):

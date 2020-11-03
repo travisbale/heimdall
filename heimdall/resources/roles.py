@@ -1,12 +1,11 @@
 """Roles module."""
 
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required
 from flask.views import MethodView
 from werkzeug.exceptions import Conflict
 from heimdall.models.role import Role, RoleSchema
 from http import HTTPStatus
-
+from .view_decorators import permission_required
 
 # Schema for role serialization and deserialization
 role_schema = RoleSchema()
@@ -15,12 +14,12 @@ role_schema = RoleSchema()
 class RolesResource(MethodView):
     """Dispatches request methods to retrieve or create roles."""
 
-    @jwt_required
+    @permission_required('read:roles')
     def get(self):
         """Return a list of all the roles."""
         return jsonify(role_schema.dump(Role.query.all(), many=True)), HTTPStatus.OK
 
-    @jwt_required
+    @permission_required('create:roles')
     def post(self):
         """Create a new role."""
         role = role_schema.load(request.get_json())
@@ -35,13 +34,13 @@ class RolesResource(MethodView):
 class RoleResource(MethodView):
     """Dispatches request methods to retrieve or delete an existing role."""
 
-    @jwt_required
+    @permission_required('read:roles')
     def get(self, id):
         """Return the role with the given ID."""
         role = Role.query.get_or_404(id, 'The role does not exist')
         return jsonify(role_schema.dump(role)), HTTPStatus.OK
 
-    @jwt_required
+    @permission_required('delete:role')
     def delete(self, id):
         """Delete the role with the given ID."""
         role = Role.query.get_or_404(id, 'The role does not exist')

@@ -3,6 +3,7 @@
 from flask import Blueprint
 from . import users, roles, role_assignments, permissions, permission_assignments
 
+
 # Create a blueprint for the application resources
 bp = Blueprint('api', __name__)
 
