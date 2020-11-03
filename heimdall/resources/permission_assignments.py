@@ -1,13 +1,13 @@
 """Permission assignments module."""
 
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required
 from flask.views import MethodView
 from heimdall.models.permission import Permission, PermissionSchema
 from heimdall.models.permission_assignment import PermissionAssignment, PermissionAssignmentSchema
 from heimdall.models.role import Role
 from http import HTTPStatus
 from werkzeug.exceptions import BadRequest
+from .view_decorators import permissions_required
 
 
 # Schemas for permission serialization and deserialization
@@ -18,13 +18,13 @@ assignment_schema = PermissionAssignmentSchema()
 class PermissionAssignmentsResource(MethodView):
     """Dispatches request methods to view or modify the permissions assigned to a role."""
 
-    @jwt_required
+    @permissions_required(['read:roles', 'read:permissions'])
     def get(self, role_id):
         """Return all the permissions that have been assigned to the role."""
-        permissions = Permission.query.join(Permission.roles).filter_by(role_id=role_id)
+        permissions = Permission.query.join(Permission.role_assignments).filter_by(role_id=role_id)
         return jsonify(permission_schema.dump(permissions, many=True)), HTTPStatus.OK
 
-    @jwt_required
+    @permissions_required(['update:roles', 'read:permissions'])
     def post(self, role_id):
         """Assign the permissions to the role."""
         permissions = self._get_permissions(role_id)
@@ -35,7 +35,7 @@ class PermissionAssignmentsResource(MethodView):
 
         return jsonify(message='The permissions were assigned to the role'), HTTPStatus.CREATED
 
-    @jwt_required
+    @permissions_required(['update:roles', 'read:permissions'])
     def delete(self, role_id):
         """Unassign the permissions from the role."""
         permissions = self._get_permissions(role_id)

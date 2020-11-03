@@ -1,7 +1,7 @@
 """Role assignment module."""
 
+from heimdall.resources.view_decorators import permissions_required
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required
 from flask.views import MethodView
 from heimdall.models.role import Role, RoleSchema
 from heimdall.models.role_assignment import RoleAssignment, RoleAssignmentSchema
@@ -17,13 +17,13 @@ assignment_schema = RoleAssignmentSchema()
 class RoleAssignmentsResource(MethodView):
     """Dispatches request methods to view or modify the roles assigned to a user."""
 
-    @jwt_required
+    @permissions_required(['read:users', 'read:roles'])
     def get(self, user_id):
         """Return all the roles that have been assigned to the user."""
-        roles = Role.query.join(Role.users).filter_by(user_id=user_id)
+        roles = Role.query.join(Role.user_assignments).filter_by(user_id=user_id)
         return jsonify(role_schema.dump(roles, many=True)), HTTPStatus.OK
 
-    @jwt_required
+    @permissions_required(['update:users', 'read:roles'])
     def post(self, user_id):
         """Assign the roles to the user."""
         roles = self._get_roles(user_id)
@@ -34,7 +34,7 @@ class RoleAssignmentsResource(MethodView):
 
         return jsonify(message='The roles were assigned to the user'), HTTPStatus.CREATED
 
-    @jwt_required
+    @permissions_required(['update:users', 'read:roles'])
     def delete(self, user_id):
         """Unassign the roles from the user."""
         roles = self._get_roles(user_id)

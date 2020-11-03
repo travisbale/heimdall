@@ -1,7 +1,7 @@
 """Permissions module."""
 
+from heimdall.resources.view_decorators import permission_required
 from flask.views import MethodView
-from flask_jwt_extended.view_decorators import jwt_required
 from heimdall.models.permission import Permission, PermissionSchema
 from http import HTTPStatus
 from flask import jsonify, request
@@ -15,12 +15,12 @@ schema = PermissionSchema()
 class PermissionsResource(MethodView):
     """Dispatches request methods to retrieve or create permissions."""
 
-    @jwt_required
+    @permission_required('read:permissions')
     def get(self):
         """Return a list of all the permissions."""
         return jsonify(schema.dump(Permission.query.all(), many=True)), HTTPStatus.OK
 
-    @jwt_required
+    @permission_required('create:permissions')
     def post(self):
         """Create a new permission."""
         perm = schema.load(request.get_json())
@@ -35,13 +35,13 @@ class PermissionsResource(MethodView):
 class PermissionResource(MethodView):
     """Dispatches request methods to retrieve or delete an existing permission."""
 
-    @jwt_required
+    @permission_required('read:permissions')
     def get(self, id):
         """Return the permission with the given ID."""
         perm = Permission.query.get_or_404(id, 'The permission does not exist')
         return jsonify(schema.dump(perm)), HTTPStatus.OK
 
-    @jwt_required
+    @permission_required('delete:permissions')
     def delete(self, id):
         """Delete the permission with the given ID."""
         perm = Permission.query.get_or_404(id, 'The permission does not exist')

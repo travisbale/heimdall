@@ -13,12 +13,22 @@ class Role(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
     description = db.Column(db.Text, default='', nullable=False)
-    users = db.relationship('RoleAssignment', backref='role', cascade='all, delete-orphan')
-    permissions = db.relationship('PermissionAssignment', backref='role', cascade='all, delete-orphan')
+    user_assignments = db.relationship('RoleAssignment', backref='role', cascade='all, delete-orphan')
+    permission_assignments = db.relationship('PermissionAssignment', backref='role', cascade='all, delete-orphan')
 
     def __init__(self, name, description):
         self.name = name
         self.description = description
+
+    @property
+    def users(self):
+        """Return the users currently assigned to the role."""
+        return [assignment.user for assignment in self.user_assignments]
+
+    @property
+    def permissions(self):
+        """Return the permissions currently assigned to the role."""
+        return [assignment.permission for assignment in self.permission_assignments]
 
     def __repr__(self):
         return f'<Role {self.name}>'
