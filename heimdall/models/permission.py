@@ -18,8 +18,9 @@ class Permission(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)
     description = db.Column(db.Text, default='', nullable=False)
-    role_assignments = db.relationship('PermissionAssignment', backref='permission',
-        cascade='all, delete-orphan')
+    role_assignments = db.relationship(
+        'PermissionAssignment', backref='permission', cascade='all, delete-orphan'
+    )
 
     def __init__(self, name, description):
         self.name = name

@@ -1,5 +1,6 @@
 {
     "python.pythonPath": "${workspaceFolder}/.venv/bin/python3.6",
+    "python.linting.enabled": true,
     "python.linting.pydocstyleEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.flake8Enabled": true
 }

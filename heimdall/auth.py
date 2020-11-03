@@ -6,8 +6,8 @@ authenticated users.
 """
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import (set_access_cookies, set_refresh_cookies,
-    create_access_token, create_refresh_token)
+from flask_jwt_extended import (
+    set_access_cookies, set_refresh_cookies, create_access_token, create_refresh_token)
 from flask_jwt_extended.view_decorators import jwt_refresh_token_required
 from flask_jwt_extended.utils import unset_jwt_cookies
 from werkzeug.exceptions import Unauthorized

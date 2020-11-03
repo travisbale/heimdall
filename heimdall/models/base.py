@@ -3,6 +3,7 @@
 from heimdall import db
 from marshmallow import Schema
 
+
 class BaseModel(db.Model):
     """
     Abstract base class for Flask models.

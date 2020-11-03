@@ -66,5 +66,7 @@ class PermissionAssignmentsResource(MethodView):
 
 def register_resources(bp):
     """Add the resource routes to the application blueprint."""
-    bp.add_url_rule('/roles/<int:role_id>/permissions',
-        view_func=PermissionAssignmentsResource.as_view('permission_assignments_resource'))
+    bp.add_url_rule(
+        '/roles/<int:role_id>/permissions',
+        view_func=PermissionAssignmentsResource.as_view('permission_assignments_resource')
+    )

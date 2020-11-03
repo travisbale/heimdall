@@ -6,6 +6,7 @@ from marshmallow import fields, post_load
 from passlib.hash import argon2
 from .base import BaseModel, BaseSchema
 
+
 class User(BaseModel):
     """Represents a User object."""
 
