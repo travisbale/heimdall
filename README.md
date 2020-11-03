@@ -4,7 +4,7 @@
 
 Heimdall is a role based, authentication and authorization API service built using the Flask web framework. Each time a user tries to authenticate, Heimdall will verify their identity and issue them a [JSON Web Token](https://jwt.io/) that contains the roles and permissions that have been assigned to them.
 
-Eventually, it will be possible for any application to use Heimdall to authenticate its users. The application will just need access to the SSH public key that Heimdall uses to sign tokens so that it can confirm the token's authenticity. Administrators are then able to create and assign whatever roles and permissions they need to their users to lock down and protect their application's endpoints.
+Eventually, it will be possible for any application to use Heimdall to authenticate its users. The application will just need access to the public key that Heimdall uses to sign tokens so that it can confirm the token's authenticity. Administrators are then able to create and assign whatever roles and permissions they need to their users to lock down and protect their application's endpoints.
 
 ## API Reference
 
@@ -105,7 +105,7 @@ Ultimately, I'd like to publish a Postman collection to properly document the AP
 
 ## Development Setup
 
-By default Heimdall runs in its own docker container and uses a postgres database. Before spinning up the development environment there are several environment variables that must be defined, which I need to list in a sample .env file. It is also necessary to create SSH keys so that the tokens can be cryptographically signed before they are issued. The `ssh-keygen` utility can be used to create a public/private key pair that Heimdall can use. Once that's done, the development environment can be spun up by running `docker-compose up -d`.
+By default Heimdall runs in its own docker container and uses a postgres database. Before spinning up the development environment there are several environment variables that must be defined, which I need to list in a sample .env file. It is also necessary to create public/private keys so that the tokens can be cryptographically signed before they are issued. The `ssh-keygen` utility can be used to create a key pair that Heimdall can use. Once that's done, the development environment can be spun up by running `docker-compose up -d`.
 
 Currently, an admin user needs to be bootstrapped into the database with all the permissions granted to them so they are able to read/write new roles, permissions, and users. I haven't decided exactly how I'd like to script that process, or if it would be better to just add another endpoint that can create some kind of admin user that automatically has all the administrator permissions assigned, so at this time it's manual.
 

@@ -6,7 +6,12 @@ from marshmallow import fields, post_load
 
 
 class Permission(BaseModel):
-    """Represents a Permission object."""
+    """
+    Represents a Permission object.
+
+    Permissions are used to grant access to application endpoints. Permissions
+    can be assigned to roles, which can then be assigned to users.
+    """
 
     __tablename__ = 'permissions'
 

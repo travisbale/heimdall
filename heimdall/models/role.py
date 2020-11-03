@@ -6,7 +6,12 @@ from marshmallow import fields, post_load
 
 
 class Role(BaseModel):
-    """Represents a Role object."""
+    """
+    Represents a Role object.
+
+    Roles are used to group commonly issued permissions so they can be
+    conveniently assigned to users.
+    """
 
     __tablename__ = 'roles'
 
