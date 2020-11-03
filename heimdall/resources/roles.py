@@ -1,10 +1,13 @@
 """Roles module."""
 
+from http import HTTPStatus
+
 from flask import jsonify, request
 from flask.views import MethodView
 from werkzeug.exceptions import Conflict
+
 from heimdall.models.role import Role, RoleSchema
-from http import HTTPStatus
+
 from .view_decorators import permission_required
 
 # Schema for role serialization and deserialization

@@ -1,7 +1,9 @@
 """Permission assignment module."""
 
-from heimdall import db
 from marshmallow import fields
+
+from heimdall import db
+
 from .base import BaseModel, BaseSchema
 
 

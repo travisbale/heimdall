@@ -1,12 +1,13 @@
 """Initialize the heimdall service."""
 
 import os
-from flask_jwt_extended import JWTManager
+
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from heimdall.flask import Flask
 
+from .flask import Flask
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -39,7 +40,7 @@ def _initialize_extensions(app):
 
 
 def _register_blueprints(app):
-    from heimdall import auth, resources, exceptions, models
+    from heimdall import auth, exceptions, models, resources
 
     # Register the models blueprint
     app.register_blueprint(models.bp)

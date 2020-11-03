@@ -6,6 +6,7 @@ the decorators provided by flask_jwt_extended.
 """
 
 from functools import wraps
+
 from flask_jwt_extended.utils import get_jwt_claims
 from flask_jwt_extended.view_decorators import verify_jwt_in_request
 from werkzeug.exceptions import Forbidden

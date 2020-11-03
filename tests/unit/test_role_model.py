@@ -1,6 +1,6 @@
 import pytest
+
 from heimdall.models.role import Role
-from unittest.mock import patch
 
 
 class TestRoleModel:

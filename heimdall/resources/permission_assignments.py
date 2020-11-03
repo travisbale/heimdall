@@ -1,14 +1,16 @@
 """Permission assignments module."""
 
+from http import HTTPStatus
+
 from flask import jsonify, request
 from flask.views import MethodView
+from werkzeug.exceptions import BadRequest
+
 from heimdall.models.permission import Permission, PermissionSchema
 from heimdall.models.permission_assignment import PermissionAssignment, PermissionAssignmentSchema
 from heimdall.models.role import Role
-from http import HTTPStatus
-from werkzeug.exceptions import BadRequest
-from .view_decorators import permissions_required
 
+from .view_decorators import permissions_required
 
 # Schemas for permission serialization and deserialization
 permission_schema = PermissionSchema()

@@ -1,11 +1,11 @@
 """Exceptions module."""
 
 from flask import Blueprint, jsonify
-from heimdall import jwt
 from marshmallow import ValidationError
 from werkzeug.exceptions import BadRequest, HTTPException, Unauthorized
 from werkzeug.http import HTTP_STATUS_CODES
 
+from . import jwt
 
 bp = Blueprint('exceptions', __name__)
 

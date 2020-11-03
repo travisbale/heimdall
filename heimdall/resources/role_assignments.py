@@ -1,14 +1,16 @@
 """Role assignment module."""
 
-from heimdall.resources.view_decorators import permissions_required
+from http import HTTPStatus
+
 from flask import jsonify, request
 from flask.views import MethodView
+from werkzeug.exceptions import BadRequest
+
 from heimdall.models.role import Role, RoleSchema
 from heimdall.models.role_assignment import RoleAssignment, RoleAssignmentSchema
 from heimdall.models.user import User
-from http import HTTPStatus
-from werkzeug.exceptions import BadRequest
 
+from .view_decorators import permissions_required
 
 role_schema = RoleSchema()
 assignment_schema = RoleAssignmentSchema()

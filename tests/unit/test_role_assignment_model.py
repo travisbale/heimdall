@@ -1,4 +1,5 @@
 import pytest
+
 from heimdall.models.role_assignment import RoleAssignment
 
 

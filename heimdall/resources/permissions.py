@@ -1,12 +1,14 @@
 """Permissions module."""
 
-from heimdall.resources.view_decorators import permission_required
-from flask.views import MethodView
-from heimdall.models.permission import Permission, PermissionSchema
 from http import HTTPStatus
+
 from flask import jsonify, request
+from flask.views import MethodView
 from werkzeug.exceptions import Conflict
 
+from heimdall.models.permission import Permission, PermissionSchema
+
+from .view_decorators import permission_required
 
 # Schema for permission serialization/deserialization
 schema = PermissionSchema()

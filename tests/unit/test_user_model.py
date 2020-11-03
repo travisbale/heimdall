@@ -1,8 +1,10 @@
 """Unit tests for the User class."""
 
-import pytest
-from heimdall.models.user import User
 from unittest.mock import patch
+
+import pytest
+
+from heimdall.models.user import User
 
 
 class TestUserModel:

@@ -1,8 +1,10 @@
 """Permission module."""
 
-from .base import BaseModel, BaseSchema
-from heimdall import db
 from marshmallow import fields, post_load
+
+from heimdall import db
+
+from .base import BaseModel, BaseSchema
 
 
 class Permission(BaseModel):

@@ -1,13 +1,15 @@
 """Users module."""
 
-from heimdall.resources.view_decorators import permission_required
+from http import HTTPStatus
+
 from flask import jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended.utils import unset_jwt_cookies
-from heimdall.models.user import User, UserSchema
-from http import HTTPStatus
 from werkzeug.exceptions import Conflict
 
+from heimdall.models.user import User, UserSchema
+
+from .view_decorators import permission_required
 
 user_schema = UserSchema()
 

@@ -1,8 +1,8 @@
 """Models package."""
 
 from flask import Blueprint
-from heimdall import db
 
+from heimdall import db
 
 bp = Blueprint('database', __name__)
 

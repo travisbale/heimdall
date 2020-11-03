@@ -1,7 +1,8 @@
 """Base classes module."""
 
-from heimdall import db
 from marshmallow import Schema
+
+from heimdall import db
 
 
 class BaseModel(db.Model):

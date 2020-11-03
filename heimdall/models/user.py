@@ -1,9 +1,12 @@
 """User module."""
 
 from datetime import datetime
-from heimdall import db
+
 from marshmallow import fields, post_load
 from passlib.hash import argon2
+
+from heimdall import db
+
 from .base import BaseModel, BaseSchema
 
 

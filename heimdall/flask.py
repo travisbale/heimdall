@@ -5,7 +5,8 @@ This module is used to subclass some of the default Flask classes in order to
 modify the way json is parsed.
 """
 
-from flask import Flask as _Flask, Request as _Request
+from flask import Flask as _Flask
+from flask import Request as _Request
 from werkzeug.exceptions import UnsupportedMediaType
 
 

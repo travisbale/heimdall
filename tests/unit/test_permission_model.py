@@ -1,6 +1,6 @@
 import pytest
+
 from heimdall.models.permission import Permission
-from unittest.mock import patch
 
 
 class TestPermissionModel:

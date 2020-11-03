@@ -1,4 +1,5 @@
 import pytest
+
 from heimdall.models.permission_assignment import PermissionAssignment
 
 
