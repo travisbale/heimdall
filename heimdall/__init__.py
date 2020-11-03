@@ -14,7 +14,7 @@ migrate = Migrate()
 jwt = JWTManager()
 
 
-def create_app(config='heimdall.config.Config'):
+def create_app(config="heimdall.config.Config"):
     """Create and configure an instance of the Flask application."""
     app = Flask(__name__, instance_relative_config=True)
 
@@ -22,7 +22,7 @@ def create_app(config='heimdall.config.Config'):
     app.config.from_object(config)
 
     # Enable CORS so the application can respond to requests from a subdomain
-    CORS(app, origins=os.getenv('CORS_ORIGIN'), supports_credentials=True)
+    CORS(app, origins=os.getenv("CORS_ORIGIN"), supports_credentials=True)
 
     _initialize_extensions(app)
     _register_blueprints(app)
@@ -49,4 +49,4 @@ def _register_blueprints(app):
     # Register the authentication routes
     app.register_blueprint(auth.bp)
     # Register the application endpoints
-    app.register_blueprint(resources.bp, url_prefix='/v1')
+    app.register_blueprint(resources.bp, url_prefix="/v1")

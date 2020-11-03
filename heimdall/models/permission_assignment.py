@@ -10,10 +10,10 @@ from .base import BaseModel, BaseSchema
 class PermissionAssignment(BaseModel):
     """Represents the association between roles and permissions."""
 
-    __tablename__ = 'permission_assignments'
+    __tablename__ = "permission_assignments"
 
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True)
-    permission_id = db.Column(db.Integer, db.ForeignKey('permissions.id', ondelete='CASCADE'), primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
+    permission_id = db.Column(db.Integer, db.ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
 
     def __init__(self, role_id, permission_id):
         self.role_id = role_id

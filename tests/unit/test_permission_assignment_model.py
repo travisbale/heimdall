@@ -4,7 +4,7 @@ from heimdall.models.permission_assignment import PermissionAssignment
 
 
 class TestPermissionAssignmentModel:
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def permission_assignment(self):
         return PermissionAssignment(1, 2)
 

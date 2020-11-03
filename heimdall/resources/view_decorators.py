@@ -33,6 +33,7 @@ def permissions_required(permissions):
     endpoint to be called. If the requester is denied access a Forbidden
     exception is raised.
     """
+
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -40,6 +41,7 @@ def permissions_required(permissions):
             return fn(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -54,5 +56,5 @@ def verify_permissions_in_claims(required_permissions):
     claims = get_jwt_claims()
 
     # Check that the permission claims contain all the required permissions
-    if not all(perm in claims['permissions'] for perm in required_permissions):
-        raise Forbidden(description='Insufficient permissions')
+    if not all(perm in claims["permissions"] for perm in required_permissions):
+        raise Forbidden(description="Insufficient permissions")

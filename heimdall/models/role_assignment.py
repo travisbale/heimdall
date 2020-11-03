@@ -10,10 +10,10 @@ from .base import BaseModel, BaseSchema
 class RoleAssignment(BaseModel):
     """Represents the association between users and roles."""
 
-    __tablename__ = 'role_assignments'
+    __tablename__ = "role_assignments"
 
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
 
     def __init__(self, user_id, role_id):
         self.user_id = user_id

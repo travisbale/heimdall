@@ -4,7 +4,7 @@ from heimdall.models.role_assignment import RoleAssignment
 
 
 class TestRoleAssignmentModel:
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def role_assignment(self):
         return RoleAssignment(1, 2)
 

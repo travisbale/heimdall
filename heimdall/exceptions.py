@@ -7,7 +7,7 @@ from werkzeug.http import HTTP_STATUS_CODES
 
 from . import jwt
 
-bp = Blueprint('exceptions', __name__)
+bp = Blueprint("exceptions", __name__)
 
 
 @bp.app_errorhandler(HTTPException)
@@ -29,7 +29,7 @@ def handle_expired_token(token):
 
     Triggered when an expired JWT attempts to access a protected endpoint.
     """
-    return _get_response(Unauthorized(description=f'The {token["type"]} token has expired.'))
+    return _get_response(Unauthorized(description=f"The {token['type']} token has expired."))
 
 
 @jwt.invalid_token_loader
@@ -59,8 +59,9 @@ def _get_response(exception):
     The properties of the JSON object and the status code of the result are set
     based on the details of the exception.
     """
-    return jsonify({
-        'statusCode': exception.code,
-        'error': HTTP_STATUS_CODES.get(exception.code, 'Unknown error'),
-        'message': exception.description
-    }), exception.code
+    response = {
+        "statusCode": exception.code,
+        "error": HTTP_STATUS_CODES.get(exception.code, "Unknown error"),
+        "message": exception.description,
+    }
+    return jsonify(response), exception.code

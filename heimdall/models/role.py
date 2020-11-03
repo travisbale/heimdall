@@ -15,13 +15,13 @@ class Role(BaseModel):
     conveniently assigned to users.
     """
 
-    __tablename__ = 'roles'
+    __tablename__ = "roles"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
-    description = db.Column(db.Text, default='', nullable=False)
-    user_assignments = db.relationship('RoleAssignment', backref='role', cascade='all, delete-orphan')
-    permission_assignments = db.relationship('PermissionAssignment', backref='role', cascade='all, delete-orphan')
+    description = db.Column(db.Text, default="", nullable=False)
+    user_assignments = db.relationship("RoleAssignment", backref="role", cascade="all, delete-orphan")
+    permission_assignments = db.relationship("PermissionAssignment", backref="role", cascade="all, delete-orphan")
 
     def __init__(self, name, description):
         self.name = name
@@ -38,7 +38,7 @@ class Role(BaseModel):
         return [assignment.permission for assignment in self.permission_assignments]
 
     def __repr__(self):
-        return f'<Role {self.name}>'
+        return f"<Role {self.name}>"
 
 
 class RoleSchema(BaseSchema):

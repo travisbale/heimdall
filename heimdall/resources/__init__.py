@@ -5,7 +5,7 @@ from flask import Blueprint
 from . import permission_assignments, permissions, role_assignments, roles, users
 
 # Create a blueprint for the application resources
-bp = Blueprint('api', __name__)
+bp = Blueprint("api", __name__)
 
 # Register the resources from each module
 users.register_resources(bp)

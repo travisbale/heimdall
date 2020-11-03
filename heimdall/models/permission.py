@@ -15,14 +15,12 @@ class Permission(BaseModel):
     can be assigned to roles, which can then be assigned to users.
     """
 
-    __tablename__ = 'permissions'
+    __tablename__ = "permissions"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)
-    description = db.Column(db.Text, default='', nullable=False)
-    role_assignments = db.relationship(
-        'PermissionAssignment', backref='permission', cascade='all, delete-orphan'
-    )
+    description = db.Column(db.Text, default="", nullable=False)
+    role_assignments = db.relationship("PermissionAssignment", backref="permission", cascade="all, delete-orphan")
 
     def __init__(self, name, description):
         self.name = name
@@ -34,7 +32,7 @@ class Permission(BaseModel):
         return [assignment.role for assignment in self.role_assignments]
 
     def __repr__(self):
-        return f'<Permission {self.name}>'
+        return f"<Permission {self.name}>"
 
 
 class PermissionSchema(BaseSchema):

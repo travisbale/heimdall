@@ -53,6 +53,6 @@ class BaseSchema(Schema):
 
     def on_bind_field(self, field_name, field_obj):
         """Specify camel-cased output keys for each field in the schema."""
-        words = iter((field_obj.data_key or field_name).split('_'))
+        words = iter((field_obj.data_key or field_name).split("_"))
         # Convert or set the data_key property for the field to camel-case
-        field_obj.data_key = next(words) + ''.join(word.title() for word in words)
+        field_obj.data_key = next(words) + "".join(word.title() for word in words)

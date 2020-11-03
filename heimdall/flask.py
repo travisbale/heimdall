@@ -22,7 +22,7 @@ class Request(_Request):
         exception will be caught and handled by the flask error handler.
         """
         if not self.is_json:
-            raise UnsupportedMediaType('The request must be JSON')
+            raise UnsupportedMediaType("The request must be JSON")
 
         # If the request is JSON return the result of the parent method
         return super(Request, self).get_json(**kwargs)

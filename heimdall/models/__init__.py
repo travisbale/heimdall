@@ -4,7 +4,7 @@ from flask import Blueprint
 
 from heimdall import db
 
-bp = Blueprint('database', __name__)
+bp = Blueprint("database", __name__)
 
 
 @bp.after_app_request

@@ -16,7 +16,7 @@ from werkzeug.exceptions import Unauthorized
 from . import jwt
 from .models.user import LoginSchema, User, UserSchema
 
-bp = Blueprint('auth', __name__)
+bp = Blueprint("auth", __name__)
 login_schema = LoginSchema()
 user_schema = UserSchema()
 
@@ -39,19 +39,19 @@ def get_jwt_claims(user):
     This function is called whenever create_access_token is called.
     """
     return {
-        'roles': list(map(lambda r: r.name, user.roles)),
-        'permissions': list(map(lambda p: p.name, user.permissions))
+        "roles": list(map(lambda r: r.name, user.roles)),
+        "permissions": list(map(lambda p: p.name, user.permissions)),
     }
 
 
-@bp.route('/login', methods=['POST'])
+@bp.route("/login", methods=["POST"])
 def login():
     """Issue authenticated users access and refresh token cookies."""
     login_data = login_schema.load(request.get_json())
-    user = User.query.filter_by(email=login_data['email']).first()
+    user = User.query.filter_by(email=login_data["email"]).first()
 
-    if user is None or not user.authenticate(login_data['password']):
-        raise Unauthorized(description='The login attempt failed')
+    if user is None or not user.authenticate(login_data["password"]):
+        raise Unauthorized(description="The login attempt failed")
 
     response = jsonify(user_schema.dump(user))
     set_access_cookies(response, create_access_token(user))
@@ -59,7 +59,7 @@ def login():
     return response, HTTPStatus.OK
 
 
-@bp.route('/refresh', methods=['POST'])
+@bp.route("/refresh", methods=["POST"])
 @jwt_refresh_token_required
 def refresh():
     """Issue an authenticated user a new access token cookie."""
@@ -67,16 +67,16 @@ def refresh():
 
     if user is None:
         # There is no user email associated with that JWT identity
-        raise Unauthorized('Unable to retrieve a new access token')
+        raise Unauthorized("Unable to retrieve a new access token")
 
     response = jsonify(user_schema.dump(user))
     set_access_cookies(response, user.create_access_token())
     return response, HTTPStatus.OK
 
 
-@bp.route('/logout', methods=['DELETE'])
+@bp.route("/logout", methods=["DELETE"])
 def logout():
     """Revoke the user's access and refresh token cookies."""
-    response = jsonify(msg='Logout successful')
+    response = jsonify(msg="Logout successful")
     unset_jwt_cookies(response)
     return response, HTTPStatus.OK

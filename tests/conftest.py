@@ -5,11 +5,11 @@ import pytest
 from heimdall import create_app
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def client():
     """Initialize the application for testing."""
 
-    app = create_app('heimdall.config.TestConfig')
+    app = create_app("heimdall.config.TestConfig")
     test_client = app.test_client()
 
     # Establish an application context before running the tests
