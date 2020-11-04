@@ -4,8 +4,7 @@ if [ $1 = 'development' ]
 then
     # Install requirements
     pip install --upgrade pip
-    pip install pip-tools
-    pip-sync requirements/production.txt
+    pip install -r requirements/production.txt
 fi
 
 # Apply database schema migrations
