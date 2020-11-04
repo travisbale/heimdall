@@ -9,7 +9,7 @@ from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, set_access_cookies, set_refresh_cookies
-from flask_jwt_extended.utils import unset_jwt_cookies
+from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_refresh_token_required
 from werkzeug.exceptions import Unauthorized
 
@@ -22,7 +22,7 @@ user_schema = UserSchema()
 
 
 @jwt.user_identity_loader
-def get_jwt_identity(user):
+def get_user_jwt_identity(user):
     """
     Return the value to use as the JWT identity.
 
@@ -32,7 +32,7 @@ def get_jwt_identity(user):
 
 
 @jwt.user_claims_loader
-def get_jwt_claims(user):
+def add_claims_to_jwt_token(user):
     """
     Return the claims that should be added to the JWT token.
 
@@ -63,14 +63,14 @@ def login():
 @jwt_refresh_token_required
 def refresh():
     """Issue an authenticated user a new access token cookie."""
-    user = User.query.filter_by(email=get_jwt_identity())
+    user = User.query.filter_by(email=get_jwt_identity()).first()
 
     if user is None:
         # There is no user email associated with that JWT identity
         raise Unauthorized("Unable to retrieve a new access token")
 
     response = jsonify(user_schema.dump(user))
-    set_access_cookies(response, user.create_access_token())
+    set_access_cookies(response, create_access_token(user))
     return response, HTTPStatus.OK
 
 
