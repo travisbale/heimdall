@@ -43,7 +43,7 @@ class RoleResource(MethodView):
         role = Role.query.get_or_404(id, "The role does not exist")
         return jsonify(role_schema.dump(role)), HTTPStatus.OK
 
-    @permission_required("delete:role")
+    @permission_required("delete:roles")
     def delete(self, id):
         """Delete the role with the given ID."""
         role = Role.query.get_or_404(id, "The role does not exist")
