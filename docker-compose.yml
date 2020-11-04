@@ -1,10 +1,10 @@
 version: '3.7'
 
 services:
-  api:
+  heimdall:
     image: python:3.8-slim
     restart: always
-    container_name: api
+    container_name: heimdall
     entrypoint: [./entrypoint.sh, development]
     env_file: ./env/dev.env
     ports:
@@ -13,28 +13,13 @@ services:
     volumes:
       - ./:/app
 
-  postgres:
+  heimdall-db:
     image: postgres:12-alpine
     restart: always
-    container_name: postgres
+    container_name: heimdall-db
     env_file: ./env/postgres.env
-    ports:
-      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  pgadmin:
-    image: dpage/pgadmin4
-    restart: always
-    container_name: pgadmin
-    env_file: ./env/pgadmin.env
-    links:
-      - 'postgres:postgres-server'
-    ports:
-      - '8080:80'
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-
 volumes:
   postgres_data:
-  pgadmin_data:
