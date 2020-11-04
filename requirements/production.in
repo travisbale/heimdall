@@ -1,0 +1,14 @@
+# This file installs the dependencies required for the application to run
+
+argon2-cffi
+cryptography
+flask
+flask-cors
+flask-jwt-extended
+flask-migrate
+flask-sqlalchemy
+gunicorn
+marshmallow
+passlib
+psycopg2-binary
+pytest

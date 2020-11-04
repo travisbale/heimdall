@@ -8,8 +8,9 @@ ENV PYTHONBUFFERED 1
 
 # Install dependencies
 RUN pip install --upgrade pip
-COPY ./requirements.txt /app
-RUN pip install -r requirements.txt
+RUN pip install pip-tools
+COPY ./requirements/production.txt /app/requirements.txt
+RUN pip-sync
 
 # Expose the port gunicorn runs on
 EXPOSE 5000
