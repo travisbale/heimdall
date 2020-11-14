@@ -49,7 +49,7 @@ class PermissionAssignmentsResource(MethodView):
         for assignment in assignments:
             assignment.delete()
 
-        return jsonify(message="The permissions were unassigned from the user"), HTTPStatus.OK
+        return jsonify(message="The permissions were unassigned from the role"), HTTPStatus.OK
 
     def _get_permissions(self, role_id):
         """Retreive the permissions based on the permission IDs in the request."""

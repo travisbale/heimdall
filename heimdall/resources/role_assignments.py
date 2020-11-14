@@ -22,8 +22,8 @@ class RoleAssignmentsResource(MethodView):
     @permissions_required(["read:users", "read:roles"])
     def get(self, user_id):
         """Return all the roles that have been assigned to the user."""
-        roles = Role.query.join(Role.user_assignments).filter_by(user_id=user_id)
-        return jsonify(role_schema.dump(roles, many=True)), HTTPStatus.OK
+        user = User.query.get_or_404(user_id, "The user does not exist")
+        return jsonify(role_schema.dump(user.roles, many=True)), HTTPStatus.OK
 
     @permissions_required(["update:users", "read:roles"])
     def post(self, user_id):
@@ -34,10 +34,7 @@ class RoleAssignmentsResource(MethodView):
             assignment = RoleAssignment(user_id, role.id)
             assignment.merge()
 
-        return (
-            jsonify(message="The roles were assigned to the user"),
-            HTTPStatus.CREATED,
-        )
+        return jsonify(message="The roles were assigned to the user"), HTTPStatus.CREATED
 
     @permissions_required(["update:users", "read:roles"])
     def delete(self, user_id):
