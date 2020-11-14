@@ -36,24 +36,24 @@ pipeline {
         '''
       }
     }
-    stage('Test Deployment') {
-      environment {
-        API_KEY = credentials('pm-apikey')
-        COLLECTION_ID = credentials('pm-heimdall-collection-id')
-        ENVIRONMENT_ID = credentials("${env.BRANCH_NAME == 'master' ? 'pm-heimdall-prod-env-id' : 'pm-heimdall-staging-env-id'}")
-        USER_EMAIL = credentials('pm-heimdall-user-email')
-        USER_PASSWORD = credentials('pm-heimdall-user-password')
-      }
-      steps {
-        sh '''
-          docker run --rm -t postman/newman \
-            run https://api.getpostman.com/collections/$COLLECTION_ID?apikey=$API_KEY \
-            -e https://api.getpostman.com/environments/$ENVIRONMENT_ID?apikey=$API_KEY \
-            --env-var user_email=$USER_EMAIL \
-            --env-var user_password=$USER_PASSWORD \
-            -n 3
-        '''
-      }
-    }
+    // stage('Test Deployment') {
+    //   environment {
+    //     API_KEY = credentials('pm-apikey')
+    //     COLLECTION_ID = credentials('pm-heimdall-collection-id')
+    //     ENVIRONMENT_ID = credentials("${env.BRANCH_NAME == 'master' ? 'pm-heimdall-prod-env-id' : 'pm-heimdall-staging-env-id'}")
+    //     USER_EMAIL = credentials('pm-heimdall-user-email')
+    //     USER_PASSWORD = credentials('pm-heimdall-user-password')
+    //   }
+    //   steps {
+    //     sh '''
+    //       docker run --rm -t postman/newman \
+    //         run https://api.getpostman.com/collections/$COLLECTION_ID?apikey=$API_KEY \
+    //         -e https://api.getpostman.com/environments/$ENVIRONMENT_ID?apikey=$API_KEY \
+    //         --env-var user_email=$USER_EMAIL \
+    //         --env-var user_password=$USER_PASSWORD \
+    //         -n 3
+    //     '''
+    //   }
+    // }
   }
 }
