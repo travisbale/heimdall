@@ -12,3 +12,4 @@ marshmallow
 passlib
 psycopg2-binary
 pytest
+pytest-mock
