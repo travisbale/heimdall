@@ -29,6 +29,7 @@ pipeline {
         sh 'docker stop $CONTAINER_NAME || true'
         sh '''
           docker run -d --rm \
+            --log-opt max-size=10m --log-opt max-file=3 \
             --name $CONTAINER_NAME \
             --env-file /home/env/heimdall/$ENV_FILE \
             --network=ec2-user_default \
