@@ -4,42 +4,97 @@
 #
 #    pip-compile --output-file=requirements/production.txt requirements/production.in
 #
-alembic==1.4.3            # via flask-migrate
-argon2-cffi==20.1.0       # via -r requirements/production.in
-attrs==20.2.0             # via pytest
-cffi==1.14.3              # via argon2-cffi, cryptography
-click==7.1.2              # via flask
-cryptography==3.2.1       # via -r requirements/production.in
-flask-cors==3.0.9         # via -r requirements/production.in
-flask-jwt-extended==3.24.1  # via -r requirements/production.in
-flask-migrate==2.5.3      # via -r requirements/production.in
-flask-sqlalchemy==2.4.4   # via -r requirements/production.in, flask-migrate
-flask==1.1.2              # via -r requirements/production.in, flask-cors, flask-jwt-extended, flask-migrate, flask-sqlalchemy
-gunicorn==20.0.4          # via -r requirements/production.in
-importlib-metadata==2.0.0  # via pluggy, pytest
-iniconfig==1.1.1          # via pytest
-itsdangerous==1.1.0       # via flask
-jinja2==2.11.2            # via flask
-mako==1.1.3               # via alembic
-markupsafe==1.1.1         # via jinja2, mako
-marshmallow==3.9.0        # via -r requirements/production.in
-packaging==20.4           # via pytest
-passlib==1.7.4            # via -r requirements/production.in
-pluggy==0.13.1            # via pytest
-psycopg2-binary==2.8.6    # via -r requirements/production.in
-py==1.9.0                 # via pytest
-pycparser==2.20           # via cffi
-pyjwt==1.7.1              # via flask-jwt-extended
-pyparsing==2.4.7          # via packaging
-pytest-mock==3.3.1        # via -r requirements/production.in
-pytest==6.1.2             # via -r requirements/production.in, pytest-mock
-python-dateutil==2.8.1    # via alembic
-python-editor==1.0.4      # via alembic
-six==1.15.0               # via argon2-cffi, cryptography, flask-cors, flask-jwt-extended, packaging, python-dateutil
-sqlalchemy==1.3.20        # via alembic, flask-sqlalchemy
-toml==0.10.2              # via pytest
-werkzeug==1.0.1           # via flask, flask-jwt-extended
-zipp==3.4.0               # via importlib-metadata
+alembic==1.4.3
+    # via flask-migrate
+argon2-cffi==20.1.0
+    # via -r requirements/production.in
+attrs==20.2.0
+    # via pytest
+cffi==1.14.3
+    # via
+    #   argon2-cffi
+    #   cryptography
+click==7.1.2
+    # via flask
+cryptography==3.2.1
+    # via -r requirements/production.in
+flask-cors==3.0.9
+    # via -r requirements/production.in
+flask-jwt-extended==3.24.1
+    # via -r requirements/production.in
+flask-migrate==2.5.3
+    # via -r requirements/production.in
+flask-sqlalchemy==2.4.4
+    # via
+    #   -r requirements/production.in
+    #   flask-migrate
+flask==1.1.2
+    # via
+    #   -r requirements/production.in
+    #   flask-cors
+    #   flask-jwt-extended
+    #   flask-migrate
+    #   flask-sqlalchemy
+gunicorn==20.0.4
+    # via -r requirements/production.in
+iniconfig==1.1.1
+    # via pytest
+itsdangerous==1.1.0
+    # via flask
+jinja2==2.11.2
+    # via flask
+mako==1.1.3
+    # via alembic
+markupsafe==1.1.1
+    # via
+    #   jinja2
+    #   mako
+marshmallow==3.9.0
+    # via -r requirements/production.in
+packaging==20.4
+    # via pytest
+passlib==1.7.4
+    # via -r requirements/production.in
+pluggy==0.13.1
+    # via pytest
+psycopg2-binary==2.8.6
+    # via -r requirements/production.in
+py==1.9.0
+    # via pytest
+pycparser==2.20
+    # via cffi
+pyjwt==1.7.1
+    # via flask-jwt-extended
+pyparsing==2.4.7
+    # via packaging
+pytest-mock==3.3.1
+    # via -r requirements/production.in
+pytest==6.1.2
+    # via
+    #   -r requirements/production.in
+    #   pytest-mock
+python-dateutil==2.8.1
+    # via alembic
+python-editor==1.0.4
+    # via alembic
+six==1.15.0
+    # via
+    #   argon2-cffi
+    #   cryptography
+    #   flask-cors
+    #   flask-jwt-extended
+    #   packaging
+    #   python-dateutil
+sqlalchemy==1.3.20
+    # via
+    #   alembic
+    #   flask-sqlalchemy
+toml==0.10.2
+    # via pytest
+werkzeug==1.0.1
+    # via
+    #   flask
+    #   flask-jwt-extended
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
