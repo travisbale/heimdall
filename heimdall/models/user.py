@@ -33,6 +33,7 @@ class User(BaseModel):
 
     @password.setter
     def password(self, password):
+        # TODO: Check password complexity
         self._password = argon2.hash(password)
 
     @property
