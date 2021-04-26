@@ -5,21 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Flask",
+            "name": "Python: Remote Attach",
             "type": "python",
-            "request": "launch",
-            "module": "flask",
-            "env": {
-                "FLASK_APP": "heimdall",
-                "FLASK_ENV": "development",
-                "FLASK_DEBUG": "1"
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 6789
             },
-            "args": [
-                "run",
-                "--no-debugger",
-                "--no-reload"
-            ],
-            "jinja": true
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ]
         }
     ]
 }

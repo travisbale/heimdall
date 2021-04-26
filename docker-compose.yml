@@ -2,14 +2,24 @@ version: '3.7'
 
 services:
   heimdall:
-    image: python:3.8-slim
+    build:
+      context: .
+      target: development
     restart: always
     container_name: heimdall
-    entrypoint: [./entrypoint.sh, development]
     env_file: ./env/dev.env
     ports:
       - '5000:5000'
-    working_dir: /app
+      - '6789:5678'
+    volumes:
+      - ./:/app
+
+  heimdall-test:
+    build:
+      context: .
+      target: test
+    container_name: heimdall-test
+    env_file: ./env/test.env
     volumes:
       - ./:/app
 
