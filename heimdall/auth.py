@@ -10,7 +10,7 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, set_access_cookies, set_refresh_cookies
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
-from flask_jwt_extended.view_decorators import jwt_refresh_token_required
+from flask_jwt_extended.view_decorators import jwt_required
 from werkzeug.exceptions import Unauthorized
 
 from . import jwt
@@ -31,7 +31,7 @@ def get_user_jwt_identity(user):
     return user.email
 
 
-@jwt.user_claims_loader
+@jwt.additional_claims_loader
 def add_claims_to_jwt_token(user):
     """
     Return the claims that should be added to the JWT token.
@@ -60,7 +60,7 @@ def login():
 
 
 @bp.route("/refresh", methods=["POST"])
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def refresh():
     """Issue an authenticated user a new access token cookie."""
     user = User.query.filter_by(email=get_jwt_identity()).first()

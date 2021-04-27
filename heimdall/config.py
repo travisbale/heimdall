@@ -14,7 +14,6 @@ class Config(object):
     JWT_ALGORITHM = "RS256"
     JWT_PUBLIC_KEY = open("keys/heimdall.pub").read()
     JWT_PRIVATE_KEY = open("keys/heimdall.pem").read()
-    JWT_IDENTITY_CLAIM = "sub"
     JWT_ACCESS_COOKIE_PATH = "/"
     JWT_REFRESH_COOKIE_PATH = "/refresh"
     JWT_COOKIE_DOMAIN = os.getenv("JWT_COOKIE_DOMAIN", None)

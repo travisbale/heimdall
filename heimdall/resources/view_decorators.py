@@ -7,7 +7,7 @@ the decorators provided by flask_jwt_extended.
 
 from functools import wraps
 
-from flask_jwt_extended.utils import get_jwt_claims
+from flask_jwt_extended.utils import get_jwt
 from flask_jwt_extended.view_decorators import verify_jwt_in_request
 from werkzeug.exceptions import Forbidden
 
@@ -53,8 +53,8 @@ def verify_permissions_in_claims(required_permissions):
     permissions to proceed.
     """
     verify_jwt_in_request()
-    claims = get_jwt_claims()
+    jwt = get_jwt()
 
     # Check that the permission claims contain all the required permissions
-    if not all(perm in claims["permissions"] for perm in required_permissions):
+    if not all(perm in jwt["permissions"] for perm in required_permissions):
         raise Forbidden(description="Insufficient permissions")

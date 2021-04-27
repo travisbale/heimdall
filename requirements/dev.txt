@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements/dev.txt requirements/dev.in
 #
-alembic==1.4.3
+alembic==1.5.8
     # via
     #   -r requirements/production.txt
     #   flask-migrate
@@ -12,13 +12,13 @@ appdirs==1.4.4
     # via black
 argon2-cffi==20.1.0
     # via -r requirements/production.txt
-attrs==20.2.0
+attrs==20.3.0
     # via
     #   -r requirements/production.txt
     #   pytest
-black==20.8b1
+black==21.4b0
     # via -r requirements/dev.in
-cffi==1.14.3
+cffi==1.14.5
     # via
     #   -r requirements/production.txt
     #   argon2-cffi
@@ -29,17 +29,17 @@ click==7.1.2
     #   black
     #   flask
     #   pip-tools
-cryptography==3.2.1
+cryptography==3.4.7
     # via -r requirements/production.txt
-flake8==3.8.4
+flake8==3.9.1
     # via -r requirements/dev.in
-flask-cors==3.0.9
+flask-cors==3.0.10
     # via -r requirements/production.txt
-flask-jwt-extended==3.24.1
+flask-jwt-extended==4.1.0
     # via -r requirements/production.txt
-flask-migrate==2.5.3
+flask-migrate==2.7.0
     # via -r requirements/production.txt
-flask-sqlalchemy==2.4.4
+flask-sqlalchemy==2.5.1
     # via
     #   -r requirements/production.txt
     #   flask-migrate
@@ -50,7 +50,11 @@ flask==1.1.2
     #   flask-jwt-extended
     #   flask-migrate
     #   flask-sqlalchemy
-gunicorn==20.0.4
+greenlet==1.0.0
+    # via
+    #   -r requirements/production.txt
+    #   sqlalchemy
+gunicorn==20.1.0
     # via -r requirements/production.txt
 iniconfig==1.1.1
     # via
@@ -60,11 +64,11 @@ itsdangerous==1.1.0
     # via
     #   -r requirements/production.txt
     #   flask
-jinja2==2.11.2
+jinja2==2.11.3
     # via
     #   -r requirements/production.txt
     #   flask
-mako==1.1.3
+mako==1.1.4
     # via
     #   -r requirements/production.txt
     #   alembic
@@ -73,21 +77,23 @@ markupsafe==1.1.1
     #   -r requirements/production.txt
     #   jinja2
     #   mako
-marshmallow==3.9.0
+marshmallow==3.11.1
     # via -r requirements/production.txt
 mccabe==0.6.1
     # via flake8
 mypy-extensions==0.4.3
     # via black
-packaging==20.4
+packaging==20.9
     # via
     #   -r requirements/production.txt
     #   pytest
 passlib==1.7.4
     # via -r requirements/production.txt
-pathspec==0.8.0
+pathspec==0.8.1
     # via black
-pip-tools==5.3.1
+pep517==0.10.0
+    # via pip-tools
+pip-tools==6.1.0
     # via -r requirements/dev.in
 pluggy==0.13.1
     # via
@@ -95,21 +101,21 @@ pluggy==0.13.1
     #   pytest
 psycopg2-binary==2.8.6
     # via -r requirements/production.txt
-py==1.9.0
+py==1.10.0
     # via
     #   -r requirements/production.txt
     #   pytest
-pycodestyle==2.6.0
+pycodestyle==2.7.0
     # via flake8
 pycparser==2.20
     # via
     #   -r requirements/production.txt
     #   cffi
-pydocstyle==5.1.1
+pydocstyle==6.0.0
     # via -r requirements/dev.in
-pyflakes==2.2.0
+pyflakes==2.3.1
     # via flake8
-pyjwt==1.7.1
+pyjwt==2.0.1
     # via
     #   -r requirements/production.txt
     #   flask-jwt-extended
@@ -117,9 +123,9 @@ pyparsing==2.4.7
     # via
     #   -r requirements/production.txt
     #   packaging
-pytest-mock==3.3.1
+pytest-mock==3.6.0
     # via -r requirements/production.txt
-pytest==6.1.2
+pytest==6.2.3
     # via
     #   -r requirements/production.txt
     #   pytest-mock
@@ -131,21 +137,17 @@ python-editor==1.0.4
     # via
     #   -r requirements/production.txt
     #   alembic
-regex==2020.10.28
+regex==2021.4.4
     # via black
 six==1.15.0
     # via
     #   -r requirements/production.txt
     #   argon2-cffi
-    #   cryptography
     #   flask-cors
-    #   flask-jwt-extended
-    #   packaging
-    #   pip-tools
     #   python-dateutil
-snowballstemmer==2.0.0
+snowballstemmer==2.1.0
     # via pydocstyle
-sqlalchemy==1.3.20
+sqlalchemy==1.4.11
     # via
     #   -r requirements/production.txt
     #   alembic
@@ -155,10 +157,6 @@ toml==0.10.2
     #   -r requirements/production.txt
     #   black
     #   pytest
-typed-ast==1.4.1
-    # via black
-typing-extensions==3.7.4.3
-    # via black
 werkzeug==1.0.1
     # via
     #   -r requirements/production.txt
