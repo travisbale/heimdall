@@ -5,9 +5,8 @@ from http import HTTPStatus
 from flask import jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended.utils import unset_jwt_cookies
-from werkzeug.exceptions import Conflict
-
 from heimdall.models.user import User, UserSchema
+from werkzeug.exceptions import Conflict
 
 from .view_decorators import permission_required
 
