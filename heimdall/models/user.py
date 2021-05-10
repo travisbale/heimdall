@@ -78,3 +78,10 @@ class UserSchema(LoginSchema):
     def load_user(self, data, **kwargs):
         """Create a user object using the deserialized values."""
         return User(**data)
+
+
+class RegistrationSchema(BaseSchema):
+    """Deserializes and validates user registration information."""
+
+    token = fields.String(load_only=True, required=True)
+    password = fields.String(load_only=True, required=True)

@@ -5,20 +5,25 @@ Provides routes used to create, issue, and revoke access and refresh tokens to
 authenticated users.
 """
 
+import os
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, set_access_cookies, set_refresh_cookies
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
-from werkzeug.exceptions import Unauthorized
+from itsdangerous import BadSignature, URLSafeSerializer
+from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 
 from . import jwt
-from .models.user import LoginSchema, User, UserSchema
+from .models.user import LoginSchema, RegistrationSchema, User, UserSchema
 
 bp = Blueprint("auth", __name__)
 login_schema = LoginSchema()
 user_schema = UserSchema()
+registration_schema = RegistrationSchema()
+
+serializer = URLSafeSerializer(os.getenv("SECRET_KEY"), os.getenv("HASH_SALT"))
 
 
 @jwt.user_identity_loader
@@ -42,6 +47,28 @@ def add_claims_to_jwt_token(user):
         "roles": list(map(lambda r: r.name, user.roles)),
         "permissions": list(map(lambda p: p.name, user.permissions)),
     }
+
+
+@bp.route("/register", methods=["POST"])
+def register():
+    """Create a new user account from the issued token and user password."""
+    registration_data = registration_schema.load(request.get_json())
+
+    try:
+        email = serializer.loads(registration_data["token"])
+    except BadSignature:
+        raise BadRequest(description="The token was invalid")
+
+    if User.query.filter_by(email=email).count() > 0:
+        raise Conflict(description="An account with this email address has already been registered")
+
+    user = User(email, registration_data["password"])
+    user.save()
+
+    response = jsonify(user_schema.dump(user))
+    set_access_cookies(response, create_access_token(user))
+    set_refresh_cookies(response, create_refresh_token(user))
+    return response, HTTPStatus.OK
 
 
 @bp.route("/login", methods=["POST"])

@@ -8,6 +8,7 @@ flask-jwt-extended
 flask-migrate
 flask-sqlalchemy
 gunicorn
+itsdangerous
 marshmallow
 passlib
 psycopg2-binary
