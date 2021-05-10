@@ -23,13 +23,13 @@ def handle_schema_validation_error(error):
 
 
 @jwt.expired_token_loader
-def handle_expired_token(token):
+def handle_expired_token(jwt_header, jwt_payload):
     """
     Handle expired token errors.
 
     Triggered when an expired JWT attempts to access a protected endpoint.
     """
-    return _get_response(Unauthorized(description=f"The {token['type']} token has expired."))
+    return _get_response(Unauthorized(description=f"The {jwt_payload['type']} token has expired."))
 
 
 @jwt.invalid_token_loader
