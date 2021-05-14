@@ -1,8 +1,7 @@
 """Base classes module."""
 
-from marshmallow import Schema
-
 from heimdall import db
+from marshmallow import Schema
 
 
 class BaseModel(db.Model):
@@ -24,6 +23,7 @@ class BaseModel(db.Model):
         """
         db.session.add(self)
         db.session.flush()
+        return self
 
     def merge(self):
         """
@@ -37,6 +37,7 @@ class BaseModel(db.Model):
         """
         db.session.merge(self)
         db.session.flush()
+        return self
 
     def delete(self):
         """
