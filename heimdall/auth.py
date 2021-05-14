@@ -5,6 +5,7 @@ Provides routes used to create, issue, and revoke access and refresh tokens to
 authenticated users.
 """
 
+import json
 import os
 from http import HTTPStatus
 
@@ -16,6 +17,8 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 
 from . import jwt
+from .models.role import Role
+from .models.role_assignment import RoleAssignment
 from .models.user import LoginSchema, RegistrationSchema, User, UserSchema
 
 bp = Blueprint("auth", __name__)
@@ -55,15 +58,19 @@ def register():
     registration_data = registration_schema.load(request.get_json())
 
     try:
-        email = serializer.loads(registration_data["token"])
+        user_data = json.loads(serializer.loads(registration_data["token"]))
     except BadSignature:
         raise BadRequest(description="The token was invalid")
 
-    if User.query.filter_by(email=email).count() > 0:
+    if User.query.filter_by(email=user_data["email"]).count() > 0:
         raise Conflict(description="An account with this email address has already been registered")
 
-    user = User(email, registration_data["password"])
-    user.save()
+    # Create the user and assign them the roles they were given
+    user = User(user_data["email"], registration_data["password"]).save()
+
+    for role_name in user_data["roles"]:
+        role = Role.query.filter_by(name=role_name).one()
+        RoleAssignment(user.id, role.id).save()
 
     response = jsonify(user_schema.dump(user))
     set_access_cookies(response, create_access_token(user))
