@@ -65,10 +65,10 @@ def register():
     if User.query.filter_by(email=user_data["email"]).count() > 0:
         raise Conflict(description="An account with this email address has already been registered")
 
-    # Create the user and assign them the roles they were given
     user = User(user_data["email"], registration_data["password"]).save()
 
     for role_name in user_data["roles"]:
+        # Assign the user the roles they were given
         role = Role.query.filter_by(name=role_name).one()
         RoleAssignment(user.id, role.id).save()
 
@@ -85,7 +85,7 @@ def login():
     user = User.query.filter_by(email=login_data["email"]).first()
 
     if user is None or not user.authenticate(login_data["password"]):
-        raise Unauthorized(description="The login attempt failed")
+        raise Unauthorized(description="Incorrect username or password")
 
     response = jsonify(user_schema.dump(user))
     set_access_cookies(response, create_access_token(user))
