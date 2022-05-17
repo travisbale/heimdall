@@ -14,6 +14,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token, set_ac
 from flask_jwt_extended.utils import get_jwt_identity, unset_jwt_cookies
 from flask_jwt_extended.view_decorators import jwt_required
 from itsdangerous import BadSignature, URLSafeSerializer
+from sqlalchemy import func
 from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 
 from . import jwt
@@ -85,7 +86,7 @@ def register():
 def login():
     """Issue authenticated users access and refresh token cookies."""
     login_data = login_schema.load(request.get_json())
-    user = User.query.filter_by(email=login_data["email"]).first()
+    user = User.query.filter(func.lower(User.email) == func.lower(login_data["email"])).first()
 
     if user is None or not user.authenticate(login_data["password"]):
         raise Unauthorized(description="Incorrect username or password")
@@ -124,7 +125,7 @@ def forgot_password():
     """Send an email to the user so they can reset their password."""
     request_json = request.get_json()
 
-    user = User.query.filter_by(email=request_json["email"]).first()
+    user = User.query.filter(func.lower(User.email) == func.lower(request_json["email"])).first()
 
     if user is None:
         raise BadRequest("The email address is not associated with an account.")
