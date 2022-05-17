@@ -11,6 +11,7 @@ gunicorn
 itsdangerous
 marshmallow
 passlib
+pika
 psycopg2-binary
 pytest
 pytest-mock

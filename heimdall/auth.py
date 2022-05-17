@@ -19,14 +19,17 @@ from werkzeug.exceptions import BadRequest, Conflict, Unauthorized
 from . import jwt
 from .models.role import Role
 from .models.role_assignment import RoleAssignment
-from .models.user import LoginSchema, RegistrationSchema, User, UserSchema
+from .models.user import LoginSchema, SetPasswordSchema, User, UserSchema
+from .services.message_service import MessageService
 
 bp = Blueprint("auth", __name__)
 login_schema = LoginSchema()
 user_schema = UserSchema()
-registration_schema = RegistrationSchema()
+password_schema = SetPasswordSchema()
 
 serializer = URLSafeSerializer(os.getenv("SECRET_KEY"), os.getenv("HASH_SALT"))
+
+message_service = MessageService()
 
 
 @jwt.user_identity_loader
@@ -55,7 +58,7 @@ def add_claims_to_jwt_token(user):
 @bp.route("/register", methods=["POST"])
 def register():
     """Create a new user account from the issued token and user password."""
-    registration_data = registration_schema.load(request.get_json())
+    registration_data = password_schema.load(request.get_json())
 
     try:
         user_data = json.loads(serializer.loads(registration_data["token"]))
@@ -113,4 +116,43 @@ def logout():
     """Revoke the user's access and refresh token cookies."""
     response = jsonify(msg="Logout successful")
     unset_jwt_cookies(response)
+    return response, HTTPStatus.OK
+
+
+@bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    """Send an email to the user so they can reset their password."""
+    request_json = request.get_json()
+
+    user = User.query.filter_by(email=request_json["email"]).first()
+
+    if user is None:
+        raise BadRequest("The email address is not associated with an account.")
+
+    message_service.send_password_reset_email(user)
+
+    return jsonify(message="Password reset email has been sent"), HTTPStatus.OK
+
+
+@bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    """Reset the user's password."""
+    reset_data = password_schema.load(request.get_json())
+
+    try:
+        user_data = json.loads(serializer.loads(reset_data["token"]))
+    except BadSignature:
+        raise BadRequest(description="The token was invalid")
+
+    user = User.query.filter_by(email=user_data["email"]).first()
+
+    if user is None:
+        raise BadRequest(description="The user does not exist")
+
+    user.password = reset_data["password"]
+    user.save()
+
+    response = jsonify(user_schema.dump(user))
+    set_access_cookies(response, create_access_token(user))
+    set_refresh_cookies(response, create_refresh_token(user))
     return response, HTTPStatus.OK

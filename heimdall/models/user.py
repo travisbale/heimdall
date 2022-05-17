@@ -71,8 +71,8 @@ class UserSchema(LoginSchema):
 
     id = fields.Integer()
     registered_on = fields.DateTime(dump_only=True)
-    roles = fields.Pluck("RoleSchema", "name", many=True)
-    permissions = fields.Pluck("PermissionSchema", "name", many=True)
+    roles = fields.Pluck("RoleSchema", "name", many=True, dump_only=True)
+    permissions = fields.Pluck("PermissionSchema", "name", many=True, dump_only=True)
 
     @post_load
     def load_user(self, data, **kwargs):
@@ -80,7 +80,7 @@ class UserSchema(LoginSchema):
         return User(**data)
 
 
-class RegistrationSchema(BaseSchema):
+class SetPasswordSchema(BaseSchema):
     """Deserializes and validates user registration information."""
 
     token = fields.String(load_only=True, required=True)
