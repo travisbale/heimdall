@@ -1,0 +1,25 @@
+version: '3.7'
+
+services:
+  heimdall:
+    image: cosmtrek/air
+    command: '-c /app/.air.toml'
+    restart: always
+    container_name: heimdall
+    env_file: ./env/dev.env
+    working_dir: /app
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./:/app
+
+  heimdall-db:
+    image: postgres:12-alpine
+    restart: always
+    container_name: heimdall-db
+    env_file: ./env/postgres.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
