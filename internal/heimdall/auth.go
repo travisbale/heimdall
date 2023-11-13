@@ -14,13 +14,28 @@ type userService interface {
 	GetUser(ctx context.Context, email string) (*User, error)
 }
 
-type AuthController struct {
-	userService userService
+type passwordHasher interface {
+	Hash(password string) (string, error)
+	Verify(encodedHash string, password string) error
 }
 
-func NewAuthController(userService userService) *AuthController {
+type logger interface {
+	Debug(msg string, ctx ...interface{})
+	Info(msg string, ctx ...interface{})
+	Error(msg string, ctx ...interface{})
+}
+
+type AuthController struct {
+	userService userService
+	hasher      passwordHasher
+	logger      logger
+}
+
+func NewAuthController(userService userService, hasher passwordHasher, logger logger) *AuthController {
 	return &AuthController{
 		userService: userService,
+		hasher:      hasher,
+		logger:      logger,
 	}
 }
 
@@ -32,6 +47,10 @@ type Credentials struct {
 func (c *AuthController) Login(ctx context.Context, creds *Credentials) (*User, error) {
 	user, err := c.userService.GetUser(ctx, creds.Email)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = c.hasher.Verify(user.PasswordHash, creds.Password); err != nil {
 		return nil, err
 	}
 

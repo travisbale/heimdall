@@ -2,6 +2,7 @@ package gin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -39,14 +40,17 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	}
 
 	creds := &heimdall.Credentials{
-		Email: payload.Email,
+		Email:    payload.Email,
 		Password: payload.Password,
 	}
 
 	user, err := h.controller.Login(ctx, creds)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		if errors.Is(heimdall.ErrIncorrectPassword, err) || errors.Is(heimdall.ErrUserNotFound, err) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect username or password"})
+			return
+
+		}
 	}
 
 	ctx.JSON(http.StatusOK, &User{

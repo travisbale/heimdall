@@ -12,6 +12,7 @@ import (
 	"github.com/travisbale/heimdall/internal/api/http/gin"
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/heimdall"
+	"github.com/travisbale/heimdall/internal/lib/argon2"
 	cli "github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -62,8 +63,10 @@ func configureServer(ctx context.Context, ip string, port int, connString string
 		return nil, err
 	}
 
+	hasher := argon2.NewPasswordHasher(102400, 2, 8, 16, 32)
+
 	router := gin.NewRouter(&gin.Controllers{
-		AuthController: heimdall.NewAuthController(userService),
+		AuthController: heimdall.NewAuthController(userService, hasher, log15.New(log15.Ctx{"module": "auth"})),
 	})
 
 	return &http.Server{
@@ -77,7 +80,7 @@ func startServer(ctx context.Context, server *http.Server) error {
 
 	// Start the HTTP server
 	group.Go(func() error {
-		log15.Info(fmt.Sprintf("Listening on %s", server.Addr))
+		log15.Info("Listening for connections", "address", server.Addr)
 		return server.ListenAndServe()
 	})
 
