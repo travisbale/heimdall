@@ -1,8 +1,0 @@
-# This file installs dependencies required for development
-
--r production.txt
-pip-tools
-black
-flake8
-pydocstyle
-pytest
