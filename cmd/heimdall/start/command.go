@@ -9,6 +9,9 @@ import (
 	"syscall"
 
 	"github.com/inconshreveable/log15"
+	"github.com/travisbale/heimdall/internal/api/http/gin"
+	"github.com/travisbale/heimdall/internal/db/postgres"
+	"github.com/travisbale/heimdall/internal/heimdall"
 	cli "github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,25 +25,28 @@ var Command = &cli.Command{
 			Aliases: []string{"i"},
 			Usage:   "IP address for the server to listen on",
 			Value:   "0.0.0.0",
-			EnvVars: []string{"HEIMDALL_IP"},
 		},
 		&cli.IntFlag{
 			Name:    "port",
 			Aliases: []string{"p"},
 			Usage:   "Port for the server to listen on",
-			Value:   80,
-			EnvVars: []string{"HEIMDALL_PORT"},
+			Value:   5000,
+		},
+		&cli.StringFlag{
+			Name: "db-url",
+			Usage: "Database connection string",
+			EnvVars: []string{"DATABASE_URL"},
 		},
 	},
 
 	Action: func(c *cli.Context) error {
-		server, err := configureServer(c.String("ip"), c.Int("port"))
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+
+		server, err := configureServer(ctx, c.String("ip"), c.Int("port"), c.String("db-url"))
 		if err != nil {
 			return err
 		}
-
-		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer cancel()
 
 		if err = startServer(ctx, server); err != nil {
 			return err
@@ -50,9 +56,19 @@ var Command = &cli.Command{
 	},
 }
 
-func configureServer(ip string, port int) (*http.Server, error) {
+func configureServer(ctx context.Context, ip string, port int, connString string) (*http.Server, error) {
+	userService, err := postgres.NewUserService(ctx, connString)
+	if err != nil {
+		return nil, err
+	}
+
+	router := gin.NewRouter(&gin.Controllers{
+		AuthController: heimdall.NewAuthController(userService),
+	})
+
 	return &http.Server{
 		Addr: fmt.Sprintf("%s:%d", ip, port),
+		Handler: router.Handler(),
 	}, nil
 }
 
