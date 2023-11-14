@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/inconshreveable/log15"
-	"github.com/travisbale/heimdall/cmd/heimdall/start"
+	"github.com/travisbale/heimdall/cmd/start"
 	cli "github.com/urfave/cli/v2"
 )
 
