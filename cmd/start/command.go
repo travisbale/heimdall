@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/inconshreveable/log15"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/travisbale/heimdall/internal/api/http/gin"
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/heimdall"
@@ -34,21 +35,31 @@ var Command = &cli.Command{
 			Value:   5000,
 		},
 		&cli.StringFlag{
-			Name: "db-url",
-			Usage: "Database connection string",
+			Name:    "db-url",
+			Usage:   "Database connection string",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 	},
 
 	Action: func(c *cli.Context) error {
+		// Create a cancel context to gracefully shutdown the application
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer cancel()
 
-		server, err := configureServer(ctx, c.String("ip"), c.Int("port"), c.String("db-url"))
+		// Open the database connection pool
+		connectionPool, err := pgxpool.New(ctx, c.String("db-url"))
+		if err != nil {
+			return err
+		}
+		defer connectionPool.Close()
+
+		// Configure the HTTP server
+		server, err := configureServer(ctx, c.String("ip"), c.Int("port"), connectionPool)
 		if err != nil {
 			return err
 		}
 
+		// Start listening for incoming connections
 		if err = startServer(ctx, server); err != nil {
 			return err
 		}
@@ -57,8 +68,8 @@ var Command = &cli.Command{
 	},
 }
 
-func configureServer(ctx context.Context, ip string, port int, connString string) (*http.Server, error) {
-	userService, err := postgres.NewUserService(ctx, connString)
+func configureServer(ctx context.Context, ip string, port int, connectionPool *pgxpool.Pool) (*http.Server, error) {
+	userService, err := postgres.NewUserService(connectionPool)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +81,7 @@ func configureServer(ctx context.Context, ip string, port int, connString string
 	})
 
 	return &http.Server{
-		Addr: fmt.Sprintf("%s:%d", ip, port),
+		Addr:    fmt.Sprintf("%s:%d", ip, port),
 		Handler: router.Handler(),
 	}, nil
 }

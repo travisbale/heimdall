@@ -13,12 +13,7 @@ type UserService struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserService(ctx context.Context, connString string) (*UserService, error) {
-	pool, err := pgxpool.New(ctx, connString)
-	if err != nil {
-		return nil, err
-	}
-
+func NewUserService(pool *pgxpool.Pool) (*UserService, error) {
 	return &UserService{
 		pool: pool,
 	}, nil
@@ -26,7 +21,8 @@ func NewUserService(ctx context.Context, connString string) (*UserService, error
 
 func (s *UserService) GetUser(ctx context.Context, email string) (*heimdall.User, error) {
 	user := &heimdall.User{}
-	err := s.pool.QueryRow(ctx, "SELECT email, password FROM users WHERE email=$1", email).Scan(&user.Email, &user.PasswordHash)
+	row := s.pool.QueryRow(ctx, "SELECT id, email, password FROM users WHERE email=$1", email)
+	err := row.Scan(&user.ID, &user.Email, &user.PasswordHash)
 	if err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
 			return nil, heimdall.ErrUserNotFound
