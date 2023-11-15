@@ -50,6 +50,8 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect username or password"})
 			return
 		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
 	ctx.JSON(http.StatusOK, &LoginResponse{
