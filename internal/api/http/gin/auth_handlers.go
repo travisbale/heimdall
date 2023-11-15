@@ -23,17 +23,17 @@ func NewAuthHandler(controller authController) *AuthHandler {
 	}
 }
 
-type Credentials struct {
+type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-type User struct {
+type LoginResponse struct {
 	Email string `json:"email" binding:"required"`
 }
 
 func (h *AuthHandler) Login(ctx *gin.Context) {
-	payload := &Credentials{}
+	payload := &LoginRequest{}
 	if err := ctx.ShouldBindJSON(payload); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -49,11 +49,10 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		if errors.Is(heimdall.ErrIncorrectPassword, err) || errors.Is(heimdall.ErrUserNotFound, err) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect username or password"})
 			return
-
 		}
 	}
 
-	ctx.JSON(http.StatusOK, &User{
+	ctx.JSON(http.StatusOK, &LoginResponse{
 		Email: user.Email,
 	})
 }
