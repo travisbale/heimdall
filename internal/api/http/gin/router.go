@@ -4,14 +4,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controllers struct {
+type tokenService interface {
+}
+
+type Config struct {
+	TokenService tokenService
 	AuthController authController
 }
 
-func NewRouter(controllers *Controllers) *gin.Engine {
+func NewRouter(config *Config) *gin.Engine {
 	router := gin.Default()
 
-	authHandler := NewAuthHandler(controllers.AuthController)
+	authHandler := NewAuthHandler(config.TokenService, config.AuthController)
 	router.POST("/login", authHandler.Login)
 
 	return router

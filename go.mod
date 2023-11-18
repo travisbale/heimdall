@@ -4,6 +4,7 @@ go 1.21.3
 
 require (
 	github.com/gin-gonic/gin v1.9.1
+	github.com/golang-jwt/jwt/v5 v5.1.0
 	github.com/inconshreveable/log15 v2.16.0+incompatible
 	github.com/jackc/pgx/v5 v5.5.0
 	github.com/stretchr/testify v1.8.4

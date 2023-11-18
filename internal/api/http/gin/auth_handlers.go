@@ -10,15 +10,17 @@ import (
 )
 
 type authController interface {
-	Login(context.Context, *heimdall.Credentials) (*heimdall.User, error)
+	Login(context.Context, *heimdall.Credentials) ([]string, error)
 }
 
 type AuthHandler struct {
+	tokenService tokenService
 	controller authController
 }
 
-func NewAuthHandler(controller authController) *AuthHandler {
+func NewAuthHandler(tokenService tokenService, controller authController) *AuthHandler {
 	return &AuthHandler{
+		tokenService: tokenService,
 		controller: controller,
 	}
 }
@@ -30,6 +32,7 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Email string `json:"email" binding:"required"`
+	Permissions []string `json:"permissions" binding:"required"`
 }
 
 func (h *AuthHandler) Login(ctx *gin.Context) {
@@ -44,7 +47,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		Password: payload.Password,
 	}
 
-	user, err := h.controller.Login(ctx, creds)
+	permissions, err := h.controller.Login(ctx, creds)
 	if err != nil {
 		if errors.Is(heimdall.ErrIncorrectPassword, err) || errors.Is(heimdall.ErrUserNotFound, err) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect username or password"})
@@ -56,6 +59,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, &LoginResponse{
-		Email: user.Email,
+		Email: creds.Email,
+		Permissions: permissions,
 	})
 }

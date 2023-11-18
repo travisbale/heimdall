@@ -14,6 +14,7 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/heimdall"
 	"github.com/travisbale/heimdall/internal/lib/argon2"
+	"github.com/travisbale/heimdall/internal/lib/jwt"
 	cli "github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -39,6 +40,18 @@ var Command = &cli.Command{
 			Usage:   "Database connection string",
 			EnvVars: []string{"DATABASE_URL"},
 		},
+		&cli.StringFlag{
+			Name:    "private-key",
+			Usage:   "Private key file used to sign JWTs",
+			Value:   "keys/heimdall.pem",
+			EnvVars: []string{"PRIVATE_KEY"},
+		},
+		&cli.StringFlag{
+			Name:    "public-key",
+			Usage:   "Public key file used to verify JWTs",
+			Value:   "keys/heimdall.pub",
+			EnvVars: []string{"PUBLIC_KEY"},
+		},
 	},
 
 	Action: func(c *cli.Context) error {
@@ -53,10 +66,45 @@ var Command = &cli.Command{
 		}
 		defer connectionPool.Close()
 
-		// Configure the HTTP server
-		server, err := configureServer(ctx, c.String("ip"), c.Int("port"), connectionPool)
+		// Create the database services
+		userService, err := postgres.NewUserService(connectionPool)
 		if err != nil {
 			return err
+		}
+		permissionService, err := postgres.NewPermissionService(connectionPool)
+		if err != nil {
+			return err
+		}
+
+		// Create the JWT Service used to sign and verify tokens
+		privateKey, err := os.ReadFile(c.String("private-key"))
+		if err != nil {
+			return err
+		}
+		publicKey, err := os.ReadFile(c.String("public-key"))
+		if err != nil {
+			return err
+		}
+		jwtService, err := jwt.NewJWTService(privateKey, publicKey)
+
+		// Create the controllers
+		authController := heimdall.NewAuthController(&heimdall.AuthControllerConfig{
+			UserService: userService,
+			PermissionService: permissionService,
+			Hasher: argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
+			Logger: log15.New(log15.Ctx{"module": "auth"}),
+		})
+
+		// Create the request router
+		router := gin.NewRouter(&gin.Config{
+			TokenService:   jwtService,
+			AuthController: authController,
+		})
+
+		// Create the HTTP server
+		server := &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", c.String("ip"), c.Int("port")),
+			Handler: router.Handler(),
 		}
 
 		// Start listening for incoming connections
@@ -66,24 +114,6 @@ var Command = &cli.Command{
 
 		return nil
 	},
-}
-
-func configureServer(ctx context.Context, ip string, port int, connectionPool *pgxpool.Pool) (*http.Server, error) {
-	userService, err := postgres.NewUserService(connectionPool)
-	if err != nil {
-		return nil, err
-	}
-
-	hasher := argon2.NewPasswordHasher(102400, 2, 8, 16, 32)
-
-	router := gin.NewRouter(&gin.Controllers{
-		AuthController: heimdall.NewAuthController(userService, hasher, log15.New(log15.Ctx{"module": "auth"})),
-	})
-
-	return &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", ip, port),
-		Handler: router.Handler(),
-	}, nil
 }
 
 func startServer(ctx context.Context, server *http.Server) error {

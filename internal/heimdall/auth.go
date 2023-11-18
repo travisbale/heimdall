@@ -14,6 +14,16 @@ type userService interface {
 	GetUser(ctx context.Context, email string) (*User, error)
 }
 
+type Permission struct {
+	ID int
+	Name        string
+	Description string
+}
+
+type permissionService interface {
+	GetPermissions(ctx context.Context, email string) ([]*Permission, error)
+}
+
 type passwordHasher interface {
 	Hash(password string) (string, error)
 	Verify(encodedHash string, password string) error
@@ -26,16 +36,25 @@ type logger interface {
 }
 
 type AuthController struct {
-	userService userService
-	hasher      passwordHasher
-	logger      logger
+	userService       userService
+	permissionService permissionService
+	hasher            passwordHasher
+	logger            logger
 }
 
-func NewAuthController(userService userService, hasher passwordHasher, logger logger) *AuthController {
+type AuthControllerConfig struct {
+	UserService       userService
+	PermissionService permissionService
+	Hasher            passwordHasher
+	Logger            logger
+}
+
+func NewAuthController(config *AuthControllerConfig) *AuthController {
 	return &AuthController{
-		userService: userService,
-		hasher:      hasher,
-		logger:      logger,
+		userService:       config.UserService,
+		permissionService: config.PermissionService,
+		hasher:            config.Hasher,
+		logger:            config.Logger,
 	}
 }
 
@@ -44,7 +63,7 @@ type Credentials struct {
 	Password string
 }
 
-func (c *AuthController) Login(ctx context.Context, creds *Credentials) (*User, error) {
+func (c *AuthController) Login(ctx context.Context, creds *Credentials) ([]string, error) {
 	user, err := c.userService.GetUser(ctx, creds.Email)
 	if err != nil {
 		return nil, err
@@ -54,5 +73,15 @@ func (c *AuthController) Login(ctx context.Context, creds *Credentials) (*User, 
 		return nil, err
 	}
 
-	return user, nil
+	permissions, err := c.permissionService.GetPermissions(ctx, user.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	names := []string{}
+	for _, permission := range permissions {
+		names = append(names, permission.Name)
+	}
+
+	return names, nil
 }
