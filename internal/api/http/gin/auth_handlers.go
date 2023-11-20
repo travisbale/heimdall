@@ -14,6 +14,7 @@ import (
 type tokenService interface {
 	CreateAccessToken(subject string, permissions []string) (string, string, error)
 	CreateRefreshToken(subject string) (string, string, error)
+	ValidateToken(token, crsf string) ([]string, error)
 }
 
 type authController interface {

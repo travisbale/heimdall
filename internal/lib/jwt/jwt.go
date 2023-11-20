@@ -76,3 +76,29 @@ func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time,
 
 	return signedToken, csrf.String(), nil
 }
+
+func (s *JWTService) ValidateToken(tokenString, csrf string) ([]string, error) {
+	if csrf == "" {
+		return nil, fmt.Errorf("missing CSRF token")
+	}
+
+	claims := claims{}
+	_, err := jwt.ParseWithClaims(tokenString, &claims, s.publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if claims.CSRF != csrf {
+		return nil, fmt.Errorf("CSRF tokens do not match")
+	}
+
+	return claims.Permissions, nil
+}
+
+func (s *JWTService) publicKey(token *jwt.Token) (any, error) {
+	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+		return nil, fmt.Errorf("unexpected signing method: %s", token.Header["alg"])
+	}
+
+	return &s.privateKey.PublicKey, nil
+}
