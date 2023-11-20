@@ -4,11 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type tokenService interface {
-}
-
 type Config struct {
-	TokenService tokenService
+	TokenService   tokenService
 	AuthController authController
 }
 

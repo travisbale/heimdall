@@ -2,36 +2,77 @@ package jwt
 
 import (
 	"crypto/rsa"
+	"fmt"
+	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
-type JWTService struct {
-	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey
+type claims struct {
+	jwt.RegisteredClaims
+	CSRF        string   `json:"csrf"`
+	Type        string   `json:"type"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
-func NewJWTService(publicKeyFile, privateKeyFile []byte) (*JWTService, error) {
+type JWTService struct {
+	issuer     string
+	privateKey *rsa.PrivateKey
+}
+
+func NewJWTService(issuer string, privateKeyFile []byte) (*JWTService, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyFile)
 	if err != nil {
-		return nil, err
-	}
-
-	publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicKeyFile)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to parse private key file: %w", err)
 	}
 
 	return &JWTService{
+		issuer:     issuer,
 		privateKey: privateKey,
-		publicKey:  publicKey,
 	}, nil
 }
 
-func (s *JWTService) GenerateToken() (string, error) {
-	claims := make(jwt.MapClaims)
+func (s *JWTService) CreateAccessToken(subject string, permissions []string) (string, string, error) {
+	expiresAt := time.Now().Add(15 * time.Minute)
+	return s.createToken(subject, "access", expiresAt, permissions)
+}
+
+func (s *JWTService) CreateRefreshToken(subject string) (string, string, error) {
+	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+	return s.createToken(subject, "refresh", expiresAt, nil)
+}
+
+func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time, permissions []string) (string, string, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return "", "", err
+	}
+
+	csrf, err := uuid.NewRandom()
+	if err != nil {
+		return "", "", err
+	}
+
+	claims := &claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    s.issuer,
+			Subject:   subject,
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        id.String(),
+		},
+		CSRF:        csrf.String(),
+		Type:        tokenType,
+		Permissions: permissions,
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	signedToken, err := token.SignedString(s.privateKey)
+	if err != nil {
+		return "", "", err
+	}
 
-	return token.SignedString(s.privateKey)
+	return signedToken, csrf.String(), nil
 }

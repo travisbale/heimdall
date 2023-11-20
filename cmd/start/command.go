@@ -44,13 +44,7 @@ var Command = &cli.Command{
 			Name:    "private-key",
 			Usage:   "Private key file used to sign JWTs",
 			Value:   "keys/heimdall.pem",
-			EnvVars: []string{"PRIVATE_KEY"},
-		},
-		&cli.StringFlag{
-			Name:    "public-key",
-			Usage:   "Public key file used to verify JWTs",
-			Value:   "keys/heimdall.pub",
-			EnvVars: []string{"PUBLIC_KEY"},
+			EnvVars: []string{"PRIVATE_KEY_FILE"},
 		},
 	},
 
@@ -81,18 +75,17 @@ var Command = &cli.Command{
 		if err != nil {
 			return err
 		}
-		publicKey, err := os.ReadFile(c.String("public-key"))
+		jwtService, err := jwt.NewJWTService("heimdall", privateKey)
 		if err != nil {
 			return err
 		}
-		jwtService, err := jwt.NewJWTService(privateKey, publicKey)
 
 		// Create the controllers
 		authController := heimdall.NewAuthController(&heimdall.AuthControllerConfig{
-			UserService: userService,
+			UserService:       userService,
 			PermissionService: permissionService,
-			Hasher: argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
-			Logger: log15.New(log15.Ctx{"module": "auth"}),
+			Hasher:            argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
+			Logger:            log15.New(log15.Ctx{"module": "auth"}),
 		})
 
 		// Create the request router
