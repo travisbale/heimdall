@@ -14,6 +14,7 @@ func NewRouter(config *Config) *gin.Engine {
 
 	authHandler := NewAuthHandler(config.TokenService, config.AuthController)
 	router.POST("/login", authHandler.Login)
+	router.DELETE("/logout", authHandler.Logout)
 
 	return router
 }
