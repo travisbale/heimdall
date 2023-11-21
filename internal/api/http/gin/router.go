@@ -7,6 +7,7 @@ import (
 type Config struct {
 	TokenService   tokenService
 	AuthController authController
+	RoleController roleController
 }
 
 func NewRouter(config *Config) *gin.Engine {
@@ -15,6 +16,9 @@ func NewRouter(config *Config) *gin.Engine {
 	authHandler := NewAuthHandler(config.TokenService, config.AuthController)
 	router.POST("/login", authHandler.Login)
 	router.DELETE("/logout", authHandler.Logout)
+
+	roleHandler := NewRoleHandler(config.RoleController)
+	router.GET("/v1/roles", roleHandler.GetRoles)
 
 	return router
 }

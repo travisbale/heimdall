@@ -61,14 +61,9 @@ var Command = &cli.Command{
 		defer connectionPool.Close()
 
 		// Create the database services
-		userService, err := postgres.NewUserService(connectionPool)
-		if err != nil {
-			return err
-		}
-		permissionService, err := postgres.NewPermissionService(connectionPool)
-		if err != nil {
-			return err
-		}
+		userService := postgres.NewUserService(connectionPool)
+		permissionService := postgres.NewPermissionService(connectionPool)
+		roleService := postgres.NewRoleService(connectionPool)
 
 		// Create the JWT Service used to sign and verify tokens
 		privateKey, err := os.ReadFile(c.String("private-key"))
@@ -87,11 +82,13 @@ var Command = &cli.Command{
 			Hasher:            argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
 			Logger:            log15.New(log15.Ctx{"module": "auth"}),
 		})
+		roleController := heimdall.NewRoleController(roleService)
 
 		// Create the request router
 		router := gin.NewRouter(&gin.Config{
 			TokenService:   jwtService,
 			AuthController: authController,
+			RoleController: roleController,
 		})
 
 		// Create the HTTP server

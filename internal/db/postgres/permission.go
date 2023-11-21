@@ -11,10 +11,10 @@ type PermissionService struct {
 	pool *pgxpool.Pool
 }
 
-func NewPermissionService(pool *pgxpool.Pool) (*PermissionService, error) {
+func NewPermissionService(pool *pgxpool.Pool) *PermissionService {
 	return &PermissionService{
 		pool: pool,
-	}, nil
+	}
 }
 
 func (s *PermissionService) GetPermissions(ctx context.Context, email string) ([]*heimdall.Permission, error) {

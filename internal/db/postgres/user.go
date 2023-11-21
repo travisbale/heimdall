@@ -13,10 +13,10 @@ type UserService struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserService(pool *pgxpool.Pool) (*UserService, error) {
+func NewUserService(pool *pgxpool.Pool) *UserService {
 	return &UserService{
 		pool: pool,
-	}, nil
+	}
 }
 
 func (s *UserService) GetUser(ctx context.Context, email string) (*heimdall.User, error) {
