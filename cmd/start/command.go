@@ -13,8 +13,8 @@ import (
 	"github.com/travisbale/heimdall/internal/api/http/gin"
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/heimdall"
-	"github.com/travisbale/heimdall/internal/lib/argon2"
-	"github.com/travisbale/heimdall/internal/lib/jwt"
+	"github.com/travisbale/heimdall/pkg/argon2"
+	"github.com/travisbale/heimdall/pkg/jwt"
 	cli "github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
