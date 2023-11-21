@@ -1,6 +1,7 @@
 package gin
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -25,7 +26,7 @@ func (m *AuthMiddleware) requirePermissions(requiredPermissions []string) gin.Ha
 	return func(ctx *gin.Context) {
 		token, err := ctx.Cookie("access_token")
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "no token"})
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Missing access_token cookie"})
 			return
 		}
 
@@ -37,7 +38,8 @@ func (m *AuthMiddleware) requirePermissions(requiredPermissions []string) gin.Ha
 
 		for _, requiredPermission := range requiredPermissions {
 			if !slices.Contains(userPermissions, requiredPermission) {
-				ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+				errorMsg := fmt.Sprintf("Missing %s permission", requiredPermission)
+				ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errorMsg})
 				return
 			}
 		}
