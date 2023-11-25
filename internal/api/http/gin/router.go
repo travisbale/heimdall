@@ -5,7 +5,8 @@ import (
 )
 
 type Config struct {
-	TokenService   tokenService
+	JWTGenerator   jwtGenerator
+	JWTValidator   jwtValidator
 	AuthController authController
 	RoleController roleController
 }
@@ -13,7 +14,7 @@ type Config struct {
 func NewRouter(config *Config) *gin.Engine {
 	router := gin.Default()
 
-	authHandler := NewAuthHandler(config.TokenService, config.AuthController)
+	authHandler := NewAuthHandler(config.JWTGenerator, config.AuthController)
 	router.POST("/login", authHandler.Login)
 	router.DELETE("/logout", authHandler.Logout)
 

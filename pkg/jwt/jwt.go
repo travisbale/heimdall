@@ -9,13 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type claims struct {
-	jwt.RegisteredClaims
-	CSRF        string   `json:"csrf"`
-	Type        string   `json:"type"`
-	Permissions []string `json:"permissions,omitempty"`
-}
-
 type JWTService struct {
 	issuer     string
 	privateKey *rsa.PrivateKey
@@ -54,7 +47,7 @@ func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time,
 		return "", "", err
 	}
 
-	claims := &claims{
+	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Subject:   subject,
@@ -77,13 +70,13 @@ func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time,
 	return signedToken, csrf.String(), nil
 }
 
-func (s *JWTService) ValidateToken(tokenString, csrf string) ([]string, error) {
+func (s *JWTService) ValidateToken(tokenString, csrf string) (*Claims, error) {
 	if csrf == "" {
 		return nil, fmt.Errorf("missing CSRF token")
 	}
 
-	claims := claims{}
-	_, err := jwt.ParseWithClaims(tokenString, &claims, s.publicKey)
+	claims := &Claims{}
+	_, err := jwt.ParseWithClaims(tokenString, claims, s.publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +85,7 @@ func (s *JWTService) ValidateToken(tokenString, csrf string) ([]string, error) {
 		return nil, fmt.Errorf("CSRF tokens do not match")
 	}
 
-	return claims.Permissions, nil
+	return claims, nil
 }
 
 func (s *JWTService) publicKey(token *jwt.Token) (any, error) {

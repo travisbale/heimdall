@@ -11,10 +11,9 @@ import (
 	"github.com/travisbale/heimdall/internal/heimdall"
 )
 
-type tokenService interface {
+type jwtGenerator interface {
 	CreateAccessToken(subject string, permissions []string) (string, string, error)
 	CreateRefreshToken(subject string) (string, string, error)
-	ValidateToken(token, crsf string) ([]string, error)
 }
 
 type authController interface {
@@ -22,13 +21,13 @@ type authController interface {
 }
 
 type AuthHandler struct {
-	tokenService tokenService
+	jwtGenerator jwtGenerator
 	controller   authController
 }
 
-func NewAuthHandler(tokenService tokenService, controller authController) *AuthHandler {
+func NewAuthHandler(jwtGenerator jwtGenerator, controller authController) *AuthHandler {
 	return &AuthHandler{
-		tokenService: tokenService,
+		jwtGenerator: jwtGenerator,
 		controller:   controller,
 	}
 }
@@ -65,12 +64,12 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
-	accessToken, accessCSRF, err := h.tokenService.CreateAccessToken(creds.Email, permissions)
+	accessToken, accessCSRF, err := h.jwtGenerator.CreateAccessToken(creds.Email, permissions)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	refreshToken, refreshCSRF, err := h.tokenService.CreateRefreshToken(creds.Email)
+	refreshToken, refreshCSRF, err := h.jwtGenerator.CreateRefreshToken(creds.Email)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

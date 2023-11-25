@@ -3,18 +3,22 @@ package gin
 import (
 	"fmt"
 	"net/http"
-	"slices"
 
 	"github.com/gin-gonic/gin"
+	"github.com/travisbale/heimdall/pkg/jwt"
 )
 
-type AuthMiddleware struct {
-	tokenService tokenService
+type jwtValidator interface {
+	ValidateToken(tokenString, csrf string) (*jwt.Claims, error)
 }
 
-func NewAuthMiddleware(tokenService tokenService) *AuthMiddleware {
+type AuthMiddleware struct {
+	jwtValidator jwtValidator
+}
+
+func NewAuthMiddleware(jwtValidator jwtValidator) *AuthMiddleware {
 	return &AuthMiddleware{
-		tokenService: tokenService,
+		jwtValidator: jwtValidator,
 	}
 }
 
@@ -30,14 +34,14 @@ func (m *AuthMiddleware) requirePermissions(requiredPermissions []string) gin.Ha
 			return
 		}
 
-		userPermissions, err := m.tokenService.ValidateToken(token, ctx.GetHeader("X-CSRF-TOKEN"))
+		claims, err := m.jwtValidator.ValidateToken(token, ctx.GetHeader("X-CSRF-TOKEN"))
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
 
 		for _, requiredPermission := range requiredPermissions {
-			if !slices.Contains(userPermissions, requiredPermission) {
+			if err := claims.HasPermission(requiredPermission); err != nil {
 				errorMsg := fmt.Sprintf("Missing %s permission", requiredPermission)
 				ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errorMsg})
 				return

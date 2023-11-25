@@ -80,13 +80,14 @@ var Command = &cli.Command{
 			UserService:       userService,
 			PermissionService: permissionService,
 			Hasher:            argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
-			Logger:            log15.New(log15.Ctx{"module": "auth"}),
+			Logger:            log15.New(log15.Ctx{"module": "auth controller"}),
 		})
-		roleController := heimdall.NewRoleController(roleService)
+		roleController := heimdall.NewRoleController(roleService, log15.New(log15.Ctx{"module": "role controller"}))
 
 		// Create the request router
 		router := gin.NewRouter(&gin.Config{
-			TokenService:   jwtService,
+			JWTGenerator:   jwtService,
+			JWTValidator:   jwtService,
 			AuthController: authController,
 			RoleController: roleController,
 		})
