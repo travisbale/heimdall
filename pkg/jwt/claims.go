@@ -21,3 +21,13 @@ func (c *Claims) HasPermission(permission string) error {
 
 	return errors.New("missing permission")
 }
+
+func (c *Claims) HasPermissions(permissions []string) error {
+	for _, permission := range permissions {
+		if err := c.HasPermission(permission); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

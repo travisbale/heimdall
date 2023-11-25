@@ -1,7 +1,6 @@
 package gin
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,12 +39,9 @@ func (m *AuthMiddleware) requirePermissions(requiredPermissions []string) gin.Ha
 			return
 		}
 
-		for _, requiredPermission := range requiredPermissions {
-			if err := claims.HasPermission(requiredPermission); err != nil {
-				errorMsg := fmt.Sprintf("Missing %s permission", requiredPermission)
-				ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errorMsg})
-				return
-			}
+		if err := claims.HasPermissions(requiredPermissions); err != nil {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
 		}
 	}
 }
