@@ -28,15 +28,15 @@ func NewJWTService(issuer string, privateKeyFile []byte) (*JWTService, error) {
 
 func (s *JWTService) CreateAccessToken(subject string, permissions []string) (string, string, error) {
 	expiresAt := time.Now().Add(15 * time.Minute)
-	return s.createToken(subject, "access", expiresAt, permissions)
+	return s.createToken(subject, expiresAt, permissions)
 }
 
 func (s *JWTService) CreateRefreshToken(subject string) (string, string, error) {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
-	return s.createToken(subject, "refresh", expiresAt, nil)
+	return s.createToken(subject, expiresAt, nil)
 }
 
-func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time, permissions []string) (string, string, error) {
+func (s *JWTService) createToken(subject string, expiresAt time.Time, permissions []string) (string, string, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", "", err
@@ -57,7 +57,6 @@ func (s *JWTService) createToken(subject, tokenType string, expiresAt time.Time,
 			ID:        id.String(),
 		},
 		CSRF:        csrf.String(),
-		Type:        tokenType,
 		Permissions: permissions,
 	}
 
