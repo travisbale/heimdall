@@ -70,7 +70,7 @@ var Command = &cli.Command{
 		if err != nil {
 			return err
 		}
-		jwtService, err := jwt.NewJWTService("heimdall", privateKey)
+		jwtService, err := jwt.NewService("heimdall", privateKey)
 		if err != nil {
 			return err
 		}

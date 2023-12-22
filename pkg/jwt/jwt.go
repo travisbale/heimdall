@@ -9,34 +9,34 @@ import (
 	"github.com/google/uuid"
 )
 
-type JWTService struct {
+type Service struct {
 	issuer     string
 	privateKey *rsa.PrivateKey
 }
 
-func NewJWTService(issuer string, privateKeyFile []byte) (*JWTService, error) {
+func NewService(issuer string, privateKeyFile []byte) (*Service, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse private key file: %w", err)
 	}
 
-	return &JWTService{
+	return &Service{
 		issuer:     issuer,
 		privateKey: privateKey,
 	}, nil
 }
 
-func (s *JWTService) CreateAccessToken(subject string, permissions []string) (string, string, error) {
+func (s *Service) CreateAccessToken(subject string, permissions []string) (string, string, error) {
 	expiresAt := time.Now().Add(15 * time.Minute)
 	return s.createToken(subject, expiresAt, permissions)
 }
 
-func (s *JWTService) CreateRefreshToken(subject string) (string, string, error) {
+func (s *Service) CreateRefreshToken(subject string) (string, string, error) {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
 	return s.createToken(subject, expiresAt, nil)
 }
 
-func (s *JWTService) createToken(subject string, expiresAt time.Time, permissions []string) (string, string, error) {
+func (s *Service) createToken(subject string, expiresAt time.Time, permissions []string) (string, string, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", "", err
@@ -69,7 +69,7 @@ func (s *JWTService) createToken(subject string, expiresAt time.Time, permission
 	return signedToken, csrf.String(), nil
 }
 
-func (s *JWTService) ValidateToken(tokenString, csrf string) (*Claims, error) {
+func (s *Service) ValidateToken(tokenString, csrf string) (*Claims, error) {
 	if csrf == "" {
 		return nil, fmt.Errorf("missing CSRF token")
 	}
@@ -87,7 +87,7 @@ func (s *JWTService) ValidateToken(tokenString, csrf string) (*Claims, error) {
 	return claims, nil
 }
 
-func (s *JWTService) publicKey(token *jwt.Token) (any, error) {
+func (s *Service) publicKey(token *jwt.Token) (any, error) {
 	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 		return nil, fmt.Errorf("unexpected signing method: %s", token.Header["alg"])
 	}
