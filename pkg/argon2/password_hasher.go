@@ -16,11 +16,11 @@ type PasswordHasher struct {
 
 func NewPasswordHasher(memory, iterations, saltLength, keyLength uint32, parallelism uint8) *PasswordHasher {
 	return &PasswordHasher{
-		memory: memory,
-		iterations: iterations,
+		memory:      memory,
+		iterations:  iterations,
 		parallelism: parallelism,
-		saltLength: saltLength,
-		keyLength: keyLength,
+		saltLength:  saltLength,
+		keyLength:   keyLength,
 	}
 }
 
