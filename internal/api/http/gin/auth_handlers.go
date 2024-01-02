@@ -60,6 +60,10 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 			return
 		}
 
+		if errors.Is(heimdall.ErrUserLockedOut, err) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Account has been locked out"})
+		}
+
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

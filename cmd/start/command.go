@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/inconshreveable/log15"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,6 +47,18 @@ var Command = &cli.Command{
 			Value:   "keys/heimdall.pem",
 			EnvVars: []string{"PRIVATE_KEY_FILE"},
 		},
+		&cli.IntFlag{
+			Name:    "max-login-attempts",
+			Usage:   "Number of consecutive failed login attempts before account lockout",
+			Value:   5,
+			EnvVars: []string{"MAX_LOGIN_ATTEMPTS"},
+		},
+		&cli.DurationFlag{
+			Name:    "account-lockout-duration",
+			Usage:   "Account lockout duration",
+			Value:   time.Minute * 30,
+			EnvVars: []string{"ACCOUNT_LOCKOUT_DURATION"},
+		},
 	},
 
 	Action: func(c *cli.Context) error {
@@ -64,6 +77,7 @@ var Command = &cli.Command{
 		userService := postgres.NewUserService(connectionPool)
 		permissionService := postgres.NewPermissionService(connectionPool)
 		roleService := postgres.NewRoleService(connectionPool)
+		loginAttemptService := postgres.NewLoginAttemptService(connectionPool)
 
 		// Create the JWT Service used to sign and verify tokens
 		privateKey, err := os.ReadFile(c.String("private-key"))
@@ -75,10 +89,14 @@ var Command = &cli.Command{
 			return err
 		}
 
+		// Create the account lockout service
+		lockoutService := heimdall.NewLockoutService(c.Int("max-login-attempts"), c.Duration("account-lockout-duration"), loginAttemptService)
+
 		// Create the controllers
 		authController := heimdall.NewAuthController(&heimdall.AuthControllerConfig{
 			UserService:       userService,
 			PermissionService: permissionService,
+			LockoutService:    lockoutService,
 			Hasher:            argon2.NewPasswordHasher(102400, 2, 8, 16, 32),
 			Logger:            log15.New(log15.Ctx{"module": "auth controller"}),
 		})

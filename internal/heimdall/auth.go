@@ -2,6 +2,7 @@ package heimdall
 
 import (
 	"context"
+	"errors"
 )
 
 type passwordHasher interface {
@@ -9,9 +10,15 @@ type passwordHasher interface {
 	Verify(encodedHash string, password string) error
 }
 
+type lockoutService interface {
+	CanLogin(userID int) error
+	SaveLoginAttempt(userID int, successful bool) error
+}
+
 type AuthController struct {
 	userService       userService
 	permissionService permissionService
+	lockoutService    lockoutService
 	hasher            passwordHasher
 	logger            logger
 }
@@ -19,6 +26,7 @@ type AuthController struct {
 type AuthControllerConfig struct {
 	UserService       userService
 	PermissionService permissionService
+	LockoutService    lockoutService
 	Hasher            passwordHasher
 	Logger            logger
 }
@@ -27,6 +35,7 @@ func NewAuthController(config *AuthControllerConfig) *AuthController {
 	return &AuthController{
 		userService:       config.UserService,
 		permissionService: config.PermissionService,
+		lockoutService:    config.LockoutService,
 		hasher:            config.Hasher,
 		logger:            config.Logger,
 	}
@@ -43,9 +52,19 @@ func (c *AuthController) Login(ctx context.Context, creds *Credentials) ([]strin
 		return nil, err
 	}
 
-	if err = c.hasher.Verify(user.PasswordHash, creds.Password); err != nil {
+	if err = c.lockoutService.CanLogin(user.ID); err != nil {
 		return nil, err
 	}
+
+	if err = c.hasher.Verify(user.PasswordHash, creds.Password); err != nil {
+		if errors.Is(ErrIncorrectPassword, err) {
+			c.lockoutService.SaveLoginAttempt(user.ID, false)
+		}
+
+		return nil, err
+	}
+
+	c.lockoutService.SaveLoginAttempt(user.ID, true)
 
 	permissions, err := c.permissionService.GetPermissions(ctx, user.Email)
 	if err != nil {
