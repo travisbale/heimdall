@@ -4,8 +4,8 @@ FROM python:3.8-slim AS base
 WORKDIR /app
 
 # Set environment variables
-ENV PYTYONDONTWRITEBYTECODE 1
-ENV PYTHONBUFFERED 1
+ENV PYTYONDONTWRITEBYTECODE=1
+ENV PYTHONBUFFERED=1
 ENV FLASK_APP=heimdall
 
 # Install dependencies
@@ -18,7 +18,7 @@ EXPOSE 5000
 
 
 # Development image
-FROM base as development
+FROM base AS development
 
 ENV FLASK_ENV=development
 RUN pip install debugpy
