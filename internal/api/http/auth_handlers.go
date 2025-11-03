@@ -1,0 +1,189 @@
+package http
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/sdk"
+)
+
+const (
+	refreshTokenCookie = "refresh_token"
+	// TODO: Define this value once
+	accessTokenExpiry = 15 * 60 // 15 minutes in seconds
+)
+
+// userService defines the interface for authentication operations
+type userService interface {
+	Login(ctx context.Context, email, password string) (*auth.User, error)
+	GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error)
+}
+
+// AuthHandler handles authentication HTTP requests
+type AuthHandler struct {
+	userService       userService
+	jwtService        jwtService
+	secureCookies     bool          // Use Secure flag on cookies (HTTPS only)
+	refreshExpiration time.Duration // Refresh token expiration
+}
+
+// NewAuthHandler creates a new AuthHandler
+func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool, refreshExpiration time.Duration) *AuthHandler {
+	return &AuthHandler{
+		userService:       userServiec,
+		jwtService:        jwtIssuer,
+		secureCookies:     secureCookies,
+		refreshExpiration: refreshExpiration,
+	}
+}
+
+// Login handles user login
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req sdk.LoginRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	user, err := h.userService.Login(r.Context(), req.Email, req.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			respondError(w, http.StatusUnauthorized, "Authentication failed", err)
+			return
+		}
+
+		if errors.Is(err, auth.ErrEmailNotVerified) {
+			respondError(w, http.StatusForbidden, "Please verify your email address before logging in", err)
+			return
+		}
+
+		if errors.Is(err, auth.ErrAccountIsInactive) {
+			respondError(w, http.StatusForbidden, "Your account is not active", err)
+			return
+		}
+
+		respondError(w, http.StatusInternalServerError, "Failed to authenticate user", err)
+		return
+	}
+
+	scopes, err := h.userService.GetScopes(r.Context(), user.ID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
+		return
+	}
+
+	accessToken, err := h.jwtService.IssueAccessToken(user.ID, user.TenantID, scopes)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to generate access token", err)
+		return
+	}
+
+	refreshToken, err := h.jwtService.IssueRefreshToken(user.ID, user.TenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to generate refresh token", err)
+		return
+	}
+
+	// Set refresh token in HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    refreshToken,
+		Path:     "/v1/refresh", // Only send to refresh endpoint
+		MaxAge:   int(h.refreshExpiration.Seconds()),
+		HttpOnly: true,                    // Prevents JavaScript access (XSS protection)
+		Secure:   h.secureCookies,         // Only send over HTTPS in production
+		SameSite: http.SameSiteStrictMode, // CSRF protection
+	})
+
+	// Return access token in response body
+	respondJSON(w, http.StatusOK, sdk.LoginResponse{
+		AccessToken: accessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   accessTokenExpiry,
+	})
+}
+
+// Logout handles user logout by clearing the refresh token cookie
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Clear the refresh token cookie by setting MaxAge to -1
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    "",
+		Path:     "/v1/refresh",
+		MaxAge:   -1, // Deletes the cookie
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Logged out successfully",
+	})
+}
+
+// RefreshToken handles token refresh using the refresh token from HTTP-only cookie
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	// Read refresh token from HTTP-only cookie
+	cookie, err := r.Cookie(refreshTokenCookie)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Missing refresh token", err)
+		return
+	}
+
+	claims, err := h.jwtService.ValidateToken(cookie.Value)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Invalid or expired refresh token", err)
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to parse user ID", err)
+		return
+	}
+
+	scopes, err := h.userService.GetScopes(r.Context(), userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
+		return
+	}
+
+	newAccessToken, err := h.jwtService.IssueAccessToken(userID, claims.TenantID, scopes)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to generate new access token", err)
+		return
+	}
+
+	newRefreshToken, err := h.jwtService.IssueRefreshToken(userID, claims.TenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to generate new refresh token", err)
+		return
+	}
+
+	// Set new refresh token in HTTP-only cookie (token rotation)
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    newRefreshToken,
+		Path:     "/v1/refresh",
+		MaxAge:   int(h.refreshExpiration.Seconds()),
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	// Return new access token in response body
+	respondJSON(w, http.StatusOK, sdk.RefreshTokenResponse{
+		AccessToken: newAccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   accessTokenExpiry,
+	})
+}

@@ -1,0 +1,16 @@
+# Version control and metadata
+.git/
+.github/
+.gitignore
+
+# Build artifacts
+bin/
+
+# Development config
+.golangci.yaml
+sqlc.yaml
+**/Dockerfile*
+
+# Docs
+LICENSE
+README.md
