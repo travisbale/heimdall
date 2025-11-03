@@ -1,0 +1,91 @@
+package sdk
+
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
+
+type logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+}
+
+// LoginRequest represents the login request body
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Validate validates the login request
+func (r *LoginRequest) Validate() error {
+	if r.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	return nil
+}
+
+// LoginResponse represents the login response
+// Note: refresh_token is sent via HTTP-only cookie, not in JSON body
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"` // seconds until access token expires
+}
+
+// RefreshTokenResponse represents the refresh token response
+type RefreshTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+// HealthResponse represents the health check response
+type HealthResponse struct {
+	Status string `json:"status"`
+}
+
+// CreateUserRequest represents the request to create a user
+type CreateUserRequest struct {
+	Email    string    `json:"email"`
+	TenantID uuid.UUID `json:"tenant_id"`
+}
+
+// CreateUserResponse represents the response from creating a user
+type CreateUserResponse struct {
+	UserID            uuid.UUID `json:"user_id"`
+	Email             string    `json:"email"`
+	TenantID          uuid.UUID `json:"tenant_id"`
+	TemporaryPassword string    `json:"temporary_password"`
+}
+
+// RegisterRequest represents the registration request body
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Validate validates the registration request
+func (r *RegisterRequest) Validate() error {
+	if r.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if len(r.Password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+	return nil
+}
+
+// RegisterResponse represents the registration response
+type RegisterResponse struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Email   string    `json:"email"`
+	Message string    `json:"message"`
+}

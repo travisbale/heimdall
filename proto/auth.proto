@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package heimdall;
+
+option go_package = "github.com/travisbale/heimdall/internal/pb";
+
+// UserService provides internal service-to-service user management
+service UserService {
+  // CreateUser creates a new user for a tenant
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+// CreateUserRequest contains the parameters for creating a user
+message CreateUserRequest {
+  string email = 1;
+  string tenant_id = 2;
+}
+
+// CreateUserResponse contains the created user information
+message CreateUserResponse {
+  string user_id = 1;
+  string email = 2;
+  string tenant_id = 3;
+  string temporary_password = 4; // Temporary password for initial login
+}
