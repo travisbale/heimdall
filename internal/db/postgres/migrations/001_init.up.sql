@@ -5,7 +5,7 @@ CREATE TYPE user_status AS ENUM ('unverified', 'active', 'suspended', 'inactive'
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL,
-    email TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     status user_status NOT NULL DEFAULT 'unverified',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -15,9 +15,6 @@ CREATE TABLE users (
 
 -- Create index on tenant_id for efficient querying by tenant
 CREATE INDEX idx_users_tenant_id ON users(tenant_id);
-
--- Create unique index on tenant_id and email (email unique per tenant)
-CREATE UNIQUE INDEX idx_users_tenant_email ON users(tenant_id, email);
 
 -- Create index on email for lookups
 CREATE INDEX idx_users_email ON users(email);

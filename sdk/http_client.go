@@ -3,6 +3,7 @@ package sdk
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,11 @@ import (
 	"net/http/cookiejar"
 	"time"
 )
+
+// validatable interface for requests that support validation
+type validatable interface {
+	Validate() error
+}
 
 // HTTPClient is an HTTP client for the heimdall API
 type HTTPClient struct {
@@ -30,6 +36,19 @@ func WithHTTPClient(httpClient *http.Client) Option {
 	}
 }
 
+// WithInsecureSkipVerify configures the client to skip TLS certificate verification
+// This is useful for development with self-signed certificates
+func WithInsecureSkipVerify() Option {
+	return func(c *HTTPClient) {
+		if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+			if transport.TLSClientConfig == nil {
+				transport.TLSClientConfig = &tls.Config{}
+			}
+			transport.TLSClientConfig.InsecureSkipVerify = true
+		}
+	}
+}
+
 // NewHTTPClient creates a new heimdall API client
 // The client automatically handles cookies for refresh token management
 func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, error) {
@@ -44,6 +63,9 @@ func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, 
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Jar:     jar,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{},
+			},
 		},
 		logger: logger,
 	}
@@ -58,83 +80,109 @@ func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, 
 
 // Health checks the health of the heimdall API
 func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
-	endpoint := fmt.Sprintf("%s/healthz", c.baseURL)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	var health HealthResponse
-	if err := c.doRequest(req, &health); err != nil {
+	var resp HealthResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteHealth, nil, &resp); err != nil {
 		return nil, err
 	}
-
-	return &health, nil
+	return &resp, nil
 }
 
 // Login authenticates a user and returns an access token
 // The refresh token is automatically stored in the client's cookie jar
 func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	endpoint := fmt.Sprintf("%s/v1/login", c.baseURL)
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
 	var resp LoginResponse
-	if err := c.doRequest(httpReq, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Login, &req, &resp); err != nil {
 		return nil, err
 	}
-
 	return &resp, nil
 }
 
 // Logout logs out the current user by clearing the refresh token cookie
 func (c *HTTPClient) Logout(ctx context.Context) error {
-	endpoint := fmt.Sprintf("%s/v1/logout", c.baseURL)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
 	var resp map[string]string
-	if err := c.doRequest(req, &resp); err != nil {
-		return err
-	}
-
-	return nil
+	return c.doRequest(ctx, http.MethodPost, RouteV1Logout, nil, &resp)
 }
 
 // RefreshToken refreshes the access token using the refresh token cookie
 // The refresh token cookie must have been set by a previous Login call
 func (c *HTTPClient) RefreshToken(ctx context.Context) (*RefreshTokenResponse, error) {
-	endpoint := fmt.Sprintf("%s/v1/refresh", c.baseURL)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
 	var resp RefreshTokenResponse
-	if err := c.doRequest(req, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Refresh, nil, &resp); err != nil {
 		return nil, err
 	}
-
 	return &resp, nil
 }
 
-// doRequest executes an HTTP request and decodes the response
-func (c *HTTPClient) doRequest(req *http.Request, result any) error {
-	resp, err := c.httpClient.Do(req)
+// Register registers a new user account
+func (c *HTTPClient) Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error) {
+	var resp RegisterResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Register, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// VerifyEmail verifies a user's email address using the verification token
+// Returns a LoginResponse with access token on successful verification
+func (c *HTTPClient) VerifyEmail(ctx context.Context, req VerifyEmailRequest) (*LoginResponse, error) {
+	var resp LoginResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1VerifyEmail, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ResendVerification resends the verification email to a user
+func (c *HTTPClient) ResendVerification(ctx context.Context, req ResendVerificationRequest) error {
+	var resp map[string]string
+	return c.doRequest(ctx, http.MethodPost, RouteV1ResendVerification, &req, &resp)
+}
+
+// ForgotPassword initiates the password reset process
+func (c *HTTPClient) ForgotPassword(ctx context.Context, req ForgotPasswordRequest) (*ForgotPasswordResponse, error) {
+	var resp ForgotPasswordResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1ForgotPassword, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ResetPassword resets a user's password using the reset token
+func (c *HTTPClient) ResetPassword(ctx context.Context, req ResetPasswordRequest) (*ResetPasswordResponse, error) {
+	var resp ResetPasswordResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1ResetPassword, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req validatable, result any) error {
+	var reqBody []byte = nil
+	var err error
+
+	if req != nil {
+		if err := req.Validate(); err != nil {
+			return fmt.Errorf("invalid request: %w", err)
+		}
+
+		reqBody, err = json.Marshal(req)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request: %w", err)
+		}
+	}
+
+	endpoint := fmt.Sprintf("%s%s", c.baseURL, route)
+
+	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if req != nil {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -146,7 +194,7 @@ func (c *HTTPClient) doRequest(req *http.Request, result any) error {
 		}
 	}()
 
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -154,14 +202,14 @@ func (c *HTTPClient) doRequest(req *http.Request, result any) error {
 	// Check for error responses
 	if resp.StatusCode >= 400 {
 		var errResp map[string]string
-		if err := json.Unmarshal(body, &errResp); err != nil {
-			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		if err := json.Unmarshal(respBody, &errResp); err != nil {
+			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
 		}
 		return fmt.Errorf("API error (%d): %s", resp.StatusCode, errResp["error"])
 	}
 
 	// Decode success response
-	if err := json.Unmarshal(body, result); err != nil {
+	if err := json.Unmarshal(respBody, result); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 

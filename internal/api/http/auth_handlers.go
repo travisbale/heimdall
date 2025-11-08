@@ -75,16 +75,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issueTokensAndRespond(r.Context(), w, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
+	issueTokensAndRespond(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
 }
 
 // Logout handles user logout by clearing the refresh token cookie
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Construct cookie path using X-Forwarded-Prefix if available
+	prefix := r.Header.Get("X-Forwarded-Prefix")
+	cookiePath := prefix + sdk.RouteV1Refresh
+
 	// Clear the refresh token cookie by setting MaxAge to -1
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenCookie,
 		Value:    "",
-		Path:     "/v1/refresh",
+		Path:     cookiePath,
 		MaxAge:   -1, // Deletes the cookie
 		HttpOnly: true,
 		Secure:   h.secureCookies,
@@ -135,11 +139,15 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Construct cookie path using X-Forwarded-Prefix if available
+	prefix := r.Header.Get("X-Forwarded-Prefix")
+	cookiePath := prefix + sdk.RouteV1Refresh
+
 	// Set new refresh token in HTTP-only cookie (token rotation)
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenCookie,
 		Value:    newRefreshToken,
-		Path:     "/v1/refresh",
+		Path:     cookiePath,
 		MaxAge:   int(h.refreshExpiration.Seconds()),
 		HttpOnly: true,
 		Secure:   h.secureCookies,

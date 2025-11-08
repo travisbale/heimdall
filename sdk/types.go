@@ -55,6 +55,17 @@ type CreateUserRequest struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
+// Validate validates the create user request
+func (r *CreateUserRequest) Validate() error {
+	if r.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	if r.TenantID == uuid.Nil {
+		return fmt.Errorf("tenant_id is required")
+	}
+	return nil
+}
+
 // CreateUserResponse represents the response from creating a user
 type CreateUserResponse struct {
 	UserID            uuid.UUID `json:"user_id"`
@@ -88,6 +99,19 @@ type RegisterResponse struct {
 	UserID  uuid.UUID `json:"user_id"`
 	Email   string    `json:"email"`
 	Message string    `json:"message"`
+}
+
+// VerifyEmailRequest represents the email verification request body
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
+}
+
+// Validate validates the verify email request
+func (r *VerifyEmailRequest) Validate() error {
+	if r.Token == "" {
+		return fmt.Errorf("token is required")
+	}
+	return nil
 }
 
 // ResendVerificationRequest represents the resend verification email request body

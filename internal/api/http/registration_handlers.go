@@ -70,20 +70,25 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 // ConfirmRegistration handles email verification and returns JWT tokens for auto-login
 func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		respondError(w, http.StatusBadRequest, "Verification token is required", errors.New("missing token parameter"))
+	var req sdk.VerifyEmailRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	user, err := h.registrationService.ConfirmRegistration(r.Context(), token)
+	if err := req.Validate(); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	user, err := h.registrationService.ConfirmRegistration(r.Context(), req.Token)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
 		return
 	}
 
 	// Issue tokens and respond with access token
-	issueTokensAndRespond(r.Context(), w, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
+	issueTokensAndRespond(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
 }
 
 // ResendVerificationEmail handles resending the verification email

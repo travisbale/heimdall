@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/jwt"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 type Config struct {
@@ -61,24 +62,21 @@ func NewServer(config *Config) *Server {
 	}
 
 	// Health check endpoint (public, no auth required)
-	router.Head("/healthz", HandleHealth)
+	router.Head(sdk.RouteHealth, HandleHealth)
 
-	// API v1 routes
-	router.Route("/v1", func(router chi.Router) {
-		// Registration endpoints (public)
-		router.Post("/register", registrationHandler.Register)
-		router.Get("/verify-email", registrationHandler.ConfirmRegistration)
-		router.Post("/resend-verification", registrationHandler.ResendVerificationEmail)
+	// Registration endpoints (public)
+	router.Post(sdk.RouteV1Register, registrationHandler.Register)
+	router.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
+	router.Post(sdk.RouteV1ResendVerification, registrationHandler.ResendVerificationEmail)
 
-		// Authentication endpoints (public)
-		router.Post("/login", authHandler.Login)
-		router.Post("/logout", authHandler.Logout)
-		router.Post("/refresh", authHandler.RefreshToken)
+	// Authentication endpoints (public)
+	router.Post(sdk.RouteV1Login, authHandler.Login)
+	router.Post(sdk.RouteV1Logout, authHandler.Logout)
+	router.Post(sdk.RouteV1Refresh, authHandler.RefreshToken)
 
-		// Password reset endpoints (public)
-		router.Post("/forgot-password", passwordResetHandler.ForgotPassword)
-		router.Post("/reset-password", passwordResetHandler.ResetPassword)
-	})
+	// Password reset endpoints (public)
+	router.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
+	router.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
 
 	return &Server{
 		&http.Server{
