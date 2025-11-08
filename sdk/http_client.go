@@ -18,31 +18,42 @@ type HTTPClient struct {
 	logger     logger
 }
 
+// Option is a functional option for configuring the HTTPClient
+type Option func(*HTTPClient)
+
+// WithHTTPClient allows setting a custom http.Client
+// Note: If you provide a custom client for refresh token support,
+// ensure it has a cookie jar configured
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(c *HTTPClient) {
+		c.httpClient = httpClient
+	}
+}
+
 // NewHTTPClient creates a new heimdall API client
 // The client automatically handles cookies for refresh token management
-func NewHTTPClient(baseURL string, logger logger) (*HTTPClient, error) {
+func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, error) {
 	// Create a cookie jar to automatically handle refresh token cookies
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &HTTPClient{
+	client := &HTTPClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Jar:     jar,
 		},
 		logger: logger,
-	}, nil
-}
+	}
 
-// WithHTTPClient allows setting a custom http.Client
-// Note: If you provide a custom client for refresh token support,
-// ensure it has a cookie jar configured
-func (c *HTTPClient) WithHTTPClient(httpClient *http.Client) *HTTPClient {
-	c.httpClient = httpClient
-	return c
+	// Apply options
+	for _, opt := range opts {
+		opt(client)
+	}
+
+	return client, nil
 }
 
 // Health checks the health of the heimdall API

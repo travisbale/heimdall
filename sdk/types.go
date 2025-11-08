@@ -90,6 +90,19 @@ type RegisterResponse struct {
 	Message string    `json:"message"`
 }
 
+// ResendVerificationRequest represents the resend verification email request body
+type ResendVerificationRequest struct {
+	Email string `json:"email"`
+}
+
+// Validate validates the resend verification request
+func (r *ResendVerificationRequest) Validate() error {
+	if r.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	return nil
+}
+
 // ForgotPasswordRequest represents the forgot password request body
 type ForgotPasswordRequest struct {
 	Email string `json:"email"`

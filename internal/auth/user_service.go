@@ -16,7 +16,7 @@ type userDB interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
-	UpdateUserStatus(ctx context.Context, id uuid.UUID, status UserStatus) error
+	UpdateUserStatus(ctx context.Context, id uuid.UUID, status UserStatus) (*User, error)
 	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
 }
 
@@ -109,41 +109,76 @@ func (s *UserService) Register(ctx context.Context, email, password string) (*Us
 		return nil, fmt.Errorf("failed to create verification token: %w", err)
 	}
 
-	// Send verification email asynchronously
-	go func() {
-		// Use background context to avoid cancellation when request completes
-		if err := s.emailService.SendVerificationEmail(context.Background(), email, token); err != nil {
-			s.logger.Error("failed to send verification email", "email", email, "error", err)
-		} else {
-			s.logger.Info("verification email sent", "email", email)
-		}
-	}()
+	// Send verification email (mailman handles async via River queue)
+	if err := s.emailService.SendVerificationEmail(ctx, email, token); err != nil {
+		return nil, fmt.Errorf("failed to send verification email: %w", err)
+	}
 
 	return user, nil
 }
 
 // ConfirmRegistration verifies the email verification token and activates the user account
-func (s *UserService) ConfirmRegistration(ctx context.Context, token string) error {
+// Returns the activated user so the caller can issue JWT tokens for auto-login
+func (s *UserService) ConfirmRegistration(ctx context.Context, token string) (*User, error) {
 	// Get the verification token
 	verificationToken, err := s.verificationTokenDB.GetToken(ctx, token)
 	if err != nil {
-		return fmt.Errorf("invalid or expired verification token")
+		return nil, fmt.Errorf("invalid or expired verification token")
 	}
 
 	// Check if token has expired
 	if time.Now().After(verificationToken.ExpiresAt) {
-		return fmt.Errorf("verification token has expired")
+		return nil, fmt.Errorf("verification token has expired")
 	}
 
-	// Update user status to active
-	if err := s.userDB.UpdateUserStatus(ctx, verificationToken.UserID, UserStatusActive); err != nil {
-		return fmt.Errorf("failed to activate user account: %w", err)
+	// Update user status to active (returns the updated user)
+	user, err := s.userDB.UpdateUserStatus(ctx, verificationToken.UserID, UserStatusActive)
+	if err != nil {
+		return nil, fmt.Errorf("failed to activate user account: %w", err)
 	}
 
 	// Delete the verification token
 	if err := s.verificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
 		// Log but don't fail - the user is already activated
 		fmt.Printf("Warning: failed to delete verification token: %v\n", err)
+	}
+
+	return user, nil
+}
+
+// ResendVerificationEmail generates a new verification token and sends it to the user
+// Returns success even if user doesn't exist to avoid user enumeration
+func (s *UserService) ResendVerificationEmail(ctx context.Context, email string) error {
+	// Try to get the user by email
+	user, err := s.userDB.GetUserByEmail(ctx, email)
+	if err != nil {
+		// Don't reveal if user exists - return success
+		return nil
+	}
+
+	// Only send if user is unverified (silently succeed for other statuses)
+	if user.Status != UserStatusUnverified {
+		return nil
+	}
+
+	// Delete old verification token (if it exists)
+	_ = s.verificationTokenDB.DeleteToken(ctx, user.ID)
+
+	// Generate new verification token (24 hour expiration)
+	token, err := generateVerificationToken()
+	if err != nil {
+		return fmt.Errorf("failed to generate verification token: %w", err)
+	}
+
+	expiresAt := time.Now().Add(24 * time.Hour)
+	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, token, expiresAt)
+	if err != nil {
+		return fmt.Errorf("failed to create verification token: %w", err)
+	}
+
+	// Send verification email (mailman handles async via River queue)
+	if err := s.emailService.SendVerificationEmail(ctx, email, token); err != nil {
+		return fmt.Errorf("failed to send verification email: %w", err)
 	}
 
 	return nil
@@ -251,8 +286,7 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 	// Try to get user by email
 	user, err := s.userDB.GetUserByEmail(ctx, email)
 	if err != nil {
-		// Don't reveal if user exists - log and return success
-		s.logger.Info("password reset attempted for non-existent email", "email", email)
+		// Don't reveal if user exists - return success
 		return nil
 	}
 
@@ -268,14 +302,10 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
 
-	// Send password reset email asynchronously
-	go func() {
-		if err := s.emailService.SendPasswordResetEmail(context.Background(), email, token); err != nil {
-			s.logger.Error("failed to send password reset email", "email", email, "error", err)
-		} else {
-			s.logger.Info("password reset email sent", "email", email)
-		}
-	}()
+	// Send password reset email (mailman handles async via River queue)
+	if err := s.emailService.SendPasswordResetEmail(ctx, email, token); err != nil {
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
 
 	return nil
 }

@@ -75,41 +75,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scopes, err := h.userService.GetScopes(r.Context(), user.ID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
-		return
-	}
-
-	accessToken, err := h.jwtService.IssueAccessToken(user.ID, user.TenantID, scopes)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate access token", err)
-		return
-	}
-
-	refreshToken, err := h.jwtService.IssueRefreshToken(user.ID, user.TenantID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate refresh token", err)
-		return
-	}
-
-	// Set refresh token in HTTP-only cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenCookie,
-		Value:    refreshToken,
-		Path:     "/v1/refresh", // Only send to refresh endpoint
-		MaxAge:   int(h.refreshExpiration.Seconds()),
-		HttpOnly: true,                    // Prevents JavaScript access (XSS protection)
-		Secure:   h.secureCookies,         // Only send over HTTPS in production
-		SameSite: http.SameSiteStrictMode, // CSRF protection
-	})
-
-	// Return access token in response body
-	respondJSON(w, http.StatusOK, sdk.LoginResponse{
-		AccessToken: accessToken,
-		TokenType:   "Bearer",
-		ExpiresIn:   accessTokenExpiry,
-	})
+	issueTokensAndRespond(r.Context(), w, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
 }
 
 // Logout handles user logout by clearing the refresh token cookie

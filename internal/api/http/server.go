@@ -38,7 +38,7 @@ func NewServer(config *Config) *Server {
 
 	// Create domain handlers
 	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.RefreshExpiration)
-	registrationHandler := NewRegistrationHandler(config.RegistrationService)
+	registrationHandler := NewRegistrationHandler(config.RegistrationService, config.UserService, config.JWTService, secureCookies, config.RefreshExpiration)
 	passwordResetHandler := NewPasswordResetHandler(config.PasswordResetService)
 
 	router := chi.NewRouter()
@@ -61,13 +61,14 @@ func NewServer(config *Config) *Server {
 	}
 
 	// Health check endpoint (public, no auth required)
-	router.Get("/healthz", HandleHealth)
+	router.Head("/healthz", HandleHealth)
 
 	// API v1 routes
 	router.Route("/v1", func(router chi.Router) {
 		// Registration endpoints (public)
 		router.Post("/register", registrationHandler.Register)
 		router.Get("/verify-email", registrationHandler.ConfirmRegistration)
+		router.Post("/resend-verification", registrationHandler.ResendVerificationEmail)
 
 		// Authentication endpoints (public)
 		router.Post("/login", authHandler.Login)

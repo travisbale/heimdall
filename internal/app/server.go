@@ -60,15 +60,23 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Run database migrations
+	if err := postgres.MigrateUp(config.DatabaseURL); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to run database migrations: %w", err)
+	}
+
 	// Create JWT issuer
 	jwtIssuer, err := jwt.NewIssuer("heimdall", config.JWTPrivateKeyPath, config.JWTExpiration)
 	if err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to create JWT issuer: %w", err)
 	}
 
 	// Create JWT validator
 	jwtValidator, err := jwt.NewValidator(config.JWTPublicKeyPath)
 	if err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to create JWT validator: %w", err)
 	}
 

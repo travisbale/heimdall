@@ -68,11 +68,14 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*auth.User, error)
 	return result, err
 }
 
-// GetUserByEmail retrieves a user by email with tenant isolation
+// GetUserByEmail retrieves a user by email without tenant isolation
+// This is used during login where we don't have tenant context (pre-authentication)
 func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*auth.User, error) {
 	var result *auth.User
 
-	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	// Note: We don't have tenant context during login (pre-authentication)
+	// Email is unique globally, so we can find the user without RLS
+	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUserByEmail(ctx, email)
 		if err != nil {
 			return err
@@ -123,20 +126,27 @@ func (u *UsersDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	})
 }
 
-// UpdateUserStatus updates a user's status without tenant isolation
+// UpdateUserStatus updates a user's status without tenant isolation and returns the updated user
 // This is used during email verification where we don't have tenant context
-func (u *UsersDB) UpdateUserStatus(ctx context.Context, id uuid.UUID, status auth.UserStatus) error {
+func (u *UsersDB) UpdateUserStatus(ctx context.Context, id uuid.UUID, status auth.UserStatus) (*auth.User, error) {
+	var result *auth.User
+
 	// Note: We don't have tenant context during verification
 	// The userID is sufficient to identify the user uniquely.
-	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		if err := q.UpdateUserStatus(ctx, sqlc.UpdateUserStatusParams{
+	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+		dbUser, err := q.UpdateUserStatus(ctx, sqlc.UpdateUserStatusParams{
 			ID:     id,
 			Status: status,
-		}); err != nil {
+		})
+		if err != nil {
 			return fmt.Errorf("failed to update user status: %w", err)
 		}
-		return nil
+
+		result, err = convertUserToDomain(dbUser)
+		return err
 	})
+
+	return result, err
 }
 
 // UpdatePassword updates a user's password without tenant isolation

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
@@ -11,18 +12,27 @@ import (
 
 type registrationService interface {
 	Register(ctx context.Context, email, password string) (*auth.User, error)
-	ConfirmRegistration(ctx context.Context, token string) error
+	ConfirmRegistration(ctx context.Context, token string) (*auth.User, error)
+	ResendVerificationEmail(ctx context.Context, email string) error
 }
 
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
 	registrationService registrationService
+	userService         userService
+	jwtService          jwtService
+	secureCookies       bool          // Use Secure flag on cookies (HTTPS only)
+	refreshExpiration   time.Duration // Refresh token expiration
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
-func NewRegistrationHandler(registrationService registrationService) *RegistrationHandler {
+func NewRegistrationHandler(registrationService registrationService, userService userService, jwtService jwtService, secureCookies bool, refreshExpiration time.Duration) *RegistrationHandler {
 	return &RegistrationHandler{
 		registrationService: registrationService,
+		userService:         userService,
+		jwtService:          jwtService,
+		secureCookies:       secureCookies,
+		refreshExpiration:   refreshExpiration,
 	}
 }
 
@@ -58,7 +68,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ConfirmRegistration handles email verification
+// ConfirmRegistration handles email verification and returns JWT tokens for auto-login
 func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -66,14 +76,37 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	err := h.registrationService.ConfirmRegistration(r.Context(), token)
+	user, err := h.registrationService.ConfirmRegistration(r.Context(), token)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
 		return
 	}
 
-	// Return success response
+	// Issue tokens and respond with access token
+	issueTokensAndRespond(r.Context(), w, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
+}
+
+// ResendVerificationEmail handles resending the verification email
+func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	var req sdk.ResendVerificationRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	err := h.registrationService.ResendVerificationEmail(r.Context(), req.Email)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to resend verification email", err)
+		return
+	}
+
+	// Always return success to avoid user enumeration
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Email verified successfully. You can now log in.",
+		"message": "If an unverified account exists with this email, a new verification email has been sent.",
 	})
 }

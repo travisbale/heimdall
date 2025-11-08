@@ -17,15 +17,16 @@ func main() {
 		},
 		Before: func(c *cli.Context) error {
 			// Set log level based on debug flag
+			var level slog.Level
 			if c.Bool("debug") {
-				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				})))
+				level = slog.LevelDebug
 			} else {
-				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelInfo,
-				})))
+				level = slog.LevelInfo
 			}
+
+			opts := &slog.HandlerOptions{Level: level}
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, opts)))
+
 			return nil
 		},
 		Commands: []*cli.Command{
