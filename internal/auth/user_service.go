@@ -36,6 +36,12 @@ type tokenDB interface {
 	DeleteToken(ctx context.Context, userID uuid.UUID) error
 }
 
+type loginAttemptsService interface {
+	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lastLoginAt *time.Time) error
+	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string) error
+	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
+}
+
 type logger interface {
 	Info(msg string, args ...any)
 	Error(msg string, args ...any)
@@ -48,6 +54,7 @@ type UserServiceConfig struct {
 	EmailService         emailService
 	VerificationTokenDB  tokenDB
 	PasswordResetTokenDB tokenDB
+	LoginAttemptsService loginAttemptsService
 	Logger               logger
 }
 
@@ -58,6 +65,7 @@ type UserService struct {
 	emailService         emailService
 	verificationTokenDB  tokenDB
 	passwordResetTokenDB tokenDB
+	loginAttemptsService loginAttemptsService
 	logger               logger
 }
 
@@ -69,6 +77,7 @@ func NewUserService(config *UserServiceConfig) *UserService {
 		emailService:         config.EmailService,
 		verificationTokenDB:  config.VerificationTokenDB,
 		passwordResetTokenDB: config.PasswordResetTokenDB,
+		loginAttemptsService: config.LoginAttemptsService,
 		logger:               config.Logger,
 	}
 }
@@ -152,7 +161,12 @@ func (s *UserService) ResendVerificationEmail(ctx context.Context, email string)
 	// Try to get the user by email
 	user, err := s.userDB.GetUserByEmail(ctx, email)
 	if err != nil {
-		// Don't reveal if user exists - return success
+		if errors.Is(err, ErrUserNotFound) {
+			// Don't reveal if user exists - return success
+			return nil
+		}
+		// Database error - log but still return success to avoid enumeration
+		s.logger.Error("failed to get user by email during resend verification", "email", email, "error", err)
 		return nil
 	}
 
@@ -227,37 +241,73 @@ func (s *UserService) CreateUser(ctx context.Context, tenantID uuid.UUID, email 
 }
 
 // Login authenticates a user and returns a JWT token
-func (s *UserService) Login(ctx context.Context, email, password string) (*User, error) {
+// ipAddress is optional and used for tracking login attempts
+func (s *UserService) Login(ctx context.Context, email, password, ipAddress string) (*User, error) {
+	// Convert IP address to pointer (nil if empty)
+	var ipPtr *string
+	if ipAddress != "" {
+		ipPtr = &ipAddress
+	}
+
+	// Check if account is locked before password verification to prevent user enumeration
+	locked, expiresAt, err := s.loginAttemptsService.IsAccountLocked(ctx, email)
+	if err != nil {
+		s.logger.Error("failed to check lockout status", "email", email, "error", err)
+		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
+	}
+	if locked {
+		s.logger.Info("login attempt for locked account", "email", email, "expires_at", expiresAt)
+		return nil, ErrAccountLocked
+	}
+
 	// Get user by email
 	user, err := s.userDB.GetUserByEmail(ctx, email)
 	if err != nil {
-		return nil, ErrInvalidCredentials
+		if errors.Is(err, ErrUserNotFound) {
+			// User doesn't exist - record failed attempt to prevent user enumeration
+			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, nil, ipPtr, nil); err != nil {
+				s.logger.Error("failed to record login attempt for non-existent user", "email", email, "error", err)
+			}
+			return nil, ErrInvalidCredentials
+		}
+		// Database error - log and return error
+		s.logger.Error("failed to get user by email", "email", email, "error", err)
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Check if email is verified
-	if user.Status == UserStatusUnverified {
-		return nil, ErrEmailNotVerified
-	}
-
-	// Check if user is active
-	if user.Status != UserStatusActive {
-		return nil, ErrAccountIsInactive
-	}
-
-	// Verify password
+	// Verify password before checking account status to prevent user enumeration
 	err = s.hasher.VerifyPassword(password, user.PasswordHash)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			return nil, err
+			// Only record failed attempt if credentials are invalid
+			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, ipPtr, user.LastLoginAt); err != nil {
+				s.logger.Error("failed to record login attempt", "email", email, "error", err)
+			}
+
+			return nil, ErrInvalidCredentials
 		}
 
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 
+	// Record successful login
+	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID, ipPtr); err != nil {
+		s.logger.Error("failed to record successful login", "email", email, "error", err)
+	}
+
 	// Update last login timestamp
 	if err = s.userDB.UpdateLastLogin(ctx, user.ID); err != nil {
-		// Log the error but don't fail the login
-		fmt.Printf("Warning: failed to update last login: %v\n", err)
+		s.logger.Error("failed to update last login", "user_id", user.ID, "error", err)
+	}
+
+	// Check if email is verified (after authentication, before authorization)
+	if user.Status == UserStatusUnverified {
+		return nil, ErrEmailNotVerified
+	}
+
+	// Check if user is active (after authentication, before authorization)
+	if user.Status != UserStatusActive {
+		return nil, ErrAccountIsInactive
 	}
 
 	return user, nil
@@ -286,7 +336,12 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 	// Try to get user by email
 	user, err := s.userDB.GetUserByEmail(ctx, email)
 	if err != nil {
-		// Don't reveal if user exists - return success
+		if errors.Is(err, ErrUserNotFound) {
+			// Don't reveal if user exists - return success
+			return nil
+		}
+		// Database error - log but still return success to avoid enumeration
+		s.logger.Error("failed to get user by email during password reset", "email", email, "error", err)
 		return nil
 	}
 

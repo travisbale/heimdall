@@ -78,22 +78,22 @@ var (
 		EnvVars: []string{"ENVIRONMENT"},
 	}
 
-	// BaseURLFlag defines the base URL for email links
-	BaseURLFlag = &cli.StringFlag{
-		Name:    "base-url",
+	// EmailLinkBaseURLFlag defines the base URL for email links
+	EmailLinkBaseURLFlag = &cli.StringFlag{
+		Name:    "email-link-base-url",
 		Aliases: []string{"b"},
-		Usage:   "Base URL for email verification links",
+		Usage:   "Base URL for email verification and password reset links",
 		Value:   "http://localhost:8080",
-		EnvVars: []string{"BASE_URL"},
+		EnvVars: []string{"EMAIL_LINK_BASE_URL"},
 	}
 
-	// MailmanAddressFlag defines the mailman gRPC server address
-	MailmanAddressFlag = &cli.StringFlag{
-		Name:    "mailman-address",
+	// MailmanGRPCAddressFlag defines the mailman gRPC server address
+	MailmanGRPCAddressFlag = &cli.StringFlag{
+		Name:    "mailman-grpc-address",
 		Aliases: []string{"m"},
 		Usage:   "Mailman gRPC server address",
 		Value:   "localhost:50051",
-		EnvVars: []string{"MAILMAN_ADDRESS"},
+		EnvVars: []string{"MAILMAN_GRPC_ADDRESS"},
 	}
 
 	// CORSAllowedOriginsFlag defines allowed CORS origins

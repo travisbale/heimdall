@@ -19,7 +19,7 @@ const (
 
 // userService defines the interface for authentication operations
 type userService interface {
-	Login(ctx context.Context, email, password string) (*auth.User, error)
+	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
 	GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
@@ -54,7 +54,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.Login(r.Context(), req.Email, req.Password)
+	user, err := h.userService.Login(r.Context(), req.Email, req.Password, extractIPAddress(r))
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			respondError(w, http.StatusUnauthorized, "Authentication failed", err)
@@ -68,6 +68,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 		if errors.Is(err, auth.ErrAccountIsInactive) {
 			respondError(w, http.StatusForbidden, "Your account is not active", err)
+			return
+		}
+
+		if errors.Is(err, auth.ErrAccountLocked) {
+			respondError(w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
 			return
 		}
 
@@ -160,4 +165,40 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		TokenType:   "Bearer",
 		ExpiresIn:   accessTokenExpiry,
 	})
+}
+
+// extractIPAddress extracts the client IP address from the request
+// Checks X-Forwarded-For header first (for proxied requests), then falls back to RemoteAddr
+func extractIPAddress(r *http.Request) string {
+	// Check X-Forwarded-For header (may contain multiple IPs if behind multiple proxies)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP (the original client)
+		// X-Forwarded-For format: client, proxy1, proxy2
+		if idx := len(xff); idx > 0 {
+			for i, c := range xff {
+				if c == ',' {
+					idx = i
+					break
+				}
+			}
+			return xff[:idx]
+		}
+	}
+
+	// Check X-Real-IP header (single IP)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr (format: "IP:port")
+	// Strip port if present
+	if idx := len(r.RemoteAddr); idx > 0 {
+		for i := idx - 1; i >= 0; i-- {
+			if r.RemoteAddr[i] == ':' {
+				return r.RemoteAddr[:i]
+			}
+		}
+	}
+
+	return r.RemoteAddr
 }

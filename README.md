@@ -11,6 +11,9 @@ Authentication and authorization service written in Go. Handles user accounts, p
 
 - **JWT Authentication** - RSA-signed tokens with user and tenant claims
 - **Password Security** - Argon2id hashing with OWASP-recommended parameters
+- **Email Verification** - Registration flow with email verification via mailman
+- **Password Reset** - Secure token-based password reset via email
+- **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
 - **Multi-tenancy** - Row-Level Security (RLS) for tenant isolation
 - **Dual APIs** - HTTP REST API and gRPC for service-to-service communication
 - **Type-safe Database** - sqlc-generated queries with PostgreSQL + pgx
@@ -72,12 +75,16 @@ make test
 ### Running the Service
 
 ```bash
-./bin/heimdall serve \
+./bin/heimdall start \
   --database-url "postgres://heimdall:password@localhost:5432/heimdall?sslmode=disable" \
   --http-address ":8080" \
   --grpc-address ":9090" \
   --jwt-private-key "/path/to/private-key.pem" \
-  --jwt-expiration "24h"
+  --jwt-public-key "/path/to/public-key.pem" \
+  --jwt-expiration "24h" \
+  --email-link-base-url "http://localhost:8080" \
+  --mailman-grpc-address "localhost:9090" \
+  --environment "development"
 ```
 
 ### Docker
@@ -98,16 +105,17 @@ docker run -p 8080:8080 -p 9090:9090 \
 ### HTTP (Port 8080)
 
 - `GET /healthz` - Health check (no auth)
+
+**Authentication:**
+- `POST /v1/register` - Register new user (sends verification email)
+- `GET /v1/register/confirm?token={token}` - Verify email address
 - `POST /v1/login` - Authenticate user, returns JWT
+- `POST /v1/logout` - Logout (invalidates refresh token)
+- `POST /v1/refresh` - Refresh access token using refresh token cookie
 
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "password"
-  }
-  ```
-
-- `POST /v1/logout` - Logout (client-side token removal)
+**Password Reset:**
+- `POST /v1/forgot-password` - Request password reset (sends email)
+- `POST /v1/reset-password` - Reset password with token
 
 ### gRPC (Port 9090)
 
@@ -188,7 +196,12 @@ Environment variables:
 - `HTTP_ADDRESS` - HTTP server address (default: `:8080`)
 - `GRPC_ADDRESS` - gRPC server address (default: `:9090`)
 - `JWT_PRIVATE_KEY_PATH` - Path to RSA private key (PEM format)
+- `JWT_PUBLIC_KEY_PATH` - Path to RSA public key (PEM format)
 - `JWT_EXPIRATION` - Token lifetime (default: `24h`)
+- `EMAIL_LINK_BASE_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
+- `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
+- `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
+- `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 
 ## License
 

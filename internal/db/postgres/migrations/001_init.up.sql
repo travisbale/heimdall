@@ -44,6 +44,27 @@ CREATE TABLE password_reset_tokens (
 -- Create index on token for fast lookups
 CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
 
+-- Create login_attempts table for tracking failed authentication attempts and account lockout
+-- Only failed attempts are recorded; successful logins are tracked via users.last_login_at
+CREATE TABLE login_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    ip_address TEXT,
+    locked_until TIMESTAMPTZ,
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Create index on email and attempted_at for efficient lockout queries
+CREATE INDEX idx_login_attempts_email_time ON login_attempts(email, attempted_at DESC);
+
+-- Create index on user_id for user-specific queries
+CREATE INDEX idx_login_attempts_user_id ON login_attempts(user_id);
+
+-- Create index on ip_address for detecting distributed attacks
+CREATE INDEX idx_login_attempts_ip ON login_attempts(ip_address);
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) - Tenant Isolation
 -- ============================================================================

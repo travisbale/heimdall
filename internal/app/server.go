@@ -38,7 +38,7 @@ type Config struct {
 	JWTPublicKeyPath   string
 	JWTExpiration      time.Duration
 	BaseURL            string
-	MailmanAddress     string
+	MailmanGRPCAddress string
 	Environment        string
 	CORSAllowedOrigins []string
 	Logger             logger
@@ -89,7 +89,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	passwordHasher := argon2.NewArgon2Hasher(argon2Memory, argon2Iterations, saltLength, argon2KeyLength, argon2Threads)
 
 	// Create mailman gRPC client
-	mailmanClient, err := mailmansdk.NewGRPCClient(config.MailmanAddress)
+	mailmanClient, err := mailmansdk.NewGRPCClient(config.MailmanGRPCAddress)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to connect to mailman: %w", err)
@@ -102,6 +102,10 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	usersDB := postgres.NewUsersDB(db)
 	verificationTokensDB := postgres.NewVerificationTokensDB(db)
 	passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
+	loginAttemptsDB := postgres.NewLoginAttemptsDB(db)
+
+	// Create login attempts service
+	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, config.Logger)
 
 	// Create auth service
 	authService := auth.NewUserService(&auth.UserServiceConfig{
@@ -110,6 +114,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		EmailService:         emailService,
 		VerificationTokenDB:  verificationTokensDB,
 		PasswordResetTokenDB: passwordResetTokensDB,
+		LoginAttemptsService: loginAttemptsService,
 		Logger:               config.Logger,
 	})
 

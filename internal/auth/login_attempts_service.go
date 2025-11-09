@@ -1,0 +1,122 @@
+package auth
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	// Lockout durations for progressive account lockout
+	lockoutDuration1 = 5 * time.Minute  // 5 failed attempts
+	lockoutDuration2 = 15 * time.Minute // 10 failed attempts
+	lockoutDuration3 = 1 * time.Hour    // 15 failed attempts
+	lockoutDuration4 = 24 * time.Hour   // 20 failed attempts
+
+	// Login attempts retention period
+	loginAttemptsRetentionPeriod = 7 * 24 * time.Hour // 7 days
+)
+
+// loginAttemptsDB defines the data access interface for login attempts
+type loginAttemptsDB interface {
+	RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lockedUntil *time.Time) error
+	GetRecentFailedAttempts(ctx context.Context, email string, since time.Time) (int64, error)
+	GetMostRecentLockout(ctx context.Context, email string) (*time.Time, error)
+	DeleteOldLoginAttempts(ctx context.Context, olderThan time.Time) error
+}
+
+// LoginAttemptsService handles login attempt tracking and account lockout logic
+type LoginAttemptsService struct {
+	db     loginAttemptsDB
+	logger logger
+}
+
+// NewLoginAttemptsService creates a new login attempts service
+func NewLoginAttemptsService(db loginAttemptsDB, logger logger) *LoginAttemptsService {
+	return &LoginAttemptsService{
+		db:     db,
+		logger: logger,
+	}
+}
+
+// IsAccountLocked checks if an email is currently locked out and when the lock expires
+func (s *LoginAttemptsService) IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error) {
+	lockedUntil, err := s.db.GetMostRecentLockout(ctx, email)
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("failed to get recent lockout: %w", err)
+	}
+
+	// If no lockout exists or lockout has expired, account is not locked
+	if lockedUntil == nil || time.Now().After(*lockedUntil) {
+		return false, time.Time{}, nil
+	}
+
+	// Account is locked
+	return true, *lockedUntil, nil
+}
+
+// RecordFailedLogin records a failed login attempt and calculates the appropriate lockout expiry
+func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lastLoginAt *time.Time) error {
+	// Window start is the later of last successful login or 24 hours ago
+	windowStart := time.Now().Add(-lockoutDuration4)
+	if lastLoginAt != nil && lastLoginAt.After(windowStart) {
+		windowStart = *lastLoginAt
+	}
+
+	// Count all failed attempts in the window
+	failedCount, err := s.db.GetRecentFailedAttempts(ctx, email, windowStart)
+	if err != nil {
+		return fmt.Errorf("failed to get recent attempts: %w", err)
+	}
+	failedCount = failedCount + 1 // Include the current attempt
+
+	// Only set locked_until if count matches a threshold
+	var lockedUntil *time.Time
+	switch failedCount {
+	case 5:
+		t := time.Now().Add(lockoutDuration1)
+		lockedUntil = &t
+	case 10:
+		t := time.Now().Add(lockoutDuration2)
+		lockedUntil = &t
+	case 15:
+		t := time.Now().Add(lockoutDuration3)
+		lockedUntil = &t
+	case 20:
+		t := time.Now().Add(lockoutDuration4)
+		lockedUntil = &t
+	default:
+		lockedUntil = nil // Not a threshold - no lockout
+	}
+
+	// Record the failed attempt
+	err = s.db.RecordAttempt(ctx, email, userID, ipAddress, lockedUntil)
+	if err != nil {
+		return fmt.Errorf("failed to record login attempt: %w", err)
+	}
+
+	// Log if account was just locked (hit an exact threshold)
+	if lockedUntil != nil {
+		s.logger.Info("account locked due to failed login attempts",
+			"email", email,
+			"failed_count", failedCount,
+			"locked_until", lockedUntil)
+	}
+
+	return nil
+}
+
+// RecordSuccessfulLogin performs cleanup of old login attempts
+func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string) error {
+	// Delete login attempts older than the retention period
+	cutoffTime := time.Now().Add(-loginAttemptsRetentionPeriod)
+
+	err := s.db.DeleteOldLoginAttempts(ctx, cutoffTime)
+	if err != nil {
+		// Log error but don't fail the login
+		s.logger.Error("failed to cleanup old login attempts", "error", err)
+	}
+	return nil
+}

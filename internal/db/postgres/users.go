@@ -6,9 +6,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/auth"
-	"github.com/travisbale/heimdall/internal/db/postgres/sqlc"
+	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
 // UsersDB handles user database operations with tenant isolation
@@ -78,6 +79,9 @@ func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*auth.User,
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUserByEmail(ctx, email)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrUserNotFound
+			}
 			return err
 		}
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/auth"
-	"github.com/travisbale/heimdall/internal/db/postgres/sqlc"
+	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
 // VerificationTokensDB handles database operations for verification tokens

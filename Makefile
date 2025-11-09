@@ -43,7 +43,7 @@ lint:
 # Generate sqlc code (uses version from go.mod)
 sqlc:
 	@echo "Generating sqlc code..."
-	@docker run --rm -v $(shell pwd):/src -w /src sqlc/sqlc generate
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(shell pwd):/src -w /src sqlc/sqlc generate
 
 # Generate protobuf code
 protoc:

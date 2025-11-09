@@ -57,6 +57,16 @@ func (ns NullUserStatus) Value() (driver.Value, error) {
 	return string(ns.UserStatus), nil
 }
 
+type LoginAttempt struct {
+	ID          uuid.UUID  `json:"id"`
+	Email       string     `json:"email"`
+	UserID      *uuid.UUID `json:"user_id"`
+	IpAddress   *string    `json:"ip_address"`
+	LockedUntil *time.Time `json:"locked_until"`
+	AttemptedAt time.Time  `json:"attempted_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
 type PasswordResetToken struct {
 	UserID    uuid.UUID `json:"user_id"`
 	Token     string    `json:"token"`
