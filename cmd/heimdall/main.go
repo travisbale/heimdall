@@ -18,7 +18,7 @@ func main() {
 		Before: func(c *cli.Context) error {
 			// Set log level based on debug flag
 			var level slog.Level
-			if c.Bool("debug") {
+			if config.Debug {
 				level = slog.LevelDebug
 			} else {
 				level = slog.LevelInfo

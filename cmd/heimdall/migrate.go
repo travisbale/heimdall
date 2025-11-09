@@ -15,24 +15,21 @@ var migrateCmd = &cli.Command{
 			Name:  "up",
 			Usage: "Apply all pending migrations",
 			Action: func(c *cli.Context) error {
-				databaseURL := c.String("database-url")
-				return postgres.MigrateUp(databaseURL)
+				return postgres.MigrateUp(config.DatabaseURL)
 			},
 		},
 		{
 			Name:  "down",
 			Usage: "Rollback the last migration",
 			Action: func(c *cli.Context) error {
-				databaseURL := c.String("database-url")
-				return postgres.MigrateDown(databaseURL)
+				return postgres.MigrateDown(config.DatabaseURL)
 			},
 		},
 		{
 			Name:  "version",
 			Usage: "Show current migration version",
 			Action: func(c *cli.Context) error {
-				databaseURL := c.String("database-url")
-				version, dirty, err := postgres.MigrateVersion(databaseURL)
+				version, dirty, err := postgres.MigrateVersion(config.DatabaseURL)
 				if err != nil {
 					return err
 				}

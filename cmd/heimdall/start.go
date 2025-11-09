@@ -19,6 +19,7 @@ var startCmd = &cli.Command{
 	Flags: []cli.Flag{
 		HTTPAddressFlag,
 		GRPCAddressFlag,
+		DatabaseURLFlag,
 		JWTPrivateKeyFlag,
 		JWTPublicKeyFlag,
 		JWTExpirationFlag,
@@ -28,23 +29,11 @@ var startCmd = &cli.Command{
 		CORSAllowedOriginsFlag,
 	},
 	Action: func(c *cli.Context) error {
-		// Create server config
-		config := &app.Config{
-			HTTPAddress:        c.String("http-address"),
-			GRPCAddress:        c.String("grpc-address"),
-			DatabaseURL:        c.String("database-url"),
-			JWTPrivateKeyPath:  c.String("jwt-private-key"),
-			JWTPublicKeyPath:   c.String("jwt-public-key"),
-			JWTExpiration:      c.Duration("jwt-expiration"),
-			BaseURL:            c.String("email-link-base-url"),
-			MailmanGRPCAddress: c.String("mailman-grpc-address"),
-			Environment:        c.String("environment"),
-			CORSAllowedOrigins: c.StringSlice("cors-allowed-origins"),
-			Logger:             slog.Default(),
-		}
+		// Convert CLI config to app config
+		appConfig := config.ToAppConfig()
 
 		// Create server with our API handlers
-		server, err := app.NewServer(c.Context, config)
+		server, err := app.NewServer(c.Context, appConfig)
 		if err != nil {
 			return err
 		}
