@@ -47,6 +47,27 @@ func (p OIDCProviderType) IsValid() bool {
 	}
 }
 
+// String returns the string representation of the provider type
+func (p OIDCProviderType) String() string {
+	return string(p)
+}
+
+// DisplayName returns a human-readable name for the provider
+func (p OIDCProviderType) DisplayName() string {
+	switch p {
+	case OIDCProviderTypeGoogle:
+		return "Google"
+	case OIDCProviderTypeMicrosoft:
+		return "Microsoft"
+	case OIDCProviderTypeGitHub:
+		return "GitHub"
+	case OIDCProviderTypeOkta:
+		return "Okta"
+	default:
+		return string(p)
+	}
+}
+
 // LoginRequest represents the login request body
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -363,4 +384,15 @@ type OIDCProviderResponse struct {
 // ListOIDCProvidersResponse represents the response with list of OIDC providers
 type ListOIDCProvidersResponse struct {
 	Providers []OIDCProvider `json:"providers"`
+}
+
+// SupportedOIDCProviderType represents a supported OAuth provider type
+type SupportedOIDCProviderType struct {
+	Type        OIDCProviderType `json:"type"`
+	DisplayName string           `json:"display_name"`
+}
+
+// ListSupportedOIDCProvidersResponse represents the response with supported provider types
+type ListSupportedOIDCProvidersResponse struct {
+	Providers []SupportedOIDCProviderType `json:"providers"`
 }

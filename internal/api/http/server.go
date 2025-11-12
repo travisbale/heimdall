@@ -81,6 +81,9 @@ func NewServer(config *Config) *Server {
 	// Health check endpoint (public, no auth required, no rate limit)
 	router.Head(sdk.RouteHealth, HandleHealth)
 
+	// Supported OAuth provider types (public, no auth required, no rate limit)
+	router.Get(sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)
+
 	// Moderate rate limit
 	router.Group(func(r chi.Router) {
 		r.Use(newRateLimitMiddleware(ModerateRateLimit))

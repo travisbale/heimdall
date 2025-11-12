@@ -22,6 +22,7 @@ const (
 	RouteV1OAuthCallback = "/v1/oauth/callback"
 
 	// OAuth provider management routes
-	RouteV1OAuthProviders = "/v1/oauth/providers"
-	RouteV1OAuthProvider  = "/v1/oauth/providers/{providerID}"
+	RouteV1OAuthProviders      = "/v1/oauth/providers"
+	RouteV1OAuthProvider       = "/v1/oauth/providers/{providerID}"
+	RouteV1OAuthSupportedTypes = "/v1/oauth/supported-types" // Public: list supported provider types
 )

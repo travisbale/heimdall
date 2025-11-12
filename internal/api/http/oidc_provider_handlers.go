@@ -9,6 +9,33 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
+// ListSupportedProviders returns the list of OAuth provider types supported by the system
+// This is a public endpoint (no authentication required) for login UI to discover available providers
+func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
+	providers := []sdk.SupportedOIDCProviderType{
+		{
+			Type:        sdk.OIDCProviderTypeGoogle,
+			DisplayName: sdk.OIDCProviderTypeGoogle.DisplayName(),
+		},
+		{
+			Type:        sdk.OIDCProviderTypeMicrosoft,
+			DisplayName: sdk.OIDCProviderTypeMicrosoft.DisplayName(),
+		},
+		{
+			Type:        sdk.OIDCProviderTypeGitHub,
+			DisplayName: sdk.OIDCProviderTypeGitHub.DisplayName(),
+		},
+		{
+			Type:        sdk.OIDCProviderTypeOkta,
+			DisplayName: sdk.OIDCProviderTypeOkta.DisplayName(),
+		},
+	}
+
+	respondJSON(w, http.StatusOK, sdk.ListSupportedOIDCProvidersResponse{
+		Providers: providers,
+	})
+}
+
 // OIDCProvidersHandler handles OIDC provider configuration requests
 type OIDCProvidersHandler struct {
 	oidcService oidcService
