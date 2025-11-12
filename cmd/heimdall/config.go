@@ -21,16 +21,22 @@ type Config struct {
 	GRPCAddress string
 
 	// JWT configuration
+	JWTIssuer         string
 	JWTPrivateKeyPath string
 	JWTPublicKeyPath  string
 	JWTExpiration     time.Duration
 
+	// Public URL
+	PublicURL string
+
 	// Email configuration
-	EmailLinkBaseURL   string
 	MailmanGRPCAddress string
 
 	// Environment
 	Environment string
+
+	// Encryption
+	EncryptionKey string
 
 	// CORS (cli.StringSlice since it needs special handling)
 	CORSAllowedOrigins cli.StringSlice
@@ -45,12 +51,14 @@ func (c *Config) ToAppConfig() *app.Config {
 		DatabaseURL:        c.DatabaseURL,
 		HTTPAddress:        c.HTTPAddress,
 		GRPCAddress:        c.GRPCAddress,
+		JWTIssuer:          c.JWTIssuer,
 		JWTPrivateKeyPath:  c.JWTPrivateKeyPath,
 		JWTPublicKeyPath:   c.JWTPublicKeyPath,
 		JWTExpiration:      c.JWTExpiration,
-		BaseURL:            c.EmailLinkBaseURL,
+		PublicURL:          c.PublicURL,
 		MailmanGRPCAddress: c.MailmanGRPCAddress,
 		Environment:        c.Environment,
+		EncryptionKey:      c.EncryptionKey,
 		CORSAllowedOrigins: c.CORSAllowedOrigins.Value(),
 		Logger:             slog.Default(),
 	}

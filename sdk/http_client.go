@@ -19,9 +19,10 @@ type validatable interface {
 
 // HTTPClient is an HTTP client for the heimdall API
 type HTTPClient struct {
-	baseURL    string
-	httpClient *http.Client
-	logger     logger
+	baseURL     string
+	httpClient  *http.Client
+	logger      logger
+	accessToken string
 }
 
 // Option is a functional option for configuring the HTTPClient
@@ -78,12 +79,18 @@ func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, 
 	return client, nil
 }
 
+// SetAccessToken sets the access token for authenticated requests
+func (c *HTTPClient) SetAccessToken(token string) {
+	c.accessToken = token
+}
+
 // Health checks the health of the heimdall API
 func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
 	var resp HealthResponse
 	if err := c.doRequest(ctx, http.MethodGet, RouteHealth, nil, &resp); err != nil {
 		return nil, err
 	}
+
 	return &resp, nil
 }
 
@@ -98,15 +105,18 @@ func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginRespons
 }
 
 // Logout logs out the current user by clearing the refresh token cookie
-func (c *HTTPClient) Logout(ctx context.Context) error {
-	var resp map[string]string
-	return c.doRequest(ctx, http.MethodPost, RouteV1Logout, nil, &resp)
+func (c *HTTPClient) Logout(ctx context.Context) (*LogoutResponse, error) {
+	var resp LogoutResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Logout, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 // RefreshToken refreshes the access token using the refresh token cookie
 // The refresh token cookie must have been set by a previous Login call
-func (c *HTTPClient) RefreshToken(ctx context.Context) (*RefreshTokenResponse, error) {
-	var resp RefreshTokenResponse
+func (c *HTTPClient) RefreshToken(ctx context.Context) (*LoginResponse, error) {
+	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1Refresh, nil, &resp); err != nil {
 		return nil, err
 	}
@@ -133,9 +143,12 @@ func (c *HTTPClient) VerifyEmail(ctx context.Context, req VerifyEmailRequest) (*
 }
 
 // ResendVerification resends the verification email to a user
-func (c *HTTPClient) ResendVerification(ctx context.Context, req ResendVerificationRequest) error {
-	var resp map[string]string
-	return c.doRequest(ctx, http.MethodPost, RouteV1ResendVerification, &req, &resp)
+func (c *HTTPClient) ResendVerification(ctx context.Context, req ResendVerificationRequest) (*ResendVerificationResponse, error) {
+	var resp ResendVerificationResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1ResendVerification, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 // ForgotPassword initiates the password reset process
@@ -151,6 +164,16 @@ func (c *HTTPClient) ForgotPassword(ctx context.Context, req ForgotPasswordReque
 func (c *HTTPClient) ResetPassword(ctx context.Context, req ResetPasswordRequest) (*ResetPasswordResponse, error) {
 	var resp ResetPasswordResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1ResetPassword, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// OAuthLogin initiates an OAuth login flow
+// Returns the authorization URL that the user should be redirected to
+func (c *HTTPClient) OAuthLogin(ctx context.Context, req OIDCLoginRequest) (*OIDCAuthResponse, error) {
+	var resp OIDCAuthResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1OAuthLogin, &req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -182,6 +205,10 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 		httpReq.Header.Set("Content-Type", "application/json")
 	}
 
+	if c.accessToken != "" {
+		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
+	}
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
@@ -194,13 +221,13 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 		}
 	}()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	// Check for error responses
 	if resp.StatusCode >= 400 {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read error response: %w", err)
+		}
+
 		var errResp map[string]string
 		if err := json.Unmarshal(respBody, &errResp); err != nil {
 			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
@@ -208,7 +235,17 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 		return fmt.Errorf("API error (%d): %s", resp.StatusCode, errResp["error"])
 	}
 
-	// Decode success response
+	// If no result expected (e.g., 204 No Content), return early
+	if result == nil {
+		return nil
+	}
+
+	// Read and decode success response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if err := json.Unmarshal(respBody, result); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}

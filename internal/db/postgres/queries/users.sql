@@ -47,3 +47,8 @@ RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, l
 -- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1;
+
+-- name: DeleteOldUnverifiedUsers :exec
+DELETE FROM users
+WHERE status = 'unverified'
+  AND created_at < (now() - make_interval(days => $1));

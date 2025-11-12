@@ -59,6 +59,9 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*auth.User, error)
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUser(ctx, id)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrUserNotFound
+			}
 			return err
 		}
 
@@ -75,7 +78,8 @@ func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*auth.User,
 	var result *auth.User
 
 	// Note: We don't have tenant context during login (pre-authentication)
-	// Email is unique globally, so we can find the user without RLS
+	// Emails without OIDC links are globally unique, so we can find password and individual OAuth users
+	// For SSO users with links, email may not be unique but they authenticate via OIDC link
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUserByEmail(ctx, email)
 		if err != nil {
@@ -173,6 +177,17 @@ func (u *UsersDB) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash
 func (u *UsersDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		return q.DeleteUser(ctx, id)
+	})
+}
+
+// DeleteOldUnverifiedUsers deletes unverified users older than the specified number of days
+// Note: Does not use tenant context since this is a cleanup operation across all tenants
+func (u *UsersDB) DeleteOldUnverifiedUsers(ctx context.Context, days int32) error {
+	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+		if err := q.DeleteOldUnverifiedUsers(ctx, days); err != nil {
+			return fmt.Errorf("failed to delete old unverified users: %w", err)
+		}
+		return nil
 	})
 }
 

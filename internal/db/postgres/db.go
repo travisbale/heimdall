@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
-	"github.com/travisbale/heimdall/tenant"
 )
 
 type logger interface {
@@ -103,7 +103,7 @@ func (d *DB) WithTransaction(ctx context.Context, fn func(*sqlc.Queries) error) 
 // Row Level Security (RLS) policies to automatically filter queries.
 func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error) error {
 	// Extract tenant ID from context
-	tenantID, err := tenant.FromContext(ctx)
+	tenantID, err := identity.GetTenant(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get tenant from context: %w", err)
 	}

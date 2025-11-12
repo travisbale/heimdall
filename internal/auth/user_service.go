@@ -18,6 +18,7 @@ type userDB interface {
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateUserStatus(ctx context.Context, id uuid.UUID, status UserStatus) (*User, error)
 	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
 type hasher interface {
@@ -55,6 +56,7 @@ type UserServiceConfig struct {
 	VerificationTokenDB  tokenDB
 	PasswordResetTokenDB tokenDB
 	LoginAttemptsService loginAttemptsService
+	OIDCProviderDB       oidcProviderDB
 	Logger               logger
 }
 
@@ -66,6 +68,7 @@ type UserService struct {
 	verificationTokenDB  tokenDB
 	passwordResetTokenDB tokenDB
 	loginAttemptsService loginAttemptsService
+	oidcProviderDB       oidcProviderDB
 	logger               logger
 }
 
@@ -77,6 +80,7 @@ func NewUserService(config *UserServiceConfig) *UserService {
 		emailService:         config.EmailService,
 		verificationTokenDB:  config.VerificationTokenDB,
 		passwordResetTokenDB: config.PasswordResetTokenDB,
+		oidcProviderDB:       config.OIDCProviderDB,
 		loginAttemptsService: config.LoginAttemptsService,
 		logger:               config.Logger,
 	}
@@ -84,8 +88,22 @@ func NewUserService(config *UserServiceConfig) *UserService {
 
 // Register creates a new user account with email verification
 func (s *UserService) Register(ctx context.Context, email, password string) (*User, error) {
-	// Generate a new tenant ID for this user
-	tenantID := uuid.New()
+	// Check if email domain is configured for SSO
+	domain := extractEmailDomain(email)
+	providers, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
+	if err != nil {
+		s.logger.Error("failed to check SSO providers for domain", "domain", domain, "error", err)
+		// Don't fail registration on lookup error - continue with password registration
+	} else if len(providers) > 0 {
+		// Domain has SSO configured - reject password registration
+		return nil, ErrSSORequired
+	}
+
+	// Check if user already exists
+	existingUser, err := s.userDB.GetUserByEmail(ctx, email)
+	if err != nil && err != ErrUserNotFound {
+		return nil, fmt.Errorf("failed to check existing user: %w", err)
+	}
 
 	// Hash the password
 	passwordHash, err := s.hasher.HashPassword(password)
@@ -93,17 +111,41 @@ func (s *UserService) Register(ctx context.Context, email, password string) (*Us
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Create the user with unverified status
-	user := &User{
-		TenantID:     tenantID,
-		Email:        email,
-		PasswordHash: passwordHash,
-		Status:       UserStatusUnverified,
-	}
+	var user *User
 
-	user, err = s.userDB.CreateUser(ctx, user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+	// If user exists and is unverified, update the account to allow re-registration
+	// This prevents attackers from blocking legitimate users by creating unverified accounts
+	if existingUser != nil {
+		if existingUser.Status == UserStatusUnverified {
+			// Update the existing unverified account with new password
+			s.logger.Info("updating existing unverified account for re-registration", "email", email, "user_id", existingUser.ID)
+			if err := s.userDB.UpdatePassword(ctx, existingUser.ID, passwordHash); err != nil {
+				return nil, fmt.Errorf("failed to update password for existing unverified account: %w", err)
+			}
+			// Delete old verification token (if any) - new one will be created below
+			if err := s.verificationTokenDB.DeleteToken(ctx, existingUser.ID); err != nil {
+				s.logger.Error("failed to delete old verification token", "user_id", existingUser.ID, "error", err)
+				// Continue anyway - new token creation will handle this
+			}
+			user = existingUser
+		} else {
+			// User exists and is verified/active - return duplicate error
+			return nil, ErrDuplicateEmail
+		}
+	} else {
+		// Create new user
+		tenantID := uuid.New()
+		user = &User{
+			TenantID:     tenantID,
+			Email:        email,
+			PasswordHash: passwordHash,
+			Status:       UserStatusUnverified,
+		}
+
+		user, err = s.userDB.CreateUser(ctx, user)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
 	}
 
 	// Generate verification token (24 hour expiration)

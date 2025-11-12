@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -56,6 +58,9 @@ func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*aut
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetVerificationToken(ctx, token)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrVerificationTokenNotFound
+			}
 			return fmt.Errorf("failed to get verification token: %w", err)
 		}
 
@@ -77,6 +82,17 @@ func (r *VerificationTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteVerificationToken(ctx, userID); err != nil {
 			return fmt.Errorf("failed to delete verification token: %w", err)
+		}
+		return nil
+	})
+}
+
+// DeleteExpiredTokens deletes all expired verification tokens
+// Note: Does not use tenant context since verification tokens are accessed without tenant scope
+func (r *VerificationTokensDB) DeleteExpiredTokens(ctx context.Context) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+		if err := q.DeleteExpiredVerificationTokens(ctx); err != nil {
+			return fmt.Errorf("failed to delete expired verification tokens: %w", err)
 		}
 		return nil
 	})

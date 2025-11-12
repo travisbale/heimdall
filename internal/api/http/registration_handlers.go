@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
@@ -21,43 +20,38 @@ type RegistrationHandler struct {
 	registrationService registrationService
 	userService         userService
 	jwtService          jwtService
-	secureCookies       bool          // Use Secure flag on cookies (HTTPS only)
-	refreshExpiration   time.Duration // Refresh token expiration
+	secureCookies       bool // Use Secure flag on cookies (HTTPS only)
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
-func NewRegistrationHandler(registrationService registrationService, userService userService, jwtService jwtService, secureCookies bool, refreshExpiration time.Duration) *RegistrationHandler {
+func NewRegistrationHandler(registrationService registrationService, userService userService, jwtService jwtService, secureCookies bool) *RegistrationHandler {
 	return &RegistrationHandler{
 		registrationService: registrationService,
 		userService:         userService,
 		jwtService:          jwtService,
 		secureCookies:       secureCookies,
-		refreshExpiration:   refreshExpiration,
 	}
 }
 
 // Register handles user registration
 func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req sdk.RegisterRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
 	user, err := h.registrationService.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
-		// Check for duplicate email error
-		if errors.Is(err, auth.ErrDuplicateEmail) {
+		switch {
+		case errors.Is(err, auth.ErrDuplicateEmail):
 			respondError(w, http.StatusConflict, "Email address is already registered", err)
-			return
-		}
 
-		respondError(w, http.StatusInternalServerError, "Failed to register user", err)
+		case errors.Is(err, auth.ErrSSORequired):
+			respondError(w, http.StatusBadRequest, "This email domain requires SSO login", err)
+
+		default:
+			respondError(w, http.StatusInternalServerError, "Failed to register user", err)
+		}
 		return
 	}
 
@@ -71,13 +65,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 // ConfirmRegistration handles email verification and returns JWT tokens for auto-login
 func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
 	var req sdk.VerifyEmailRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
@@ -88,19 +76,13 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 	}
 
 	// Issue tokens and respond with access token
-	issueTokensAndRespond(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
+	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }
 
 // ResendVerificationEmail handles resending the verification email
 func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	var req sdk.ResendVerificationRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
@@ -111,7 +93,7 @@ func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *
 	}
 
 	// Always return success to avoid user enumeration
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "If an unverified account exists with this email, a new verification email has been sent.",
+	respondJSON(w, http.StatusOK, sdk.ResendVerificationResponse{
+		Message: "If an unverified account exists with this email, a new verification email has been sent.",
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/auth"
@@ -25,62 +24,49 @@ type userService interface {
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	userService       userService
-	jwtService        jwtService
-	secureCookies     bool          // Use Secure flag on cookies (HTTPS only)
-	refreshExpiration time.Duration // Refresh token expiration
+	userService   userService
+	jwtService    jwtService
+	secureCookies bool // Use Secure flag on cookies (HTTPS only)
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool, refreshExpiration time.Duration) *AuthHandler {
+func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool) *AuthHandler {
 	return &AuthHandler{
-		userService:       userServiec,
-		jwtService:        jwtIssuer,
-		secureCookies:     secureCookies,
-		refreshExpiration: refreshExpiration,
+		userService:   userServiec,
+		jwtService:    jwtIssuer,
+		secureCookies: secureCookies,
 	}
 }
 
 // Login handles user login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req sdk.LoginRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
 	user, err := h.userService.Login(r.Context(), req.Email, req.Password, extractIPAddress(r))
 	if err != nil {
-		if errors.Is(err, auth.ErrInvalidCredentials) {
+		switch {
+		case errors.Is(err, auth.ErrInvalidCredentials):
 			respondError(w, http.StatusUnauthorized, "Authentication failed", err)
-			return
-		}
 
-		if errors.Is(err, auth.ErrEmailNotVerified) {
+		case errors.Is(err, auth.ErrEmailNotVerified):
 			respondError(w, http.StatusForbidden, "Please verify your email address before logging in", err)
-			return
-		}
 
-		if errors.Is(err, auth.ErrAccountIsInactive) {
+		case errors.Is(err, auth.ErrAccountIsInactive):
 			respondError(w, http.StatusForbidden, "Your account is not active", err)
-			return
-		}
 
-		if errors.Is(err, auth.ErrAccountLocked) {
+		case errors.Is(err, auth.ErrAccountLocked):
 			respondError(w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
-			return
-		}
 
-		respondError(w, http.StatusInternalServerError, "Failed to authenticate user", err)
+		default:
+			respondError(w, http.StatusInternalServerError, "Failed to authenticate user", err)
+		}
 		return
 	}
 
-	issueTokensAndRespond(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies, int(h.refreshExpiration.Seconds()))
+	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }
 
 // Logout handles user logout by clearing the refresh token cookie
@@ -100,8 +86,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Logged out successfully",
+	respondJSON(w, http.StatusOK, sdk.LogoutResponse{
+		Message: "Logged out successfully",
 	})
 }
 
@@ -126,45 +112,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scopes, err := h.userService.GetScopes(r.Context(), userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
-		return
-	}
-
-	newAccessToken, err := h.jwtService.IssueAccessToken(userID, claims.TenantID, scopes)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate new access token", err)
-		return
-	}
-
-	newRefreshToken, err := h.jwtService.IssueRefreshToken(userID, claims.TenantID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate new refresh token", err)
-		return
-	}
-
-	// Construct cookie path using X-Forwarded-Prefix if available
-	prefix := r.Header.Get("X-Forwarded-Prefix")
-	cookiePath := prefix + sdk.RouteV1Refresh
-
-	// Set new refresh token in HTTP-only cookie (token rotation)
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenCookie,
-		Value:    newRefreshToken,
-		Path:     cookiePath,
-		MaxAge:   int(h.refreshExpiration.Seconds()),
-		HttpOnly: true,
-		Secure:   h.secureCookies,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	// Return new access token in response body
-	respondJSON(w, http.StatusOK, sdk.RefreshTokenResponse{
-		AccessToken: newAccessToken,
-		TokenType:   "Bearer",
-		ExpiresIn:   accessTokenExpiry,
-	})
+	issueTokens(r.Context(), w, r, h.userService, h.jwtService, userID, claims.TenantID, h.secureCookies)
 }
 
 // extractIPAddress extracts the client IP address from the request

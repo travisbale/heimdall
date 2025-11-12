@@ -4,13 +4,13 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Build production binary
-build:
+build: fmt
 	@echo "Building production binary..."
 	@CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -X 'main.Version=$(VERSION)'" -o bin/heimdall ./cmd/heimdall
 	@echo "Build complete: bin/heimdall"
 
 # Development build (faster, debug symbols)
-dev:
+dev: fmt
 	@echo "Building development binary..."
 	@go build -ldflags="-X 'main.Version=$(VERSION)'" -o bin/heimdall ./cmd/heimdall
 	@echo "Build complete: bin/heimdall"

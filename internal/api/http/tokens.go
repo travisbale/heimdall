@@ -8,9 +8,8 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// issueTokensAndRespond is a helper function that issues JWT tokens, sets the refresh token cookie,
-// and responds with the access token. This is used by both login and email verification endpoints.
-func issueTokensAndRespond(ctx context.Context, w http.ResponseWriter, r *http.Request, userService userService, jwtService jwtService, userID, tenantID uuid.UUID, secureCookies bool, refreshExpiration int) {
+// issueTokens sets the refresh token cookie, and responds with the access token
+func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, userService userService, jwtService jwtService, userID, tenantID uuid.UUID, secureCookies bool) {
 	// Get user scopes
 	scopes, err := userService.GetScopes(ctx, userID)
 	if err != nil {
@@ -31,6 +30,9 @@ func issueTokensAndRespond(ctx context.Context, w http.ResponseWriter, r *http.R
 		respondError(w, http.StatusInternalServerError, "Failed to generate refresh token", err)
 		return
 	}
+
+	// Get refresh token expiration from JWT service
+	refreshExpiration := int(jwtService.GetRefreshTokenExpiration().Seconds())
 
 	// Construct cookie path using X-Forwarded-Prefix if available
 	prefix := r.Header.Get("X-Forwarded-Prefix")

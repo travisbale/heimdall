@@ -3,6 +3,7 @@ module github.com/travisbale/heimdall
 go 1.25
 
 require (
+	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/cors v1.2.2
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -12,6 +13,7 @@ require (
 	github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/crypto v0.41.0
+	golang.org/x/oauth2 v0.33.0
 	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
@@ -20,6 +22,7 @@ require (
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -32,6 +32,7 @@ func main() {
 		Commands: []*cli.Command{
 			startCmd,
 			migrateCmd,
+			cleanupCmd,
 			versionCmd,
 		},
 	}

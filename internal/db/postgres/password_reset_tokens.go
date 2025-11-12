@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -55,6 +57,9 @@ func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*au
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetPasswordResetToken(ctx, token)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrPasswordResetTokenNotFound
+			}
 			return fmt.Errorf("failed to get password reset token: %w", err)
 		}
 
@@ -76,6 +81,17 @@ func (r *PasswordResetTokensDB) DeleteToken(ctx context.Context, userID uuid.UUI
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeletePasswordResetToken(ctx, userID); err != nil {
 			return fmt.Errorf("failed to delete password reset token: %w", err)
+		}
+		return nil
+	})
+}
+
+// DeleteExpiredTokens deletes all expired password reset tokens
+// Note: Does not use tenant context since password reset tokens are accessed without tenant scope
+func (r *PasswordResetTokensDB) DeleteExpiredTokens(ctx context.Context) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+		if err := q.DeleteExpiredPasswordResetTokens(ctx); err != nil {
+			return fmt.Errorf("failed to delete expired password reset tokens: %w", err)
 		}
 		return nil
 	})

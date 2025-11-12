@@ -51,6 +51,17 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteOldUnverifiedUsers = `-- name: DeleteOldUnverifiedUsers :exec
+DELETE FROM users
+WHERE status = 'unverified'
+  AND created_at < (now() - make_interval(days => $1))
+`
+
+func (q *Queries) DeleteOldUnverifiedUsers(ctx context.Context, days int32) error {
+	_, err := q.db.Exec(ctx, deleteOldUnverifiedUsers, days)
+	return err
+}
+
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1

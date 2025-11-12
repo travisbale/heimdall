@@ -9,6 +9,11 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+type Config struct {
+	Addr        string
+	AuthService authService
+}
+
 // Server implements the gRPC AuthService
 type Server struct {
 	Addr string
@@ -16,16 +21,16 @@ type Server struct {
 }
 
 // NewServer creates a new gRPC server
-func NewServer(addr string, authService authService) *Server {
+func NewServer(config *Config) *Server {
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
 
-	authHandler := NewAuthHandler(authService)
+	authHandler := NewAuthHandler(config.AuthService)
 
 	pb.RegisterUserServiceServer(grpcServer, authHandler)
 
 	return &Server{
-		Addr:   addr,
+		Addr:   config.Addr,
 		Server: grpcServer,
 	}
 }

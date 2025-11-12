@@ -2,17 +2,20 @@ package app
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/travisbale/heimdall/hash/argon2"
+	"github.com/travisbale/heimdall/crypto/aes"
+	"github.com/travisbale/heimdall/crypto/argon2"
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/http"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/email/mailman"
+	"github.com/travisbale/heimdall/internal/oidc"
 	"github.com/travisbale/heimdall/jwt"
-	mailmansdk "github.com/travisbale/mailman/sdk"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 const (
@@ -34,22 +37,24 @@ type Config struct {
 	HTTPAddress        string
 	GRPCAddress        string
 	DatabaseURL        string
+	JWTIssuer          string
 	JWTPrivateKeyPath  string
 	JWTPublicKeyPath   string
 	JWTExpiration      time.Duration
-	BaseURL            string
+	PublicURL          string
 	MailmanGRPCAddress string
 	Environment        string
+	EncryptionKey      string
 	CORSAllowedOrigins []string
 	Logger             logger
 }
 
 // Server wraps the HTTP and gRPC servers and their dependencies
 type Server struct {
-	httpServer    *http.Server
-	grpcServer    *grpc.Server
-	db            *postgres.DB
-	mailmanClient *mailmansdk.GRPCClient
+	httpServer   *http.Server
+	grpcServer   *grpc.Server
+	db           *postgres.DB
+	emailService interface{ Close() } // Interface for email service with Close method
 }
 
 // NewServer creates a new server instance with all dependencies
@@ -66,43 +71,58 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	// Create JWT issuer
-	jwtIssuer, err := jwt.NewIssuer("heimdall", config.JWTPrivateKeyPath, config.JWTExpiration)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to create JWT issuer: %w", err)
+	jwtConfig := &jwt.Config{
+		Issuer:                 config.JWTIssuer,
+		PrivateKeyPath:         config.JWTPrivateKeyPath,
+		PublicKeyPath:          config.JWTPublicKeyPath,
+		AccessTokenExpiration:  15 * time.Minute,
+		RefreshTokenExpiration: config.JWTExpiration,
 	}
 
-	// Create JWT validator
-	jwtValidator, err := jwt.NewValidator(config.JWTPublicKeyPath)
+	jwtService, err := jwt.NewService(jwtConfig)
 	if err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to create JWT validator: %w", err)
-	}
-
-	jwtService := &jwt.Service{
-		Issuer:    jwtIssuer,
-		Validator: jwtValidator,
+		return nil, fmt.Errorf("failed to create JWT service: %w", err)
 	}
 
 	// Create password hasher
-	passwordHasher := argon2.NewArgon2Hasher(argon2Memory, argon2Iterations, saltLength, argon2KeyLength, argon2Threads)
+	passwordHasher := argon2.NewHasher(&argon2.Config{
+		Memory:      argon2Memory,
+		Iterations:  argon2Iterations,
+		SaltLength:  saltLength,
+		KeyLength:   argon2KeyLength,
+		Parallelism: argon2Threads,
+	})
 
-	// Create mailman gRPC client
-	mailmanClient, err := mailmansdk.NewGRPCClient(config.MailmanGRPCAddress)
+	// Create email service
+	emailService, err := mailman.NewEmailService(config.MailmanGRPCAddress, config.PublicURL)
 	if err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to connect to mailman: %w", err)
+		return nil, fmt.Errorf("failed to create email service: %w", err)
 	}
 
-	// Create email service using mailman
-	emailService := mailman.NewEmailService(mailmanClient, config.BaseURL)
+	// Create AES cipher for encrypting sensitive data
+	encryptionKeyBytes, err := hex.DecodeString(config.EncryptionKey)
+	if err != nil {
+		db.Close()
+		emailService.Close()
+		return nil, fmt.Errorf("failed to decode encryption key (must be 64 hex characters): %w", err)
+	}
+	cipher, err := aes.NewCipher(encryptionKeyBytes)
+	if err != nil {
+		db.Close()
+		emailService.Close()
+		return nil, fmt.Errorf("failed to create encryption cipher: %w", err)
+	}
 
 	// Create database layer
 	usersDB := postgres.NewUsersDB(db)
 	verificationTokensDB := postgres.NewVerificationTokensDB(db)
 	passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
 	loginAttemptsDB := postgres.NewLoginAttemptsDB(db)
+	oidcProvidersDB := postgres.NewOIDCProvidersDB(db, cipher)
+	oidcLinksDB := postgres.NewOIDCLinksDB(db)
+	oidcSessionsDB := postgres.NewOIDCSessionsDB(db)
 
 	// Create login attempts service
 	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, config.Logger)
@@ -115,7 +135,78 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		VerificationTokenDB:  verificationTokensDB,
 		PasswordResetTokenDB: passwordResetTokensDB,
 		LoginAttemptsService: loginAttemptsService,
+		OIDCProviderDB:       oidcProvidersDB,
 		Logger:               config.Logger,
+	})
+
+	// Initialize system-wide OIDC providers for public login flow
+	// These are configured via environment variables and used when there's no tenant context.
+	// After login, the system determines the tenant based on email domain or creates a new one.
+	systemProviders := make(map[sdk.OIDCProviderType]auth.OIDCProvider)
+
+	// Example: Configure Google OAuth for public login
+	// In production, read from environment variables:
+	//
+	//   if googleClientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID"); googleClientID != "" {
+	//       googleClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
+	//       googleProvider, err := oidc.NewGoogleProvider(ctx, googleClientID, googleClientSecret, redirectURI)
+	//       if err != nil {
+	//           config.Logger.Error("failed to create Google provider", "error", err)
+	//       } else {
+	//           systemProviders[sdk.OIDCProviderTypeGoogle] = googleProvider
+	//           config.Logger.Info("registered system Google OAuth provider")
+	//       }
+	//   }
+	//
+	// Similarly for other providers:
+	//   if msClientID := os.Getenv("MICROSOFT_OAUTH_CLIENT_ID"); msClientID != "" {
+	//       // Microsoft requires tenant ID ("common", "organizations", "consumers", or specific tenant)
+	//       tenantID := os.Getenv("MICROSOFT_OAUTH_TENANT_ID")
+	//       if tenantID == "" {
+	//           tenantID = "common" // Default: allow both work/school and personal accounts
+	//       }
+	//       msClientSecret := os.Getenv("MICROSOFT_OAUTH_CLIENT_SECRET")
+	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
+	//       msProvider, err := oidc.NewMicrosoftProvider(ctx, msClientID, msClientSecret, redirectURI, tenantID)
+	//       if err != nil {
+	//           config.Logger.Error("failed to create Microsoft provider", "error", err)
+	//       } else {
+	//           systemProviders[sdk.OIDCProviderTypeMicrosoft] = msProvider
+	//           config.Logger.Info("registered system Microsoft OAuth provider")
+	//       }
+	//   }
+	//
+	//   if ghClientID := os.Getenv("GITHUB_OAUTH_CLIENT_ID"); ghClientID != "" {
+	//       ghClientSecret := os.Getenv("GITHUB_OAUTH_CLIENT_SECRET")
+	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
+	//       ghProvider := oidc.NewGitHubProvider(ghClientID, ghClientSecret, redirectURI)
+	//       systemProviders[sdk.OIDCProviderTypeGitHub] = ghProvider
+	//       config.Logger.Info("registered system GitHub OAuth provider")
+	//   }
+	//
+	// For tenant-specific OAuth configurations (Enterprise SSO):
+	// - Admins create OIDC provider configs via the API (stored in database)
+	// - The provider factory dynamically creates provider instances from DB config
+	// - Used for authenticated "link" operations and corporate SSO with allowed domains
+
+	// Create OIDC registration client for discovery and dynamic registration
+	oidcClient := oidc.NewRegistrationClient()
+
+	// Create OIDC provider factory
+	providerFactory := oidc.NewProviderFactory()
+
+	// Create OIDC service
+	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
+		OIDCProviderDB:     oidcProvidersDB,
+		OIDCLinkDB:         oidcLinksDB,
+		OIDCSessionDB:      oidcSessionsDB,
+		UserDB:             usersDB,
+		SystemProviders:    systemProviders,
+		RegistrationClient: oidcClient,
+		ProviderFactory:    providerFactory,
+		PublicURL:          config.PublicURL,
+		Logger:             config.Logger,
 	})
 
 	httpServer := http.NewServer(&http.Config{
@@ -123,20 +214,23 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		UserService:          authService,
 		RegistrationService:  authService,
 		PasswordResetService: authService,
+		OIDCService:          oidcService,
 		JWTService:           jwtService,
 		Environment:          config.Environment,
-		RefreshExpiration:    config.JWTExpiration, // Used for refresh token cookie max-age
 		CORSAllowedOrigins:   config.CORSAllowedOrigins,
 	})
 
 	// Create gRPC server
-	grpcServer := grpc.NewServer(config.GRPCAddress, authService)
+	grpcServer := grpc.NewServer(&grpc.Config{
+		Addr:        config.GRPCAddress,
+		AuthService: authService,
+	})
 
 	return &Server{
-		httpServer:    httpServer,
-		grpcServer:    grpcServer,
-		db:            db,
-		mailmanClient: mailmanClient,
+		httpServer:   httpServer,
+		grpcServer:   grpcServer,
+		db:           db,
+		emailService: emailService,
 	}, nil
 }
 
@@ -158,10 +252,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Stop gRPC server
 	s.grpcServer.GracefulStop()
 
-	// Close mailman client connection
-	if err := s.mailmanClient.Close(); err != nil {
-		fmt.Printf("Warning: failed to close mailman client: %v\n", err)
-	}
+	// Close email service connection
+	s.emailService.Close()
 
 	// Close database connection
 	s.db.Close()

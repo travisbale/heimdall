@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/tenant"
+	"github.com/travisbale/heimdall/identity"
 )
 
 // contextKey is a custom type for context keys to avoid collisions
@@ -46,26 +46,19 @@ func Middleware(validator validator) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Add claims and tenant ID to request context
+			// Parse user ID from claims
+			userID, err := uuid.Parse(claims.Subject)
+			if err != nil {
+				http.Error(w, `{"error":"invalid user ID in token"}`, http.StatusUnauthorized)
+				return
+			}
+
+			// Add claims and identity to request context
 			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
-			ctx = tenant.WithTenant(ctx, claims.TenantID)
+			ctx = identity.WithUser(ctx, userID, claims.TenantID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-// GetUser extracts the authenticated user's information from the request context
-func GetUser(r *http.Request) (tenantID, userID uuid.UUID, err error) {
-	claims, err := getClaimsFromContext(r.Context())
-	if err != nil {
-		return uuid.Nil, uuid.Nil, err
-	}
-
-	if userID, err = uuid.Parse(claims.Subject); err != nil {
-		return uuid.Nil, uuid.Nil, err
-	}
-
-	return claims.TenantID, userID, nil
 }
 
 // GetJWTClaims extracts the full JWT claims from the request context

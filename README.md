@@ -14,6 +14,8 @@ Authentication and authorization service written in Go. Handles user accounts, p
 - **Email Verification** - Registration flow with email verification via mailman
 - **Password Reset** - Secure token-based password reset via email
 - **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
+- **OAuth/OIDC Login** - Support for Google, Microsoft, GitHub, and custom OIDC providers
+- **Corporate SSO** - Enterprise SSO with auto-provisioning and domain restrictions
 - **Multi-tenancy** - Row-Level Security (RLS) for tenant isolation
 - **Dual APIs** - HTTP REST API and gRPC for service-to-service communication
 - **Type-safe Database** - sqlc-generated queries with PostgreSQL + pgx
@@ -72,6 +74,16 @@ make test
 ./bin/heimdall migrate version --database-url "postgres://..."
 ```
 
+### Database Cleanup
+
+```bash
+# Clean up expired tokens and old unverified accounts
+./bin/heimdall cleanup --database-url "postgres://..."
+
+# Customize unverified account age threshold (default: 7 days)
+./bin/heimdall cleanup --database-url "postgres://..." --unverified-user-age-days 30
+```
+
 ### Running the Service
 
 ```bash
@@ -116,6 +128,17 @@ docker run -p 8080:8080 -p 9090:9090 \
 **Password Reset:**
 - `POST /v1/forgot-password` - Request password reset (sends email)
 - `POST /v1/reset-password` - Reset password with token
+
+**OAuth/OIDC Authentication:**
+- `POST /v1/oauth/login` - Start individual OAuth login (Google, Microsoft, GitHub)
+- `POST /v1/oauth/sso` - Start corporate SSO login by email domain
+- `GET /v1/oauth/callback` - OAuth callback endpoint (handles both flows)
+
+**OIDC Provider Management:**
+- `POST /v1/oidc/providers` - Create OIDC provider with dynamic registration
+- `GET /v1/oidc/providers` - Get OIDC provider details
+- `PUT /v1/oidc/providers` - Update OIDC provider configuration
+- `DELETE /v1/oidc/providers` - Delete OIDC provider
 
 ### gRPC (Port 9090)
 
@@ -202,6 +225,7 @@ Environment variables:
 - `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
+- `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets)
 
 ## License
 

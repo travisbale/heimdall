@@ -27,13 +27,7 @@ func NewPasswordResetHandler(passwordResetService passwordResetService) *Passwor
 // ForgotPassword handles password reset initiation
 func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req sdk.ForgotPasswordRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
@@ -52,13 +46,7 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 // ResetPassword handles password reset completion
 func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req sdk.ResetPasswordRequest
-	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
