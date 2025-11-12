@@ -41,3 +41,11 @@ sql:
             go_type:
               import: "github.com/travisbale/heimdall/internal/auth"
               type: "TenantStatus"
+          - db_type: "oidc_provider_type"
+            go_type:
+              import: "github.com/travisbale/heimdall/sdk"
+              type: "OIDCProviderType"
+          - db_type: "oidc_registration_method"
+            go_type:
+              import: "github.com/travisbale/heimdall/internal/auth"
+              type: "OIDCRegistrationMethod"

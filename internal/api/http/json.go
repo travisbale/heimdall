@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 // respondJSON sends a JSON response with the given status code
@@ -45,4 +47,35 @@ func decodeJSON(r *http.Request, v any) error {
 	}
 
 	return nil
+}
+
+// validator is an interface for types that can validate themselves
+type validator interface {
+	Validate() error
+}
+
+// decodeAndValidateJSON decodes JSON from the request body and validates it.
+// Returns true if successful, false if an error was written to the response.
+func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator) bool {
+	if err := decodeJSON(r, req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		return false
+	}
+
+	if err := req.Validate(); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), err)
+		return false
+	}
+
+	return true
+}
+
+// parseUUID parses a UUID from a string
+// Returns uuid.Nil if the string is not a valid UUID
+func parseUUID(s string) uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
 }

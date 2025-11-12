@@ -13,6 +13,92 @@ import (
 	"github.com/travisbale/heimdall/internal/auth"
 )
 
+type OidcProviderType string
+
+const (
+	OidcProviderTypeGoogle    OidcProviderType = "google"
+	OidcProviderTypeMicrosoft OidcProviderType = "microsoft"
+	OidcProviderTypeGithub    OidcProviderType = "github"
+	OidcProviderTypeOkta      OidcProviderType = "okta"
+)
+
+func (e *OidcProviderType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OidcProviderType(s)
+	case string:
+		*e = OidcProviderType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OidcProviderType: %T", src)
+	}
+	return nil
+}
+
+type NullOidcProviderType struct {
+	OidcProviderType OidcProviderType `json:"oidc_provider_type"`
+	Valid            bool             `json:"valid"` // Valid is true if OidcProviderType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOidcProviderType) Scan(value interface{}) error {
+	if value == nil {
+		ns.OidcProviderType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OidcProviderType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOidcProviderType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OidcProviderType), nil
+}
+
+type OidcRegistrationMethod string
+
+const (
+	OidcRegistrationMethodManual  OidcRegistrationMethod = "manual"
+	OidcRegistrationMethodDynamic OidcRegistrationMethod = "dynamic"
+)
+
+func (e *OidcRegistrationMethod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OidcRegistrationMethod(s)
+	case string:
+		*e = OidcRegistrationMethod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OidcRegistrationMethod: %T", src)
+	}
+	return nil
+}
+
+type NullOidcRegistrationMethod struct {
+	OidcRegistrationMethod OidcRegistrationMethod `json:"oidc_registration_method"`
+	Valid                  bool                   `json:"valid"` // Valid is true if OidcRegistrationMethod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOidcRegistrationMethod) Scan(value interface{}) error {
+	if value == nil {
+		ns.OidcRegistrationMethod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OidcRegistrationMethod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOidcRegistrationMethod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OidcRegistrationMethod), nil
+}
+
 type UserStatus string
 
 const (
@@ -65,6 +151,52 @@ type LoginAttempt struct {
 	LockedUntil *time.Time `json:"locked_until"`
 	AttemptedAt time.Time  `json:"attempted_at"`
 	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type OidcLink struct {
+	ID               uuid.UUID  `json:"id"`
+	UserID           uuid.UUID  `json:"user_id"`
+	OidcProviderID   uuid.UUID  `json:"oidc_provider_id"`
+	ProviderUserID   string     `json:"provider_user_id"`
+	ProviderEmail    string     `json:"provider_email"`
+	ProviderMetadata []byte     `json:"provider_metadata"`
+	LinkedAt         time.Time  `json:"linked_at"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+}
+
+type OidcProvider struct {
+	ID                       uuid.UUID                   `json:"id"`
+	TenantID                 uuid.UUID                   `json:"tenant_id"`
+	ProviderName             string                      `json:"provider_name"`
+	IssuerUrl                string                      `json:"issuer_url"`
+	ClientID                 string                      `json:"client_id"`
+	ClientSecret             string                      `json:"client_secret"`
+	Scopes                   []string                    `json:"scopes"`
+	Enabled                  bool                        `json:"enabled"`
+	AllowedDomains           []string                    `json:"allowed_domains"`
+	AutoCreateUsers          bool                        `json:"auto_create_users"`
+	RequireEmailVerification bool                        `json:"require_email_verification"`
+	RegistrationAccessToken  *string                     `json:"registration_access_token"`
+	RegistrationClientUri    *string                     `json:"registration_client_uri"`
+	ClientIDIssuedAt         *time.Time                  `json:"client_id_issued_at"`
+	ClientSecretExpiresAt    *time.Time                  `json:"client_secret_expires_at"`
+	RegistrationMethod       auth.OIDCRegistrationMethod `json:"registration_method"`
+	CreatedAt                time.Time                   `json:"created_at"`
+	UpdatedAt                time.Time                   `json:"updated_at"`
+}
+
+type OidcSession struct {
+	ID             uuid.UUID            `json:"id"`
+	State          string               `json:"state"`
+	CodeVerifier   *string              `json:"code_verifier"`
+	OidcProviderID *uuid.UUID           `json:"oidc_provider_id"`
+	ProviderType   NullOidcProviderType `json:"provider_type"`
+	RedirectUri    *string              `json:"redirect_uri"`
+	TenantID       *uuid.UUID           `json:"tenant_id"`
+	UserID         *uuid.UUID           `json:"user_id"`
+	CreatedAt      time.Time            `json:"created_at"`
+	ExpiresAt      time.Time            `json:"expires_at"`
+	Operation      *string              `json:"operation"`
 }
 
 type PasswordResetToken struct {

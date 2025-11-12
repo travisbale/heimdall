@@ -47,6 +47,15 @@ var (
 	}
 
 	// JWTPrivateKeyFlag defines the path to the JWT private key
+	JWTIssuerFlag = &cli.StringFlag{
+		Name:        "jwt-issuer",
+		Usage:       "Name used to identify the principal that issues JWTs",
+		Value:       "heimdall",
+		EnvVars:     []string{"JWT_PRIVATE_KEY_PATH"},
+		Destination: &config.JWTIssuer,
+	}
+
+	// JWTPrivateKeyFlag defines the path to the JWT private key
 	JWTPrivateKeyFlag = &cli.StringFlag{
 		Name:        "jwt-private-key",
 		Aliases:     []string{"k"},
@@ -86,14 +95,14 @@ var (
 		Destination: &config.Environment,
 	}
 
-	// EmailLinkBaseURLFlag defines the base URL for email links
-	EmailLinkBaseURLFlag = &cli.StringFlag{
-		Name:        "email-link-base-url",
+	// PublicURLFlag defines the public-facing URL
+	PublicURLFlag = &cli.StringFlag{
+		Name:        "public-url",
 		Aliases:     []string{"b"},
-		Usage:       "Base URL for email verification and password reset links",
+		Usage:       "Public-facing URL for email links, OAuth callbacks, and external integrations",
 		Value:       "http://localhost:8080",
-		EnvVars:     []string{"EMAIL_LINK_BASE_URL"},
-		Destination: &config.EmailLinkBaseURL,
+		EnvVars:     []string{"PUBLIC_URL"},
+		Destination: &config.PublicURL,
 	}
 
 	// MailmanGRPCAddressFlag defines the mailman gRPC server address
@@ -112,5 +121,14 @@ var (
 		Usage:       "Comma-separated list of allowed CORS origins (e.g., http://localhost:5173,http://localhost:3000)",
 		EnvVars:     []string{"CORS_ALLOWED_ORIGINS"},
 		Destination: &config.CORSAllowedOrigins,
+	}
+
+	// EncryptionKeyFlag defines the encryption key for sensitive data
+	EncryptionKeyFlag = &cli.StringFlag{
+		Name:        "encryption-key",
+		Usage:       "AES-256 encryption key for sensitive data (32 bytes, hex-encoded). Use ENCRYPTION_KEY env var instead for security.",
+		Required:    true,
+		EnvVars:     []string{"ENCRYPTION_KEY"},
+		Destination: &config.EncryptionKey,
 	}
 )

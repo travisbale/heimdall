@@ -11,21 +11,21 @@ type logger interface {
 
 // EmailService is a development implementation that logs emails to console
 type EmailService struct {
-	baseURL string
-	logger  logger
+	publicURL string
+	logger    logger
 }
 
 // NewEmailService creates a new console email service
 func NewEmailService(baseURL string, logger logger) *EmailService {
 	return &EmailService{
-		baseURL: baseURL,
-		logger:  logger,
+		publicURL: baseURL,
+		logger:    logger,
 	}
 }
 
 // SendVerificationEmail logs the verification email to console
 func (s *EmailService) SendVerificationEmail(ctx context.Context, email, token string) error {
-	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", s.baseURL, token)
+	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", s.publicURL, token)
 
 	s.logger.Info("====== EMAIL VERIFICATION ======")
 	s.logger.Info("To:", "email", email)

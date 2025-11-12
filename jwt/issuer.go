@@ -19,14 +19,15 @@ type Claims struct {
 
 // Issuer handles JWT token generation
 type Issuer struct {
-	issuer     string
-	privateKey *rsa.PrivateKey
-	expiration time.Duration
+	issuer                 string
+	privateKey             *rsa.PrivateKey
+	accessTokenExpiration  time.Duration
+	refreshTokenExpiration time.Duration
 }
 
 // NewIssuer creates a new JWT issuer with the provided RSA private key
-func NewIssuer(issuer string, privateKeyPath string, expiration time.Duration) (*Issuer, error) {
-	privateKeyFile, err := os.ReadFile(privateKeyPath)
+func NewIssuer(config *Config) (*Issuer, error) {
+	privateKeyFile, err := os.ReadFile(config.PrivateKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
@@ -37,21 +38,26 @@ func NewIssuer(issuer string, privateKeyPath string, expiration time.Duration) (
 	}
 
 	return &Issuer{
-		issuer:     issuer,
-		privateKey: privateKey,
-		expiration: expiration,
+		issuer:                 config.Issuer,
+		privateKey:             privateKey,
+		accessTokenExpiration:  config.AccessTokenExpiration,
+		refreshTokenExpiration: config.RefreshTokenExpiration,
 	}, nil
 }
 
 func (i *Issuer) IssueAccessToken(userID, tenantID uuid.UUID, permissions []string) (string, error) {
-	// Access tokens should expire quickly
-	expiresAt := time.Now().Add(15 * time.Minute)
+	expiresAt := time.Now().Add(i.accessTokenExpiration)
 	return i.issueToken(userID, tenantID, expiresAt, permissions)
 }
 
 func (i *Issuer) IssueRefreshToken(userID, tenantID uuid.UUID) (string, error) {
-	expiresAt := time.Now().Add(i.expiration)
+	expiresAt := time.Now().Add(i.refreshTokenExpiration)
 	return i.issueToken(userID, tenantID, expiresAt, nil)
+}
+
+// GetRefreshTokenExpiration returns the refresh token expiration duration
+func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
+	return i.refreshTokenExpiration
 }
 
 // IssueToken generates a new JWT token for the user

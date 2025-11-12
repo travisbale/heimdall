@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -8,25 +9,42 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
+
+type oidcService interface {
+	StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error)
+	StartSSOLogin(ctx context.Context, domain string) (string, error)
+	StartOIDCLink(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) (string, error)
+	HandleOIDCCallback(ctx context.Context, state, code string) (*auth.User, *auth.OIDCLink, error)
+	UnlinkOIDCProvider(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) error
+	ListUserOIDCLinks(ctx context.Context, userID uuid.UUID) ([]*auth.OIDCLink, error)
+	// Admin operations
+	CreateOIDCProvider(ctx context.Context, provider *auth.OIDCProviderConfig, accessToken string) (*auth.OIDCProviderConfig, error)
+	GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*auth.OIDCProviderConfig, error)
+	ListOIDCProviders(ctx context.Context) ([]*auth.OIDCProviderConfig, error)
+	UpdateOIDCProvider(ctx context.Context, params *auth.UpdateOIDCProviderParams) (*auth.OIDCProviderConfig, error)
+	DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error
+}
 
 type Config struct {
 	Address              string
 	UserService          userService
 	RegistrationService  registrationService
 	PasswordResetService passwordResetService
+	OIDCService          oidcService
 	JWTService           jwtService
-	Environment          string        // "development", "staging", "production"
-	RefreshExpiration    time.Duration // Used for refresh token cookie max-age
-	CORSAllowedOrigins   []string      // Allowed origins for CORS (e.g., ["http://localhost:5173"])
+	Environment          string   // "development", "staging", "production"
+	CORSAllowedOrigins   []string // Allowed origins for CORS (e.g., ["http://localhost:5173"])
 }
 
 type jwtService interface {
 	IssueAccessToken(userID, tenantID uuid.UUID, scopes []string) (string, error)
 	IssueRefreshToken(userID, tenantID uuid.UUID) (string, error)
 	ValidateToken(token string) (*jwt.Claims, error)
+	GetRefreshTokenExpiration() time.Duration
 }
 
 type Server struct {
@@ -38,9 +56,11 @@ func NewServer(config *Config) *Server {
 	secureCookies := config.Environment == "production" || config.Environment == "staging"
 
 	// Create domain handlers
-	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.RefreshExpiration)
-	registrationHandler := NewRegistrationHandler(config.RegistrationService, config.UserService, config.JWTService, secureCookies, config.RefreshExpiration)
+	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies)
+	registrationHandler := NewRegistrationHandler(config.RegistrationService, config.UserService, config.JWTService, secureCookies)
 	passwordResetHandler := NewPasswordResetHandler(config.PasswordResetService)
+	oidcAuthHandler := NewOIDCAuthHandler(config.OIDCService, config.UserService, config.JWTService, secureCookies)
+	oidcProvidersHandler := NewOIDCProvidersHandler(config.OIDCService)
 
 	router := chi.NewRouter()
 
@@ -77,6 +97,28 @@ func NewServer(config *Config) *Server {
 	// Password reset endpoints (public)
 	router.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
 	router.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
+
+	// OAuth/SSO endpoints (public)
+	router.Post(sdk.RouteV1OAuthLogin, oidcAuthHandler.Login)      // Start individual OAuth login flow
+	router.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)     // Start corporate SSO login flow
+	router.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback) // Handle OAuth callback (public)
+
+	// Protected routes (require JWT authentication)
+	router.Group(func(protected chi.Router) {
+		protected.Use(jwt.Middleware(config.JWTService))
+
+		// OAuth/SSO endpoints (authenticated)
+		protected.Post(sdk.RouteV1OAuthLinks, oidcAuthHandler.LinkProvider)     // Start OAuth link flow
+		protected.Delete(sdk.RouteV1OAuthLink, oidcAuthHandler.UnlinkProvider)  // Unlink provider
+		protected.Get(sdk.RouteV1OAuthLinks, oidcAuthHandler.ListProviderLinks) // List linked providers
+
+		// OIDC provider management endpoints (authenticated)
+		protected.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)  // Create OIDC provider
+		protected.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)    // List OIDC providers
+		protected.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)       // Get OIDC provider by type
+		protected.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)    // Update OIDC provider
+		protected.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider) // Delete OIDC provider
+	})
 
 	return &Server{
 		&http.Server{
