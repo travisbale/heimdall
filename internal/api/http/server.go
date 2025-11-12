@@ -78,38 +78,48 @@ func NewServer(config *Config) *Server {
 		}))
 	}
 
-	// Health check endpoint (public, no auth required)
+	// Health check endpoint (public, no auth required, no rate limit)
 	router.Head(sdk.RouteHealth, HandleHealth)
 
-	// Registration endpoints (public)
-	router.Post(sdk.RouteV1Register, registrationHandler.Register)
-	router.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
-	router.Post(sdk.RouteV1ResendVerification, registrationHandler.ResendVerificationEmail)
+	// Moderate rate limit
+	router.Group(func(r chi.Router) {
+		r.Use(newRateLimitMiddleware(ModerateRateLimit))
 
-	// Authentication endpoints (public)
-	router.Post(sdk.RouteV1Login, authHandler.Login)
-	router.Post(sdk.RouteV1Logout, authHandler.Logout)
-	router.Post(sdk.RouteV1Refresh, authHandler.RefreshToken)
+		// Registration endpoints
+		r.Post(sdk.RouteV1Register, registrationHandler.Register)
+		r.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
+		r.Post(sdk.RouteV1ResendVerification, registrationHandler.ResendVerificationEmail)
+	})
 
-	// Password reset endpoints (public)
-	router.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
-	router.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
+	// Strict rate limit
+	router.Group(func(r chi.Router) {
+		r.Use(newRateLimitMiddleware(StrictRateLimit))
 
-	// OAuth/SSO endpoints (public)
-	router.Post(sdk.RouteV1OAuthLogin, oidcAuthHandler.Login)      // Start individual OAuth login flow
-	router.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)     // Start corporate SSO login flow
-	router.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback) // Handle OAuth callback (public)
+		// Authentication
+		r.Post(sdk.RouteV1Login, authHandler.Login)
+		r.Post(sdk.RouteV1Logout, authHandler.Logout)
+		r.Post(sdk.RouteV1Refresh, authHandler.RefreshToken)
+
+		// Password reset
+		r.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
+		r.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
+
+		// OAuth/SSO
+		r.Post(sdk.RouteV1OAuthLogin, oidcAuthHandler.Login)
+		r.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)
+		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
+	})
 
 	// Protected routes (require JWT authentication)
-	router.Group(func(protected chi.Router) {
-		protected.Use(jwt.Middleware(config.JWTService))
+	router.Group(func(r chi.Router) {
+		r.Use(jwt.Middleware(config.JWTService))
 
 		// OIDC provider management endpoints (authenticated)
-		protected.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)  // Create OIDC provider
-		protected.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)    // List OIDC providers
-		protected.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)       // Get OIDC provider by type
-		protected.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)    // Update OIDC provider
-		protected.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider) // Delete OIDC provider
+		r.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)  // Create OIDC provider
+		r.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)    // List OIDC providers
+		r.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)       // Get OIDC provider by type
+		r.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)    // Update OIDC provider
+		r.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider) // Delete OIDC provider
 	})
 
 	return &Server{
