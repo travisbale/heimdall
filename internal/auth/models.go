@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,6 +155,17 @@ type OIDCUserInfo struct {
 	Name          string
 	Picture       string
 	Metadata      map[string]any // Provider-specific claims
+}
+
+// Validate checks that required claims are present
+func (u *OIDCUserInfo) Validate() error {
+	if u.Sub == "" {
+		return fmt.Errorf("provider did not return required sub claim")
+	}
+	if u.Email == "" {
+		return fmt.Errorf("provider did not return required email claim")
+	}
+	return nil
 }
 
 // OIDCClaims represents the claims from an ID token

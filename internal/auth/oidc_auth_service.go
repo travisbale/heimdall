@@ -190,20 +190,20 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 
 	// Handle existing user login
 	if existingLink != nil {
-		return s.handleExistingSSOUser(ctx, existingLink, userInfo)
+		return s.handleExistingSSOUser(ctx, existingLink)
 	}
 
 	return s.autoProvisionSSOUser(ctx, providerConfig, oidcProvider, tokenResponse.IDToken, userInfo)
 }
 
 // handleExistingSSOUser processes login for users with existing SSO links
-func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
+func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
 	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
 		s.logger.Error("failed to update OIDC link last used", "error", err)
 	}
 
-	// Get the user account
-	user, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
+	// Get user by link's UserID to support email changes at provider
+	user, err := s.userDB.GetUser(ctx, link.UserID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user: %w", err)
 	}

@@ -143,14 +143,20 @@ func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*au
 		"updated_at":         claims.UpdatedAt,
 	}
 
-	return &auth.OIDCUserInfo{
+	result := &auth.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
 		Name:          claims.Name,
 		Picture:       claims.Picture,
 		Metadata:      metadata,
-	}, nil
+	}
+
+	if err := result.Validate(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // ValidateIDToken validates and parses an ID token

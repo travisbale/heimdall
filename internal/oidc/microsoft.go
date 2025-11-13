@@ -136,14 +136,20 @@ func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string)
 		return nil, fmt.Errorf("failed to parse user info claims: %w", err)
 	}
 
-	return &auth.OIDCUserInfo{
+	result := &auth.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
 		Name:          claims.Name,
 		Picture:       claims.Picture,
 		Metadata:      make(map[string]any),
-	}, nil
+	}
+
+	if err := result.Validate(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // ValidateIDToken validates and parses an ID token

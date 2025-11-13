@@ -111,14 +111,20 @@ func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (
 		return nil, fmt.Errorf("failed to parse user info metadata: %w", err)
 	}
 
-	return &auth.OIDCUserInfo{
+	result := &auth.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
 		Name:          claims.Name,
 		Picture:       claims.Picture,
 		Metadata:      allClaims,
-	}, nil
+	}
+
+	if err := result.Validate(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // ValidateIDToken validates ID token signature and expiration, returns claims

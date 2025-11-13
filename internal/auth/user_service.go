@@ -24,7 +24,7 @@ type userDB interface {
 
 type hasher interface {
 	HashPassword(password string) (string, error)
-	VerifyPassword(encodedHash string, password string) error
+	VerifyPassword(password string, encodedHash string) error
 }
 
 type oidcService interface {

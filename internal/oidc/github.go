@@ -106,14 +106,20 @@ func (g *GitHubProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 		"created_at":   user.CreatedAt,
 	}
 
-	return &auth.OIDCUserInfo{
+	result := &auth.OIDCUserInfo{
 		Sub:           fmt.Sprintf("%d", user.ID), // GitHub uses numeric IDs
 		Email:         email,
 		EmailVerified: emailVerified,
 		Name:          user.Name,
 		Picture:       user.AvatarURL,
 		Metadata:      metadata,
-	}, nil
+	}
+
+	if err := result.Validate(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // ValidateIDToken validates and parses an ID token
