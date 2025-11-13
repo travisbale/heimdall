@@ -33,8 +33,8 @@ type Config struct {
 	PasswordResetService passwordResetService
 	OIDCService          oidcService
 	JWTService           jwtService
-	Environment          string   // "development", "staging", "production"
-	CORSAllowedOrigins   []string // Allowed origins for CORS (e.g., ["http://localhost:5173"])
+	Environment          string
+	CORSAllowedOrigins   []string
 }
 
 type jwtService interface {
@@ -49,8 +49,8 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	// Determine if we should use secure cookies (HTTPS only)
-	secureCookies := config.Environment == "production" || config.Environment == "staging"
+	// Secure cookies required for production/staging to enforce HTTPS-only transmission
+	secureCookies := config.Environment != "development"
 
 	// Create domain handlers
 	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies)
@@ -66,7 +66,7 @@ func NewServer(config *Config) *Server {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.RequestID)
 
-	// CORS configuration (only if origins are specified)
+	// CORS enabled only when origins specified (browser-based clients require this)
 	if len(config.CORSAllowedOrigins) > 0 {
 		router.Use(cors.Handler(cors.Options{
 			AllowedOrigins:   config.CORSAllowedOrigins,
@@ -74,7 +74,7 @@ func NewServer(config *Config) *Server {
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 			ExposedHeaders:   []string{"Link"},
 			AllowCredentials: true,
-			MaxAge:           300, // Maximum value not ignored by any major browsers
+			MaxAge:           300, // Maximum value not ignored by major browsers
 		}))
 	}
 
@@ -84,52 +84,45 @@ func NewServer(config *Config) *Server {
 	// Supported OAuth provider types (public, no auth required, no rate limit)
 	router.Get(sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)
 
-	// Moderate rate limit
+	// Moderate rate limit for registration endpoints (less sensitive than authentication)
 	router.Group(func(r chi.Router) {
 		r.Use(newRateLimitMiddleware(ModerateRateLimit))
 
-		// Registration endpoints
 		r.Post(sdk.RouteV1Register, registrationHandler.Register)
 		r.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
 		r.Post(sdk.RouteV1ResendVerification, registrationHandler.ResendVerificationEmail)
 	})
 
-	// Strict rate limit
+	// Strict rate limit for authentication endpoints (prevent brute force attacks)
 	router.Group(func(r chi.Router) {
 		r.Use(newRateLimitMiddleware(StrictRateLimit))
 
-		// Authentication
 		r.Post(sdk.RouteV1Login, authHandler.Login)
 		r.Post(sdk.RouteV1Logout, authHandler.Logout)
 		r.Post(sdk.RouteV1Refresh, authHandler.RefreshToken)
-
-		// Password reset
 		r.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
 		r.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
-
-		// OAuth/SSO
 		r.Post(sdk.RouteV1OAuthLogin, oidcAuthHandler.Login)
 		r.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)
 		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
 	})
 
-	// Protected routes (require JWT authentication)
+	// Protected routes require JWT authentication and tenant context
 	router.Group(func(r chi.Router) {
 		r.Use(jwt.Middleware(config.JWTService))
 
-		// OIDC provider management endpoints (authenticated)
-		r.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)  // Create OIDC provider
-		r.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)    // List OIDC providers
-		r.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)       // Get OIDC provider by type
-		r.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)    // Update OIDC provider
-		r.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider) // Delete OIDC provider
+		r.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)
+		r.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)
+		r.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)
+		r.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)
+		r.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider)
 	})
 
 	return &Server{
 		&http.Server{
 			Addr:              config.Address,
 			Handler:           router,
-			ReadHeaderTimeout: 5 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second, // Prevents Slowloris attacks
 		},
 	}
 }

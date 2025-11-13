@@ -13,16 +13,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// GoogleProvider implements OIDC authentication for Google
+// GoogleProvider implements Google OIDC for individual OAuth login (not SSO)
 type GoogleProvider struct {
 	config   *oauth2.Config
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
 }
 
-// NewGoogleProvider creates a new Google OIDC provider
 func NewGoogleProvider(ctx context.Context, clientID, clientSecret, redirectURI string) (*GoogleProvider, error) {
-	// Use OIDC discovery to automatically configure endpoints
+	// Performs OIDC discovery to fetch Google's endpoints and public keys
 	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
@@ -32,7 +31,7 @@ func NewGoogleProvider(ctx context.Context, clientID, clientSecret, redirectURI 
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURI,
-		Endpoint:     provider.Endpoint(), // Auto-discovered from .well-known
+		Endpoint:     provider.Endpoint(), // Auto-discovered from .well-known/openid-configuration
 		Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
 	}
 
@@ -47,41 +46,35 @@ func NewGoogleProvider(ctx context.Context, clientID, clientSecret, redirectURI 
 	}, nil
 }
 
-// GetAuthorizationURL generates the OAuth authorization URL with PKCE
+// GetAuthorizationURL generates Google OAuth URL with PKCE and consent prompt
 func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
-	// Update redirect URI if provided (allows dynamic redirects)
 	if redirectURI != "" {
 		g.config.RedirectURL = redirectURI
 	}
 
-	// Update scopes if provided
 	if len(scopes) > 0 {
 		g.config.Scopes = scopes
 	}
 
-	// Generate PKCE code challenge
 	codeChallenge := generateCodeChallenge(codeVerifier)
 
-	// Build authorization URL with PKCE
 	authURL := g.config.AuthCodeURL(
 		state,
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("access_type", "offline"), // Request refresh token
-		oauth2.SetAuthURLParam("prompt", "consent"),      // Force consent screen
+		oauth2.SetAuthURLParam("prompt", "consent"),      // Force consent to get refresh token
 	)
 
 	return authURL, nil
 }
 
-// ExchangeCode exchanges an authorization code for tokens
+// ExchangeCode exchanges authorization code for tokens with PKCE verification
 func (g *GoogleProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
-	// Update redirect URI for token exchange (must match authorization)
 	if redirectURI != "" {
-		g.config.RedirectURL = redirectURI
+		g.config.RedirectURL = redirectURI // Must match redirect_uri from authorization request
 	}
 
-	// Exchange code for tokens with PKCE verifier
 	token, err := g.config.Exchange(
 		ctx,
 		code,
@@ -185,7 +178,7 @@ func (g *GoogleProvider) ValidateIDToken(ctx context.Context, idToken string) (*
 	}, nil
 }
 
-// generateCodeChallenge creates a PKCE code challenge from a verifier
+// generateCodeChallenge creates SHA256 hash of PKCE verifier for S256 challenge method
 func generateCodeChallenge(verifier string) string {
 	hash := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(hash[:])

@@ -20,7 +20,7 @@ type RegistrationHandler struct {
 	registrationService registrationService
 	userService         userService
 	jwtService          jwtService
-	secureCookies       bool // Use Secure flag on cookies (HTTPS only)
+	secureCookies       bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
@@ -42,6 +42,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.registrationService.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
+		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrDuplicateEmail):
 			respondError(w, http.StatusConflict, "Email address is already registered", err)
@@ -63,6 +64,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // ConfirmRegistration handles email verification and returns JWT tokens for auto-login
+// Verifies token pre-authentication, then issues tokens to log user in immediately
 func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
 	var req sdk.VerifyEmailRequest
 	if !decodeAndValidateJSON(w, r, &req) {
@@ -75,7 +77,7 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Issue tokens and respond with access token
+	// Auto-login after successful verification for better UX
 	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }
 
@@ -92,7 +94,7 @@ func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *
 		return
 	}
 
-	// Always return success to avoid user enumeration
+	// Always return success to prevent user enumeration attacks
 	respondJSON(w, http.StatusOK, sdk.ResendVerificationResponse{
 		Message: "If an unverified account exists with this email, a new verification email has been sent.",
 	})

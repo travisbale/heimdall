@@ -9,7 +9,7 @@ import (
 
 var migrateCmd = &cli.Command{
 	Name:  "migrate",
-	Usage: "Run database migrations",
+	Usage: "Manage database schema migrations",
 	Subcommands: []*cli.Command{
 		{
 			Name:  "up",
@@ -20,14 +20,14 @@ var migrateCmd = &cli.Command{
 		},
 		{
 			Name:  "down",
-			Usage: "Rollback the last migration",
+			Usage: "Rollback most recent migration (use with caution)",
 			Action: func(c *cli.Context) error {
 				return postgres.MigrateDown(config.DatabaseURL)
 			},
 		},
 		{
 			Name:  "version",
-			Usage: "Show current migration version",
+			Usage: "Show current migration version (dirty = failed migration)",
 			Action: func(c *cli.Context) error {
 				version, dirty, err := postgres.MigrateVersion(config.DatabaseURL)
 				if err != nil {

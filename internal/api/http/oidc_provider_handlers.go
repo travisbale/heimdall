@@ -9,8 +9,8 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// ListSupportedProviders returns the list of OAuth provider types supported by the system
-// This is a public endpoint (no authentication required) for login UI to discover available providers
+// ListSupportedProviders returns OAuth providers available for individual login (not SSO)
+// Public endpoint used by login UI to display "Login with Google" buttons
 func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
 	providers := []sdk.SupportedOIDCProviderType{
 		{
@@ -36,7 +36,7 @@ func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// OIDCProvidersHandler handles OIDC provider configuration requests
+// OIDCProvidersHandler handles tenant-specific OIDC provider CRUD operations for corporate SSO
 type OIDCProvidersHandler struct {
 	oidcService oidcService
 }
@@ -48,7 +48,8 @@ func NewOIDCProvidersHandler(oidcService oidcService) *OIDCProvidersHandler {
 	}
 }
 
-// CreateProvider creates a new OAuth provider configuration for the tenant
+// CreateProvider creates a new OAuth provider configuration for corporate SSO
+// Performs OIDC discovery and optionally dynamic client registration
 func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req sdk.CreateOIDCProviderRequest
 	if !decodeAndValidateJSON(w, r, &req) {
@@ -69,6 +70,7 @@ func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Req
 
 	result, err := h.oidcService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
 	if err != nil {
+		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrOIDCDiscoveryFailed):
 			respondError(w, http.StatusBadRequest, "Unable to discover OIDC provider. Check the issuer URL.", err)
@@ -202,7 +204,8 @@ func (h *OIDCProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// convertProviderToSDK converts a domain OAuthProvider to SDK format
+// convertProviderToSDK converts internal provider config to API response format
+// Excludes client secret from responses for security
 func convertProviderToSDK(provider *auth.OIDCProviderConfig) sdk.OIDCProvider {
 	return sdk.OIDCProvider{
 		ID:                       provider.ID,

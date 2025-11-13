@@ -45,11 +45,13 @@ func NewIssuer(config *Config) (*Issuer, error) {
 	}, nil
 }
 
+// IssueAccessToken creates short-lived token for API requests (typically 15 min)
 func (i *Issuer) IssueAccessToken(userID, tenantID uuid.UUID, permissions []string) (string, error) {
 	expiresAt := time.Now().Add(i.accessTokenExpiration)
 	return i.issueToken(userID, tenantID, expiresAt, permissions)
 }
 
+// IssueRefreshToken creates long-lived token for obtaining new access tokens (typically 24h)
 func (i *Issuer) IssueRefreshToken(userID, tenantID uuid.UUID) (string, error) {
 	expiresAt := time.Now().Add(i.refreshTokenExpiration)
 	return i.issueToken(userID, tenantID, expiresAt, nil)
@@ -60,7 +62,8 @@ func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
 	return i.refreshTokenExpiration
 }
 
-// IssueToken generates a new JWT token for the user
+// issueToken generates a new JWT token for the user
+// Uses RS256 (RSA asymmetric signing) so tokens can be verified without access to private key
 func (i *Issuer) issueToken(userID, tenantID uuid.UUID, expiresAt time.Time, permissions []string) (string, error) {
 	now := time.Now()
 	claims := &Claims{

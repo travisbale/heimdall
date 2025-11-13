@@ -24,6 +24,7 @@ var (
 )
 
 // WithUser adds both user ID and tenant ID to the context
+// Used by JWT middleware to propagate authenticated identity to handlers and database layer
 func WithUser(ctx context.Context, userID, tenantID uuid.UUID) context.Context {
 	ctx = context.WithValue(ctx, userIDContextKey, userID)
 	ctx = context.WithValue(ctx, tenantIDContextKey, tenantID)

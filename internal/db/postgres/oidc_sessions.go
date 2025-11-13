@@ -12,21 +12,19 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// OAuthSessionsDB handles OAuth session database operations
+// OIDCSessionsDB manages OAuth flow sessions (state, PKCE, provider tracking)
 type OIDCSessionsDB struct {
 	db *DB
 }
 
-// NewOIDCSessionsDB creates a new OAuthSessionsDB instance
 func NewOIDCSessionsDB(db *DB) *OIDCSessionsDB {
 	return &OIDCSessionsDB{db: db}
 }
 
-// CreateOIDCSession creates a new OAuth session
+// CreateOIDCSession creates temporary session for OAuth flow (CSRF protection via state)
 func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OIDCSession) (*auth.OIDCSession, error) {
 	var result *auth.OIDCSession
 
-	// OAuth sessions don't use tenant context (pre-authentication)
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		// Convert ProviderType pointer to NullOidcProviderType
 		var providerType sqlc.NullOidcProviderType
@@ -39,10 +37,10 @@ func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OI
 
 		dbSession, err := q.CreateOIDCSession(ctx, sqlc.CreateOIDCSessionParams{
 			State:          session.State,
-			CodeVerifier:   stringToPointer(session.CodeVerifier),
+			CodeVerifier:   session.CodeVerifier,
 			OidcProviderID: session.OIDCProviderID,
 			ProviderType:   providerType,
-			RedirectUri:    stringToPointer(session.RedirectURI),
+			RedirectUri:    session.RedirectURI,
 			TenantID:       session.TenantID,
 			ExpiresAt:      session.ExpiresAt,
 		})
@@ -57,7 +55,7 @@ func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OI
 	return result, err
 }
 
-// GetOIDCSessionByState retrieves an OAuth session by state parameter
+// GetOIDCSessionByState retrieves session by state parameter (validates CSRF token)
 func (o *OIDCSessionsDB) GetOIDCSessionByState(ctx context.Context, state string) (*auth.OIDCSession, error) {
 	var result *auth.OIDCSession
 
@@ -111,10 +109,10 @@ func convertOIDCSessionToDomain(dbSession sqlc.OidcSession) *auth.OIDCSession {
 	return &auth.OIDCSession{
 		ID:             dbSession.ID,
 		State:          dbSession.State,
-		CodeVerifier:   pointerToString(dbSession.CodeVerifier),
+		CodeVerifier:   dbSession.CodeVerifier,
 		OIDCProviderID: dbSession.OidcProviderID,
 		ProviderType:   providerType,
-		RedirectURI:    pointerToString(dbSession.RedirectUri),
+		RedirectURI:    dbSession.RedirectUri,
 		TenantID:       dbSession.TenantID,
 		CreatedAt:      dbSession.CreatedAt,
 		ExpiresAt:      dbSession.ExpiresAt,

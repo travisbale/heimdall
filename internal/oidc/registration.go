@@ -12,12 +12,11 @@ import (
 	"github.com/travisbale/heimdall/internal/auth"
 )
 
-// RegistrationClient implements the Client interface using standard HTTP
+// RegistrationClient handles OIDC discovery and RFC 7591 dynamic client registration
 type RegistrationClient struct {
 	httpClient *http.Client
 }
 
-// NewRegistrationClient creates a new OIDC client with a default HTTP client
 func NewRegistrationClient() *RegistrationClient {
 	return &RegistrationClient{
 		httpClient: &http.Client{
@@ -26,10 +25,8 @@ func NewRegistrationClient() *RegistrationClient {
 	}
 }
 
-// Discover performs OIDC discovery to fetch provider metadata
-// See: https://openid.net/specs/openid-connect-discovery-1_0.html
+// Discover performs OIDC discovery to fetch provider metadata from .well-known endpoint
 func (c *RegistrationClient) Discover(ctx context.Context, issuerURL string) (*auth.OIDCDiscoveryMetadata, error) {
-	// Ensure issuer URL doesn't have trailing slash
 	issuerURL = strings.TrimSuffix(issuerURL, "/")
 
 	// Construct discovery endpoint
@@ -60,8 +57,7 @@ func (c *RegistrationClient) Discover(ctx context.Context, issuerURL string) (*a
 		return nil, fmt.Errorf("%w: discovery document missing issuer", auth.ErrOIDCDiscoveryFailed)
 	}
 
-	// Validate issuer matches the URL used for discovery (prevents issuer confusion attacks)
-	// See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationResponse
+	// Validate issuer matches discovery URL to prevent issuer confusion attacks
 	if metadata.Issuer != issuerURL {
 		return nil, fmt.Errorf("%w: discovery document claims %q but was fetched from %q", auth.ErrOIDCIssuerMismatch, metadata.Issuer, issuerURL)
 	}
@@ -80,8 +76,7 @@ func (c *RegistrationClient) Discover(ctx context.Context, issuerURL string) (*a
 	return &metadata, nil
 }
 
-// oidcRegistrationRequest represents an RFC 7591 client registration request
-// See: https://datatracker.ietf.org/doc/html/rfc7591#section-2
+// oidcRegistrationRequest represents RFC 7591 dynamic client registration
 type oidcRegistrationRequest struct {
 	RedirectURIs            []string `json:"redirect_uris"`
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
@@ -91,17 +86,15 @@ type oidcRegistrationRequest struct {
 	Scope                   string   `json:"scope,omitempty"`
 }
 
-// Register registers a new OAuth client with the OIDC provider
-// See: https://datatracker.ietf.org/doc/html/rfc7591
+// Register dynamically registers a new OAuth client with the OIDC provider (RFC 7591)
 func (c *RegistrationClient) Register(ctx context.Context, registrationEndpoint, callbackURL, clientName, accessToken string, scopes []string) (*auth.OIDCRegistration, error) {
 	if registrationEndpoint == "" {
 		return nil, fmt.Errorf("%w: provider does not support dynamic client registration", auth.ErrOIDCRegistrationFailed)
 	}
 
-	// Build registration request
 	regReq := oidcRegistrationRequest{
 		RedirectURIs:            []string{callbackURL},
-		TokenEndpointAuthMethod: "client_secret_basic", // Most common method
+		TokenEndpointAuthMethod: "client_secret_basic", // Most widely supported auth method
 		GrantTypes:              []string{"authorization_code"},
 		ResponseTypes:           []string{"code"},
 		ClientName:              clientName,
@@ -120,12 +113,11 @@ func (c *RegistrationClient) Register(ctx context.Context, registrationEndpoint,
 
 	req.Header.Set("Content-Type", "application/json")
 
-	// Add Authorization header if access token provided (for authenticated registration)
+	// Some providers require bearer token for registration (e.g., Okta)
 	if accessToken != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	}
 
-	// Register the OAuth client with the OIDC provider
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to register client: %v", auth.ErrOIDCRegistrationFailed, err)
@@ -147,13 +139,12 @@ func (c *RegistrationClient) Register(ctx context.Context, registrationEndpoint,
 		return nil, fmt.Errorf("%w: registration is missing client_id", auth.ErrOIDCRegistrationFailed)
 	}
 
-	// We requested client_secret_basic auth, so we need a secret
+	// Client secret required for client_secret_basic auth method
 	if registration.ClientSecret == "" {
 		return nil, fmt.Errorf("%w: registration is missing client_secret", auth.ErrOIDCRegistrationFailed)
 	}
 
-	// RFC 7592: RegistrationAccessToken and RegistrationClientURI should come together
-	// These are used for client management (update/delete operations)
+	// RFC 7592: access token and URI must both be present or both absent
 	hasToken := registration.RegistrationAccessToken != ""
 	hasURI := registration.RegistrationClientURI != ""
 	if hasToken != hasURI {
@@ -163,12 +154,10 @@ func (c *RegistrationClient) Register(ctx context.Context, registrationEndpoint,
 	return &registration, nil
 }
 
-// Unregister deletes a dynamically registered client
-// See: https://datatracker.ietf.org/doc/html/rfc7592#section-2.3
+// Unregister deletes a dynamically registered client (RFC 7592)
 func (c *RegistrationClient) Unregister(ctx context.Context, registrationClientURI, registrationAccessToken string) error {
-	// Handle empty URI - nothing to clean up
 	if registrationClientURI == "" {
-		return nil
+		return nil // No client to unregister
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, registrationClientURI, nil)
@@ -187,9 +176,7 @@ func (c *RegistrationClient) Unregister(ctx context.Context, registrationClientU
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// 204 No Content is expected for successful deletion
-	// 404 Not Found is acceptable (client already deleted)
-	// 401 Unauthorized might indicate the registration_access_token expired
+	// Accept both 204 (success) and 404 (already deleted) as success
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unregister endpoint returned %d: %s", resp.StatusCode, string(bodyBytes))

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// respondJSON sends a JSON response with the given status code
+// respondJSON sends JSON response with given status code
 func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -18,9 +18,8 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 	}
 }
 
-// respondError sends a JSON error response
+// respondError logs error and returns sanitized message to client (prevents information leakage)
 func respondError(w http.ResponseWriter, status int, message string, err error) {
-	// Log the error but don't return it to the user
 	slog.Error(message, "error", err)
 
 	respondJSON(w, status, map[string]string{
@@ -28,7 +27,7 @@ func respondError(w http.ResponseWriter, status int, message string, err error) 
 	})
 }
 
-// decodeJSON decodes JSON from the request body
+// decodeJSON decodes JSON from request body, rejects unknown fields
 func decodeJSON(r *http.Request, v any) error {
 	if r.Body == nil {
 		return fmt.Errorf("request body is empty")
@@ -40,7 +39,7 @@ func decodeJSON(r *http.Request, v any) error {
 	}()
 
 	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
+	decoder.DisallowUnknownFields() // Catch typos in client requests
 
 	if err := decoder.Decode(v); err != nil {
 		return fmt.Errorf("failed to decode JSON: %w", err)
@@ -54,8 +53,7 @@ type validator interface {
 	Validate() error
 }
 
-// decodeAndValidateJSON decodes JSON from the request body and validates it.
-// Returns true if successful, false if an error was written to the response.
+// decodeAndValidateJSON decodes and validates JSON, returns false if error response was sent
 func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator) bool {
 	if err := decodeJSON(r, req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body", err)
@@ -70,8 +68,7 @@ func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator
 	return true
 }
 
-// parseUUID parses a UUID from a string
-// Returns uuid.Nil if the string is not a valid UUID
+// parseUUID parses UUID from string, returns uuid.Nil on invalid input
 func parseUUID(s string) uuid.UUID {
 	id, err := uuid.Parse(s)
 	if err != nil {

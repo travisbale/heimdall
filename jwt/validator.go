@@ -40,6 +40,7 @@ func NewValidator(publicKeyPath string) (*Validator, error) {
 }
 
 // ValidateToken validates a JWT token string and returns the claims
+// Checks signature, expiration, and presence of required tenant/user claims
 func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc)
@@ -50,7 +51,7 @@ func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	// Validate required claims
+	// Ensure multi-tenant context is present
 	if claims.Subject == "" || claims.TenantID == uuid.Nil {
 		return nil, ErrMissingClaims
 	}
@@ -59,7 +60,7 @@ func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 }
 
 func (v *Validator) keyFunc(token *jwt.Token) (any, error) {
-	// Verify the signing method
+	// Reject tokens signed with algorithms other than RSA
 	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 		return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 	}

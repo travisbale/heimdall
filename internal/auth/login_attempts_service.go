@@ -59,20 +59,19 @@ func (s *LoginAttemptsService) IsAccountLocked(ctx context.Context, email string
 
 // RecordFailedLogin records a failed login attempt and calculates the appropriate lockout expiry
 func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lastLoginAt *time.Time) error {
-	// Window start is the later of last successful login or 24 hours ago
+	// Count failures since last successful login (or past 24 hours if never logged in)
 	windowStart := time.Now().Add(-lockoutDuration4)
 	if lastLoginAt != nil && lastLoginAt.After(windowStart) {
 		windowStart = *lastLoginAt
 	}
 
-	// Count all failed attempts in the window
 	failedCount, err := s.db.GetRecentFailedAttempts(ctx, email, windowStart)
 	if err != nil {
 		return fmt.Errorf("failed to get recent attempts: %w", err)
 	}
 	failedCount = failedCount + 1 // Include the current attempt
 
-	// Only set locked_until if count matches a threshold
+	// Progressive lockout: longer delays after repeated failures
 	var lockedUntil *time.Time
 	switch failedCount {
 	case 5:

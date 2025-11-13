@@ -8,6 +8,8 @@ type Config struct {
 	Parallelism uint8
 }
 
+// Hasher provides Argon2id password hashing with configurable parameters
+// Default config uses OWASP recommendations (64MB memory, 2 iterations, 4 threads)
 type Hasher struct {
 	memory      uint32
 	iterations  uint32

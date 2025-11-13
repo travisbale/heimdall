@@ -13,6 +13,7 @@ type Config struct {
 	RefreshTokenExpiration time.Duration
 }
 
+// Service combines issuing and validating JWTs using asymmetric RSA keys
 type Service struct {
 	*Issuer
 	*Validator

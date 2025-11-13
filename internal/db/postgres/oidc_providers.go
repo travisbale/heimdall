@@ -13,13 +13,12 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
-// OAuthProvidersDB handles OAuth provider database operations with tenant isolation
+// OIDCProvidersDB manages tenant-specific OIDC provider configs with encrypted secrets
 type OIDCProvidersDB struct {
 	db     *DB
 	cipher *aes.Cipher
 }
 
-// NewOIDCProvidersDB creates a new OAuthProvidersDB instance
 func NewOIDCProvidersDB(db *DB, cipher *aes.Cipher) *OIDCProvidersDB {
 	return &OIDCProvidersDB{
 		db:     db,
@@ -27,18 +26,17 @@ func NewOIDCProvidersDB(db *DB, cipher *aes.Cipher) *OIDCProvidersDB {
 	}
 }
 
-// CreateOIDCProvider creates a new OAuth provider configuration
+// CreateOIDCProvider stores provider config with AES-256-GCM encrypted client secret
 func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth.OIDCProviderConfig) (*auth.OIDCProviderConfig, error) {
 	var result *auth.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		// Retrieve tenant ID from context
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get tenant from context: %w", err)
 		}
 
-		// Encrypt the client secret before storing
+		// Encrypt client secret at rest to protect OAuth credentials
 		encryptedSecret, err := o.cipher.Encrypt(provider.ClientSecret)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt client secret: %w", err)
@@ -72,7 +70,7 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth
 	return result, err
 }
 
-// GetOIDCProviderByID retrieves an OAuth provider by ID
+// GetOIDCProviderByID retrieves provider by ID with tenant isolation
 func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*auth.OIDCProviderConfig, error) {
 	var result *auth.OIDCProviderConfig
 

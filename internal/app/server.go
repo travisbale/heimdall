@@ -54,18 +54,17 @@ type Server struct {
 	httpServer   *http.Server
 	grpcServer   *grpc.Server
 	db           *postgres.DB
-	emailService interface{ Close() } // Interface for email service with Close method
+	emailService interface{ Close() }
 }
 
 // NewServer creates a new server instance with all dependencies
 func NewServer(ctx context.Context, config *Config) (*Server, error) {
-	// Connect to database
 	db, err := postgres.NewDB(ctx, config.DatabaseURL, config.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Run database migrations
+	// Run migrations on startup to ensure schema is current
 	if err := postgres.MigrateUp(config.DatabaseURL); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to run database migrations: %w", err)
@@ -101,7 +100,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create email service: %w", err)
 	}
 
-	// Create AES cipher for encrypting sensitive data
+	// AES cipher encrypts client secrets for OIDC providers stored in database
 	encryptionKeyBytes, err := hex.DecodeString(config.EncryptionKey)
 	if err != nil {
 		db.Close()
@@ -115,7 +114,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create encryption cipher: %w", err)
 	}
 
-	// Create database layer
+	// Repository layer wraps sqlc-generated code with domain logic
 	usersDB := postgres.NewUsersDB(db)
 	verificationTokensDB := postgres.NewVerificationTokensDB(db)
 	passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
@@ -139,9 +138,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Logger:               config.Logger,
 	})
 
-	// Initialize system-wide OIDC providers for public login flow
-	// These are configured via environment variables and used when there's no tenant context.
-	// After login, the system determines the tenant based on email domain or creates a new one.
+	// System-wide providers enable "Login with Google/GitHub" before user authentication
+	// Tenant-specific providers (stored in DB) are used for enterprise SSO
 	systemProviders := make(map[sdk.OIDCProviderType]auth.OIDCProvider)
 
 	// Example: Configure Google OAuth for public login
@@ -190,13 +188,10 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	// - The provider factory dynamically creates provider instances from DB config
 	// - Used for authenticated "link" operations and corporate SSO with allowed domains
 
-	// Create OIDC registration client for discovery and dynamic registration
+	// Registration client handles OIDC discovery and dynamic client registration
 	oidcClient := oidc.NewRegistrationClient()
-
-	// Create OIDC provider factory
 	providerFactory := oidc.NewProviderFactory()
 
-	// Create OIDC service
 	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
 		OIDCProviderDB:     oidcProvidersDB,
 		OIDCLinkDB:         oidcLinksDB,
@@ -236,14 +231,13 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 // Start begins listening for HTTP and gRPC requests
 func (s *Server) Start() error {
+	// Run gRPC in background, HTTP blocks main thread for simple shutdown handling
 	go func() {
-		// Start gRPC server in a goroutiner
 		if err := s.grpcServer.ListenAndServe(); err != nil {
 			fmt.Printf("%v\n", err)
 		}
 	}()
 
-	// Start HTTP server (blocking)
 	return s.httpServer.ListenAndServe()
 }
 

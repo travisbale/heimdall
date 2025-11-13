@@ -20,10 +20,10 @@ type validator interface {
 }
 
 // Middleware creates an HTTP middleware that validates JWT tokens
+// Extracts user ID and tenant ID from token and adds to request context for downstream handlers
 func Middleware(validator validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Extract token from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
@@ -39,21 +39,19 @@ func Middleware(validator validator) func(http.Handler) http.Handler {
 
 			tokenString := parts[1]
 
-			// Validate the token
 			claims, err := validator.ValidateToken(tokenString)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return
 			}
 
-			// Parse user ID from claims
 			userID, err := uuid.Parse(claims.Subject)
 			if err != nil {
 				http.Error(w, `{"error":"invalid user ID in token"}`, http.StatusUnauthorized)
 				return
 			}
 
-			// Add claims and identity to request context
+			// Add identity context for downstream RLS enforcement
 			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 			ctx = identity.WithUser(ctx, userID, claims.TenantID)
 			next.ServeHTTP(w, r.WithContext(ctx))

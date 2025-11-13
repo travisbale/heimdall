@@ -15,7 +15,7 @@ import (
 
 var startCmd = &cli.Command{
 	Name:  "start",
-	Usage: "Start the HTTP API and gRPC service",
+	Usage: "Start HTTP and gRPC servers with graceful shutdown",
 	Flags: []cli.Flag{
 		HTTPAddressFlag,
 		GRPCAddressFlag,
@@ -31,10 +31,8 @@ var startCmd = &cli.Command{
 		CORSAllowedOriginsFlag,
 	},
 	Action: func(c *cli.Context) error {
-		// Convert CLI config to app config
 		appConfig := config.ToAppConfig()
 
-		// Create server with our API handlers
 		server, err := app.NewServer(c.Context, appConfig)
 		if err != nil {
 			return err
@@ -43,18 +41,18 @@ var startCmd = &cli.Command{
 		httpAddr := config.HTTPAddress
 		grpcAddr := config.GRPCAddress
 
+		// Trap SIGINT/SIGTERM for graceful shutdown
 		ctx, cancel := signal.NotifyContext(c.Context, os.Interrupt, syscall.SIGTERM)
 		defer cancel()
 
 		group, ctx := errgroup.WithContext(ctx)
 
-		// Start servers
 		group.Go(func() error {
 			slog.Info("Listening for connections", "http_address", httpAddr, "grpc_address", grpcAddr)
 			return server.Start()
 		})
 
-		// Handle shutdown
+		// Wait for signal, then gracefully shutdown with 10s timeout
 		group.Go(func() error {
 			<-ctx.Done()
 			slog.Info("Shutting down gracefully")

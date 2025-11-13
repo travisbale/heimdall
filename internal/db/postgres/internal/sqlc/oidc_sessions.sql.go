@@ -28,10 +28,10 @@ INSERT INTO oidc_sessions (
 
 type CreateOIDCSessionParams struct {
 	State          string               `json:"state"`
-	CodeVerifier   *string              `json:"code_verifier"`
+	CodeVerifier   string               `json:"code_verifier"`
 	OidcProviderID *uuid.UUID           `json:"oidc_provider_id"`
 	ProviderType   NullOidcProviderType `json:"provider_type"`
-	RedirectUri    *string              `json:"redirect_uri"`
+	RedirectUri    string               `json:"redirect_uri"`
 	TenantID       *uuid.UUID           `json:"tenant_id"`
 	ExpiresAt      time.Time            `json:"expires_at"`
 }

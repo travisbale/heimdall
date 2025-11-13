@@ -9,6 +9,7 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
+// OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
 	oidcService   oidcService
 	userService   userService
@@ -25,14 +26,15 @@ func NewOIDCAuthHandler(oidcService oidcService, userService userService, jwtSer
 	}
 }
 
-// Login initiates an individual OAuth login flow
+// Login initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
+// Each user gets their own tenant; no OIDC links created
 func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req sdk.OIDCLoginRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	// Start individual OAuth login flow
+	// Start individual OAuth login flow using system-wide provider configuration
 	authURL, err := h.oidcService.StartOIDCLogin(r.Context(), req.ProviderType)
 	if err != nil {
 		switch {
@@ -49,17 +51,18 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// SSOLogin initiates a corporate SSO login flow
+// SSOLogin initiates a corporate SSO login flow for enterprise domains
+// Uses OIDC links to track users by provider's immutable sub claim (not email)
 func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	var req sdk.SSOLoginRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	// Extract domain from email (email is already validated)
+	// Extract domain from email to look up tenant's OIDC provider configuration
 	domain := extractDomainFromEmail(req.Email)
 
-	// Start corporate SSO login flow (auto-detects provider)
+	// Start corporate SSO login flow using tenant-specific provider
 	authURL, err := h.oidcService.StartSSOLogin(r.Context(), domain)
 	if err != nil {
 		switch {
@@ -76,7 +79,8 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Callback handles the OAuth callback after user authorization
+// Callback handles the OAuth callback after user authorization at the provider
+// Exchanges authorization code for tokens and creates or links user account
 func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// Parse callback parameters from OAuth provider redirect
 	state := r.URL.Query().Get("state")
@@ -84,7 +88,7 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	errorCode := r.URL.Query().Get("error")
 	errorDescription := r.URL.Query().Get("error_description")
 
-	// Check for OAuth errors from provider
+	// Handle authorization denial or provider errors
 	if errorCode != "" {
 		respondError(w, http.StatusBadRequest, errorDescription, fmt.Errorf("oauth error: %s", errorCode))
 		return
@@ -100,9 +104,10 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle OAuth callback
+	// Exchange code for tokens, fetch user info, and create/link account
 	user, _, err := h.oidcService.HandleOIDCCallback(r.Context(), state, code)
 	if err != nil {
+		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrOIDCSessionNotFound):
 			respondError(w, http.StatusBadRequest, "Invalid or expired OAuth session", err)
@@ -122,14 +127,14 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Issue JWT tokens
+	// Issue JWT tokens to complete login
 	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }
 
 // extractDomainFromEmail extracts the domain portion from an email address
-// Assumes the email is already validated (contains @ symbol)
+// Assumes email validation already happened, searches from end for performance
 func extractDomainFromEmail(email string) string {
-	// Find the @ symbol (searching from the end for efficiency)
+	// Find the @ symbol by searching backwards (more efficient for typical email formats)
 	atIndex := -1
 	for i := len(email) - 1; i >= 0; i-- {
 		if email[i] == '@' {

@@ -9,32 +9,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// GenericProvider is a generic OIDC provider implementation using coreos/go-oidc
-// It works with any OIDC-compliant provider (Okta, Auth0, Keycloak, etc.)
+// GenericProvider implements any OIDC-compliant provider using coreos/go-oidc library
 type GenericProvider struct {
 	provider     *oidc.Provider
 	verifier     *oidc.IDTokenVerifier
 	oauth2Config oauth2.Config
 }
 
-// NewGenericProvider creates a new generic OIDC provider
-// It performs OIDC discovery to get the provider's configuration
+// NewGenericProvider creates OIDC provider with automatic discovery and configuration
 func NewGenericProvider(ctx context.Context, issuerURL, clientID, clientSecret string, scopes []string) (*GenericProvider, error) {
-	// Perform OIDC discovery (coreos/go-oidc caches this)
+	// Performs OIDC discovery to fetch endpoints (coreos/go-oidc handles caching)
 	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover OIDC provider: %w", err)
 	}
 
-	// Create ID token verifier
 	verifier := provider.Verifier(&oidc.Config{
 		ClientID: clientID,
 	})
 
-	// Get OAuth2 endpoints from discovery
 	endpoint := provider.Endpoint()
 
-	// Create OAuth2 config (redirect URI set dynamically in GetAuthorizationURL)
+	// Redirect URI set dynamically per-request to support multi-tenant deployments
 	oauth2Config := oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -49,9 +45,8 @@ func NewGenericProvider(ctx context.Context, issuerURL, clientID, clientSecret s
 	}, nil
 }
 
-// GetAuthorizationURL generates the OAuth authorization URL with PKCE
+// GetAuthorizationURL generates OAuth authorization URL with PKCE for secure public clients
 func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
-	// Update redirect URI if different from config
 	config := p.oauth2Config
 	if redirectURI != "" {
 		config.RedirectURL = redirectURI
@@ -60,10 +55,9 @@ func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI s
 		config.Scopes = scopes
 	}
 
-	// Generate PKCE code challenge from verifier
+	// PKCE prevents authorization code interception attacks
 	codeChallenge := generateCodeChallenge(codeVerifier)
 
-	// Build authorization URL with PKCE
 	authURL := config.AuthCodeURL(
 		state,
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
@@ -73,15 +67,14 @@ func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI s
 	return authURL, nil
 }
 
-// ExchangeCode exchanges an authorization code for tokens
+// ExchangeCode exchanges authorization code for access and ID tokens using PKCE
 func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
-	// Update redirect URI if different from config
 	config := p.oauth2Config
 	if redirectURI != "" {
 		config.RedirectURL = redirectURI
 	}
 
-	// Exchange code for token (with PKCE verifier)
+	// PKCE verifier must match the challenge sent in authorization request
 	token, err := config.Exchange(
 		ctx,
 		code,
@@ -91,7 +84,7 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
 
-	// Extract ID token if present
+	// ID token contains user identity claims signed by provider
 	idToken := ""
 	if rawIDToken, ok := token.Extra("id_token").(string); ok {
 		idToken = rawIDToken
@@ -106,14 +99,12 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 	}, nil
 }
 
-// GetUserInfo retrieves user information from the provider
+// GetUserInfo retrieves user profile from provider's userinfo endpoint
 func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (*auth.OIDCUserInfo, error) {
-	// Create an OAuth2 token for the userinfo request
 	token := &oauth2.Token{
 		AccessToken: accessToken,
 	}
 
-	// Fetch userinfo from the provider's userinfo endpoint
 	userInfo, err := p.provider.UserInfo(ctx, oauth2.StaticTokenSource(token))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
@@ -132,7 +123,7 @@ func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (
 		return nil, fmt.Errorf("failed to parse user info claims: %w", err)
 	}
 
-	// Parse all claims into metadata
+	// Capture all claims for provider-specific attributes
 	var allClaims map[string]any
 	if err := userInfo.Claims(&allClaims); err != nil {
 		return nil, fmt.Errorf("failed to parse user info metadata: %w", err)
@@ -148,9 +139,9 @@ func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (
 	}, nil
 }
 
-// ValidateIDToken validates and parses an ID token
+// ValidateIDToken validates ID token signature and expiration, returns claims
 func (p *GenericProvider) ValidateIDToken(ctx context.Context, rawIDToken string) (*auth.OIDCClaims, error) {
-	// Verify the ID token
+	// Verifies signature using provider's public keys (from JWKS endpoint)
 	idToken, err := p.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify ID token: %w", err)

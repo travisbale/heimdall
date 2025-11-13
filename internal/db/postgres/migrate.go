@@ -12,7 +12,7 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// MigrateUp applies all pending migrations
+// MigrateUp applies all pending database schema migrations
 func MigrateUp(databaseURL string) error {
 	sourceDriver, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
@@ -30,7 +30,7 @@ func MigrateUp(databaseURL string) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		fmt.Println("No migrations to apply")
+		fmt.Println("No migrations to apply") // Already at latest version
 		return nil
 	}
 
@@ -38,7 +38,7 @@ func MigrateUp(databaseURL string) error {
 	return nil
 }
 
-// MigrateDown rolls back the last migration
+// MigrateDown rolls back the most recent migration (use with caution)
 func MigrateDown(databaseURL string) error {
 	sourceDriver, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
@@ -56,7 +56,7 @@ func MigrateDown(databaseURL string) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		fmt.Println("No migrations to rollback")
+		fmt.Println("No migrations to rollback") // Already at initial version
 		return nil
 	}
 

@@ -27,12 +27,12 @@ const (
 	TenantStatusInactive  TenantStatus = "inactive"
 )
 
-// OIDCRegistrationMethod represents how an OIDC provider was registered
+// OIDCRegistrationMethod tracks whether client credentials were entered manually or via RFC 7591
 type OIDCRegistrationMethod string
 
 const (
-	OIDCRegistrationMethodManual  OIDCRegistrationMethod = "manual"
-	OIDCRegistrationMethodDynamic OIDCRegistrationMethod = "dynamic"
+	OIDCRegistrationMethodManual  OIDCRegistrationMethod = "manual"  // Admin manually entered client ID/secret
+	OIDCRegistrationMethodDynamic OIDCRegistrationMethod = "dynamic" // Dynamically registered via RFC 7591
 )
 
 // User represents a user in the system
@@ -64,46 +64,38 @@ type Token struct {
 	CreatedAt time.Time
 }
 
-// OIDCProviderConfig represents an OIDC provider configuration
+// OIDCProviderConfig represents tenant-specific OIDC provider for corporate SSO
 type OIDCProviderConfig struct {
 	ID       uuid.UUID
 	TenantID uuid.UUID
 
-	// User-defined name for display (e.g., "Azure AD - Production", "Google Workspace")
-	ProviderName string
+	ProviderName string // User-defined display name (e.g., "Azure AD - Production")
+	IssuerURL    string // OIDC discovery URL (e.g., https://login.microsoftonline.com/tenant-id)
 
-	// OIDC issuer URL for discovery (e.g., https://accounts.google.com)
-	IssuerURL string
-
-	// OAuth client credentials (populated by dynamic registration)
 	ClientID     string
 	ClientSecret string
 
-	// Configuration
 	Scopes  []string
 	Enabled bool
 
-	// Enterprise SSO configuration
-	AllowedDomains           []string // Email domains allowed (e.g., ['acmecorp.com'])
-	AutoCreateUsers          bool     // Automatically create users on first SSO login
-	RequireEmailVerification bool     // Require email verification for auto-created users
+	// Domain-based SSO routing
+	AllowedDomains           []string // Email domains that trigger this provider (e.g., ['acmecorp.com'])
+	AutoCreateUsers          bool     // Auto-provision users on first SSO login
+	RequireEmailVerification bool     // Require provider to verify email
 
-	// Dynamic Client Registration (RFC 7591) - optional fields
-	RegistrationAccessToken string     // Token to manage the dynamic registration (empty = not set)
-	RegistrationClientURI   string     // Endpoint to update/delete the registration (empty = not set)
-	ClientIDIssuedAt        *time.Time // When credentials were issued
-	ClientSecretExpiresAt   *time.Time // When secret expires (provider-dependent)
+	// RFC 7591 dynamic registration metadata (empty for manual registration)
+	RegistrationAccessToken string
+	RegistrationClientURI   string
+	ClientIDIssuedAt        *time.Time
+	ClientSecretExpiresAt   *time.Time
 
-	// Registration method tracking
-	RegistrationMethod OIDCRegistrationMethod // How this provider was registered (manual or dynamic)
+	RegistrationMethod OIDCRegistrationMethod
 
-	// Metadata
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-// UpdateOIDCProviderParams represents the parameters for updating an OIDC provider
-// All fields are optional pointers to support partial updates
+// UpdateOIDCProviderParams supports partial updates using optional pointer fields
 type UpdateOIDCProviderParams struct {
 	ID                       uuid.UUID
 	ProviderName             *string
@@ -115,52 +107,50 @@ type UpdateOIDCProviderParams struct {
 	RequireEmailVerification *bool
 }
 
-// OIDCLink represents a link between a user and an OIDC provider
+// OIDCLink tracks SSO users by provider's immutable sub claim (not email)
 type OIDCLink struct {
 	ID               uuid.UUID
 	UserID           uuid.UUID
-	OIDCProviderID   uuid.UUID // Reference to oidc_providers table
-	ProviderUserID   string    // Provider's unique identifier (e.g., Google's 'sub' claim)
-	ProviderEmail    string
-	ProviderMetadata map[string]any // Store additional provider data (name, picture, etc.)
+	OIDCProviderID   uuid.UUID
+	ProviderUserID   string         // Provider's immutable 'sub' claim (allows email reassignment)
+	ProviderEmail    string         // Email at time of link (may change at provider)
+	ProviderMetadata map[string]any // Additional claims (name, picture, etc.)
 	LinkedAt         time.Time
 	LastUsedAt       *time.Time
 }
 
-// OIDCSession represents an OIDC flow session
+// OIDCSession tracks OAuth flow state for CSRF protection and PKCE
 type OIDCSession struct {
 	ID             uuid.UUID
-	State          string                // CSRF protection
-	CodeVerifier   string                // PKCE support
-	OIDCProviderID *uuid.UUID            // For corporate SSO (references oidc_providers table)
-	ProviderType   *sdk.OIDCProviderType // For system-wide providers (individual OAuth)
+	State          string                // Random state for CSRF protection
+	CodeVerifier   string                // PKCE code verifier (hashed in authorization URL)
+	OIDCProviderID *uuid.UUID            // Tenant-specific provider for SSO
+	ProviderType   *sdk.OIDCProviderType // System-wide provider for individual OAuth
 	RedirectURI    string
 	TenantID       *uuid.UUID
 	CreatedAt      time.Time
 	ExpiresAt      time.Time
 }
 
-// OIDCDiscoveryMetadata represents the OIDC discovery document
-// See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata
+// OIDCDiscoveryMetadata from provider's .well-known/openid-configuration endpoint
 type OIDCDiscoveryMetadata struct {
 	Issuer                string   `json:"issuer"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
 	TokenEndpoint         string   `json:"token_endpoint"`
 	UserInfoEndpoint      string   `json:"userinfo_endpoint"`
 	JWKSUri               string   `json:"jwks_uri"`
-	RegistrationEndpoint  string   `json:"registration_endpoint"` // RFC 7591
+	RegistrationEndpoint  string   `json:"registration_endpoint"` // RFC 7591 dynamic registration
 	ScopesSupported       []string `json:"scopes_supported,omitempty"`
 }
 
-// OIDCRegistration represents an RFC 7591 dynamically registered client
-// See: https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.1
+// OIDCRegistration represents RFC 7591 dynamic client registration response
 type OIDCRegistration struct {
 	ClientID                string   `json:"client_id"`
 	ClientSecret            string   `json:"client_secret,omitempty"`
-	ClientIDIssuedAt        *int64   `json:"client_id_issued_at,omitempty"`       // Unix timestamp
-	ClientSecretExpiresAt   *int64   `json:"client_secret_expires_at,omitempty"`  // Unix timestamp, 0 = never expires
-	RegistrationAccessToken string   `json:"registration_access_token,omitempty"` // Token to manage registration
-	RegistrationClientURI   string   `json:"registration_client_uri,omitempty"`   // Endpoint to manage this client
+	ClientIDIssuedAt        *int64   `json:"client_id_issued_at,omitempty"`
+	ClientSecretExpiresAt   *int64   `json:"client_secret_expires_at,omitempty"`  // 0 = never expires
+	RegistrationAccessToken string   `json:"registration_access_token,omitempty"` // For RFC 7592 management
+	RegistrationClientURI   string   `json:"registration_client_uri,omitempty"`   // Update/delete endpoint
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method,omitempty"`
 	GrantTypes              []string `json:"grant_types,omitempty"`
 	ResponseTypes           []string `json:"response_types,omitempty"`
@@ -191,14 +181,14 @@ type OIDCTokenResponse struct {
 	TokenType    string
 }
 
-// OIDCUserInfo represents user information from an OIDC provider
+// OIDCUserInfo from provider's userinfo endpoint (standard + custom claims)
 type OIDCUserInfo struct {
-	Sub           string // Provider's unique user ID
+	Sub           string // Provider's unique user ID (immutable)
 	Email         string
 	EmailVerified bool
 	Name          string
 	Picture       string
-	Metadata      map[string]any // Additional provider-specific fields
+	Metadata      map[string]any // Provider-specific claims
 }
 
 // OIDCClaims represents the claims from an ID token

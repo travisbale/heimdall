@@ -60,7 +60,7 @@ type UserServiceConfig struct {
 	Logger               logger
 }
 
-// UserService handles authentication business logic
+// UserService handles user registration, login, email verification, and password management
 type UserService struct {
 	userDB               userDB
 	hasher               hasher
@@ -72,7 +72,6 @@ type UserService struct {
 	logger               logger
 }
 
-// NewUserService creates a new authentication service
 func NewUserService(config *UserServiceConfig) *UserService {
 	return &UserService{
 		userDB:               config.UserDB,
@@ -86,16 +85,15 @@ func NewUserService(config *UserServiceConfig) *UserService {
 	}
 }
 
-// Register creates a new user account with email verification
+// Register creates new user with email verification, rejects SSO-enforced domains
 func (s *UserService) Register(ctx context.Context, email, password string) (*User, error) {
-	// Check if email domain is configured for SSO
+	// Prevent password registration for domains configured with SSO
 	domain := extractEmailDomain(email)
 	providers, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
 		s.logger.Error("failed to check SSO providers for domain", "domain", domain, "error", err)
-		// Don't fail registration on lookup error - continue with password registration
+		// Continue with registration on lookup error (don't block legitimate users)
 	} else if len(providers) > 0 {
-		// Domain has SSO configured - reject password registration
 		return nil, ErrSSORequired
 	}
 

@@ -74,64 +74,55 @@ func (d *DB) Pool() *pgxpool.Pool {
 }
 
 // WithTransaction executes a function within a database transaction.
-// Use this for operations that don't require tenant scoping
+// Use for pre-authentication operations (registration, email verification) where tenant context is unavailable
 func (d *DB) WithTransaction(ctx context.Context, fn func(*sqlc.Queries) error) error {
-	// Begin transaction
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	// Rollback is safe to call even if the transaction is later committed
+	// Deferred rollback is safe even if transaction commits successfully
 	defer func() {
 		if err2 := tx.Rollback(ctx); err2 != nil {
 			slog.Error("failed to rollback transaction", "error", err2)
 		}
 	}()
 
-	// Execute function
 	queries := sqlc.New(tx)
 	if err := fn(queries); err != nil {
 		return err
 	}
 
-	// Commit transaction
 	return tx.Commit(ctx)
 }
 
 // WithTenantContext executes a function within a tenant-scoped transaction.
-// This sets the app.current_tenant_id session variable which is used by
-// Row Level Security (RLS) policies to automatically filter queries.
+// Sets app.current_tenant_id for Row Level Security policies to enforce automatic tenant isolation
 func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error) error {
-	// Extract tenant ID from context
 	tenantID, err := identity.GetTenant(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get tenant from context: %w", err)
 	}
 
-	// Begin transaction
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	// Rollback is safe to call even if the transaction is later committed
 	defer func() {
 		if err2 := tx.Rollback(ctx); err2 != nil {
 			slog.Error("failed to rollback transaction", "error", err2)
 		}
 	}()
 
-	// Set tenant context for RLS
+	// SET LOCAL ensures tenant isolation lasts only for this transaction
 	_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant_id = $1", tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to set tenant context: %w", err)
 	}
 
-	// Execute function with tenant-scoped queries
 	queries := sqlc.New(tx)
 	if err := fn(queries); err != nil {
 		return err
 	}
 
-	// Commit transaction
 	return tx.Commit(ctx)
 }

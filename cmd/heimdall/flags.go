@@ -6,17 +6,23 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Common flags that can be reused across commands
+// CLI flags shared across commands
 var (
-	// DebugFlag enables debug logging (global flag)
 	DebugFlag = &cli.BoolFlag{
 		Name:        "debug",
-		Usage:       "Enable debug logging",
+		Usage:       "Enable debug-level logging",
 		EnvVars:     []string{"DEBUG"},
 		Destination: &config.Debug,
 	}
 
-	// DatabaseURLFlag defines the PostgreSQL connection URL (global flag)
+	LogFormatFlag = &cli.StringFlag{
+		Name:        "log-format",
+		Usage:       "Log format: text (human-readable) or json (log aggregation)",
+		Value:       "text",
+		EnvVars:     []string{"LOG_FORMAT"},
+		Destination: &config.LogFormat,
+	}
+
 	DatabaseURLFlag = &cli.StringFlag{
 		Name:        "database-url",
 		Aliases:     []string{"u"},

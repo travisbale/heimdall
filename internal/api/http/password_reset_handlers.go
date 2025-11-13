@@ -37,7 +37,7 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Always return success to prevent user enumeration
+	// Always return success to prevent user enumeration attacks
 	respondJSON(w, http.StatusOK, sdk.ForgotPasswordResponse{
 		Message: "If an account exists with this email, a password reset link has been sent.",
 	})

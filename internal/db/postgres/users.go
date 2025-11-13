@@ -23,12 +23,10 @@ func NewUsersDB(db *DB) *UsersDB {
 }
 
 // CreateUser creates a new user
-// For registration: user.TenantID should be set and we don't use tenant context
-// For admin user creation: tenant is extracted from context
+// Uses WithTransaction (not WithTenantContext) because registration happens pre-authentication
 func (u *UsersDB) CreateUser(ctx context.Context, user *auth.User) (*auth.User, error) {
 	var result *auth.User
 
-	// Use WithTransaction for registration (no tenant context needed)
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.CreateUser(ctx, sqlc.CreateUserParams{
 			TenantID:     user.TenantID,
@@ -37,7 +35,7 @@ func (u *UsersDB) CreateUser(ctx context.Context, user *auth.User) (*auth.User, 
 			Status:       user.Status,
 		})
 		if err != nil {
-			// Check for unique constraint violation (duplicate email)
+			// Convert PostgreSQL unique constraint violation to domain error
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				return auth.ErrDuplicateEmail
@@ -73,13 +71,10 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*auth.User, error)
 }
 
 // GetUserByEmail retrieves a user by email without tenant isolation
-// This is used during login where we don't have tenant context (pre-authentication)
+// Pre-authentication operation: emails are globally unique for password users, but may duplicate for SSO users
 func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*auth.User, error) {
 	var result *auth.User
 
-	// Note: We don't have tenant context during login (pre-authentication)
-	// Emails without OIDC links are globally unique, so we can find password and individual OAuth users
-	// For SSO users with links, email may not be unique but they authenticate via OIDC link
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUserByEmail(ctx, email)
 		if err != nil {
@@ -135,12 +130,10 @@ func (u *UsersDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 }
 
 // UpdateUserStatus updates a user's status without tenant isolation and returns the updated user
-// This is used during email verification where we don't have tenant context
+// Email verification tokens contain user ID, so tenant context is unnecessary for this operation
 func (u *UsersDB) UpdateUserStatus(ctx context.Context, id uuid.UUID, status auth.UserStatus) (*auth.User, error) {
 	var result *auth.User
 
-	// Note: We don't have tenant context during verification
-	// The userID is sufficient to identify the user uniquely.
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.UpdateUserStatus(ctx, sqlc.UpdateUserStatusParams{
 			ID:     id,
@@ -158,10 +151,8 @@ func (u *UsersDB) UpdateUserStatus(ctx context.Context, id uuid.UUID, status aut
 }
 
 // UpdatePassword updates a user's password without tenant isolation
-// This is used during password reset where we don't have tenant context
+// Password reset tokens contain user ID, so tenant context is unnecessary
 func (u *UsersDB) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
-	// Note: We don't have tenant context during password reset
-	// The userID is sufficient to identify the user uniquely.
 	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.UpdateUserPassword(ctx, sqlc.UpdateUserPasswordParams{
 			ID:           id,
@@ -181,7 +172,7 @@ func (u *UsersDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 // DeleteOldUnverifiedUsers deletes unverified users older than the specified number of days
-// Note: Does not use tenant context since this is a cleanup operation across all tenants
+// Cross-tenant cleanup operation runs via scheduled job, not user request
 func (u *UsersDB) DeleteOldUnverifiedUsers(ctx context.Context, days int32) error {
 	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteOldUnverifiedUsers(ctx, days); err != nil {

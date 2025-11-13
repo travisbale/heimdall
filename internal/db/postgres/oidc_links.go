@@ -13,21 +13,19 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
-// OIDCLinksDB handles OIDC link database operations
+// OIDCLinksDB manages user-to-provider links for SSO (tracks by provider's sub claim)
 type OIDCLinksDB struct {
 	db *DB
 }
 
-// NewOIDCLinksDB creates a new OIDCLinksDB instance
 func NewOIDCLinksDB(db *DB) *OIDCLinksDB {
 	return &OIDCLinksDB{db: db}
 }
 
-// CreateOIDCLink creates a new OIDC link between a user and provider
+// CreateOIDCLink creates link between user and provider (tracks by immutable sub claim)
 func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (*auth.OIDCLink, error) {
 	var result *auth.OIDCLink
 
-	// OIDC links don't use tenant context since they link users to external providers
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		metadataJSON, err := json.Marshal(link.ProviderMetadata)
 		if err != nil {
@@ -42,7 +40,7 @@ func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (
 			ProviderMetadata: metadataJSON,
 		})
 		if err != nil {
-			// Check for unique constraint violations
+			// Convert unique constraint violations to domain errors
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				if pgErr.ConstraintName == "oidc_links_user_id_oidc_provider_id_key" {
@@ -62,7 +60,7 @@ func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (
 	return result, err
 }
 
-// GetOIDCLinkByProvider retrieves an OIDC link by provider ID and provider user ID
+// GetOIDCLinkByProvider retrieves link by provider's sub claim (allows email reassignment)
 func (o *OIDCLinksDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid.UUID, providerUserID string) (*auth.OIDCLink, error) {
 	var result *auth.OIDCLink
 

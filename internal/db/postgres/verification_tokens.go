@@ -12,19 +12,16 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
-// VerificationTokensDB handles database operations for verification tokens
+// VerificationTokensDB manages email verification tokens (pre-authentication operation)
 type VerificationTokensDB struct {
 	db *DB
 }
 
-// NewVerificationTokensDB creates a new verification tokens repository
 func NewVerificationTokensDB(db *DB) *VerificationTokensDB {
 	return &VerificationTokensDB{db: db}
 }
 
-// CreateToken creates a new verification token for a user
-// If a token already exists, it will be replaced
-// Note: Does not use tenant context since verification tokens are accessed without tenant scope
+// CreateToken creates or replaces verification token (user_id is PK, enforces one token per user)
 func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.Token, error) {
 	var result *auth.Token
 
@@ -50,8 +47,7 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 	return result, err
 }
 
-// GetToken retrieves a verification token by its token string
-// Note: Does not use tenant context since verification tokens are accessed without tenant scope
+// GetToken retrieves token by token string (pre-authentication, no tenant context)
 func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*auth.Token, error) {
 	var result *auth.Token
 
@@ -76,8 +72,7 @@ func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*aut
 	return result, err
 }
 
-// DeleteToken deletes a verification token for a user
-// Note: Does not use tenant context since verification tokens are accessed without tenant scope
+// DeleteToken removes verification token after successful email confirmation
 func (r *VerificationTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteVerificationToken(ctx, userID); err != nil {
@@ -87,8 +82,7 @@ func (r *VerificationTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID
 	})
 }
 
-// DeleteExpiredTokens deletes all expired verification tokens
-// Note: Does not use tenant context since verification tokens are accessed without tenant scope
+// DeleteExpiredTokens cleans up expired tokens (should be called periodically via cleanup job)
 func (r *VerificationTokensDB) DeleteExpiredTokens(ctx context.Context) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteExpiredVerificationTokens(ctx); err != nil {

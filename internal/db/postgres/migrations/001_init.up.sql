@@ -189,14 +189,14 @@ CREATE TABLE oidc_sessions (
     state TEXT NOT NULL UNIQUE,
 
     -- PKCE support (Proof Key for Code Exchange)
-    code_verifier TEXT,
+    code_verifier TEXT NOT NULL,
 
     -- Flow metadata
     -- For corporate SSO: oidc_provider_id references oidc_providers table
     -- For individual OAuth: oidc_provider_id is NULL, use system provider based on provider_type
     oidc_provider_id UUID REFERENCES oidc_providers(id) ON DELETE CASCADE,
     provider_type oidc_provider_type, -- Only for system-wide providers (individual OAuth)
-    redirect_uri TEXT,
+    redirect_uri TEXT NOT NULL,
     tenant_id UUID,
 
     -- Timestamps

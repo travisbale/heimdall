@@ -12,18 +12,16 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
-// PasswordResetTokensDB handles database operations for password reset tokens
+// PasswordResetTokensDB manages password reset tokens (pre-authentication operation)
 type PasswordResetTokensDB struct {
 	db *DB
 }
 
-// NewPasswordResetTokensDB creates a new password reset tokens repository
 func NewPasswordResetTokensDB(db *DB) *PasswordResetTokensDB {
 	return &PasswordResetTokensDB{db: db}
 }
 
-// CreateToken creates a new password reset token for a user or replaces an existing one
-// Note: Does not use tenant context since password reset tokens are accessed without tenant scope
+// CreateToken creates or replaces reset token (user_id is PK, enforces one token per user)
 func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.Token, error) {
 	var result *auth.Token
 
@@ -49,8 +47,7 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 	return result, err
 }
 
-// GetToken retrieves a password reset token by its token string
-// Note: Does not use tenant context since password reset tokens are accessed without tenant scope
+// GetToken retrieves token by token string (pre-authentication, no tenant context)
 func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*auth.Token, error) {
 	var result *auth.Token
 
@@ -75,8 +72,7 @@ func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*au
 	return result, err
 }
 
-// DeleteToken deletes a password reset token for a user
-// Note: Does not use tenant context since password reset tokens are accessed without tenant scope
+// DeleteToken removes reset token after successful password change
 func (r *PasswordResetTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeletePasswordResetToken(ctx, userID); err != nil {
@@ -86,8 +82,7 @@ func (r *PasswordResetTokensDB) DeleteToken(ctx context.Context, userID uuid.UUI
 	})
 }
 
-// DeleteExpiredTokens deletes all expired password reset tokens
-// Note: Does not use tenant context since password reset tokens are accessed without tenant scope
+// DeleteExpiredTokens cleans up expired tokens (should be called periodically via cleanup job)
 func (r *PasswordResetTokensDB) DeleteExpiredTokens(ctx context.Context) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteExpiredPasswordResetTokens(ctx); err != nil {

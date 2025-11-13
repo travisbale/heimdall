@@ -2,6 +2,7 @@ package auth
 
 import "errors"
 
+// Authentication errors
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrUserNotFound = errors.New("user not found")
 var ErrAccountIsInactive = errors.New("user account is not active")
@@ -11,7 +12,7 @@ var ErrAccountLocked = errors.New("account is temporarily locked due to too many
 var ErrVerificationTokenNotFound = errors.New("verification token not found or expired")
 var ErrPasswordResetTokenNotFound = errors.New("password reset token not found or expired")
 
-// OIDC errors
+// OIDC flow errors
 var ErrOIDCLinkNotFound = errors.New("oidc link not found")
 var ErrOIDCLinkAlreadyExists = errors.New("user already has this provider linked")
 var ErrOIDCProviderAccountAlreadyLinked = errors.New("this provider account is already linked to another user")
@@ -19,12 +20,12 @@ var ErrOIDCSessionNotFound = errors.New("oidc session not found or expired")
 var ErrOIDCProviderNotFound = errors.New("oidc provider not found")
 var ErrInvalidOIDCState = errors.New("invalid oidc state parameter")
 
-// OIDC provider configuration errors
+// OIDC discovery and registration errors
 var ErrOIDCDiscoveryFailed = errors.New("failed to discover OIDC provider")
 var ErrOIDCIssuerMismatch = errors.New("OIDC issuer mismatch")
 var ErrOIDCRegistrationFailed = errors.New("dynamic client registration failed")
 
-// SSO errors
+// Corporate SSO errors
 var ErrSSONotConfigured = errors.New("SSO is not configured for this domain")
 var ErrOIDCProviderNotConfigured = errors.New("OAuth provider is not configured")
 var ErrSSORequired = errors.New("this email domain requires SSO login")

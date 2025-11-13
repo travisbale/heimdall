@@ -26,7 +26,7 @@ type userService interface {
 type AuthHandler struct {
 	userService   userService
 	jwtService    jwtService
-	secureCookies bool // Use Secure flag on cookies (HTTPS only)
+	secureCookies bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
 }
 
 // NewAuthHandler creates a new AuthHandler
@@ -47,6 +47,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.Login(r.Context(), req.Email, req.Password, extractIPAddress(r))
 	if err != nil {
+		// Map domain errors to HTTP status codes using switch for better readability
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			respondError(w, http.StatusUnauthorized, "Authentication failed", err)

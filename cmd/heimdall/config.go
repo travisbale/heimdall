@@ -8,44 +8,35 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Config holds all configuration for the application
+// Config holds all CLI configuration, populated from flags and environment variables
 type Config struct {
-	// Debug
-	Debug bool
+	Debug     bool
+	LogFormat string
 
-	// Database
 	DatabaseURL string
 
-	// Server addresses
 	HTTPAddress string
 	GRPCAddress string
 
-	// JWT configuration
 	JWTIssuer         string
 	JWTPrivateKeyPath string
 	JWTPublicKeyPath  string
 	JWTExpiration     time.Duration
 
-	// Public URL
 	PublicURL string
 
-	// Email configuration
 	MailmanGRPCAddress string
 
-	// Environment
-	Environment string
+	Environment string // "development", "staging", "production"
 
-	// Encryption
-	EncryptionKey string
+	EncryptionKey string // AES-256 key for encrypting OIDC client secrets
 
-	// CORS (cli.StringSlice since it needs special handling)
-	CORSAllowedOrigins cli.StringSlice
+	CORSAllowedOrigins cli.StringSlice // Browser origins allowed to make requests
 }
 
-// config is the global configuration populated by CLI flags
 var config = &Config{}
 
-// ToAppConfig converts the CLI config to an app.Config
+// ToAppConfig converts CLI config to internal app config
 func (c *Config) ToAppConfig() *app.Config {
 	return &app.Config{
 		DatabaseURL:        c.DatabaseURL,

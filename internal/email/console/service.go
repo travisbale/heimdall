@@ -9,13 +9,12 @@ type logger interface {
 	Info(msg string, args ...any)
 }
 
-// EmailService is a development implementation that logs emails to console
+// EmailService logs emails to console for development (replace with SMTP for production)
 type EmailService struct {
 	publicURL string
 	logger    logger
 }
 
-// NewEmailService creates a new console email service
 func NewEmailService(baseURL string, logger logger) *EmailService {
 	return &EmailService{
 		publicURL: baseURL,
@@ -23,7 +22,7 @@ func NewEmailService(baseURL string, logger logger) *EmailService {
 	}
 }
 
-// SendVerificationEmail logs the verification email to console
+// SendVerificationEmail logs verification email to console instead of sending
 func (s *EmailService) SendVerificationEmail(ctx context.Context, email, token string) error {
 	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", s.publicURL, token)
 
