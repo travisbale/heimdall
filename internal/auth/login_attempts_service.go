@@ -9,13 +9,11 @@ import (
 )
 
 const (
-	// Lockout durations for progressive account lockout
 	lockoutDuration1 = 5 * time.Minute  // 5 failed attempts
 	lockoutDuration2 = 15 * time.Minute // 10 failed attempts
 	lockoutDuration3 = 1 * time.Hour    // 15 failed attempts
 	lockoutDuration4 = 24 * time.Hour   // 20 failed attempts
 
-	// Login attempts retention period
 	loginAttemptsRetentionPeriod = 7 * 24 * time.Hour // 7 days
 )
 
@@ -90,32 +88,18 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 		lockedUntil = nil // Not a threshold - no lockout
 	}
 
-	// Record the failed attempt
-	err = s.db.RecordAttempt(ctx, email, userID, ipAddress, lockedUntil)
-	if err != nil {
-		return fmt.Errorf("failed to record login attempt: %w", err)
-	}
-
-	// Log if account was just locked (hit an exact threshold)
-	if lockedUntil != nil {
-		s.logger.Info("account locked due to failed login attempts",
-			"email", email,
-			"failed_count", failedCount,
-			"locked_until", lockedUntil)
-	}
-
-	return nil
+	return s.db.RecordAttempt(ctx, email, userID, ipAddress, lockedUntil)
 }
 
 // RecordSuccessfulLogin performs cleanup of old login attempts
 func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string) error {
-	// Delete login attempts older than the retention period
 	cutoffTime := time.Now().Add(-loginAttemptsRetentionPeriod)
 
+	// Delete login attempts older than the retention period
 	err := s.db.DeleteOldLoginAttempts(ctx, cutoffTime)
 	if err != nil {
-		// Log error but don't fail the login
 		s.logger.Error("failed to cleanup old login attempts", "error", err)
 	}
+
 	return nil
 }

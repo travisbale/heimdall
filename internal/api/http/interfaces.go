@@ -15,9 +15,8 @@ type userService interface {
 	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
 	GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error)
 
-	Register(ctx context.Context, email, password string) (*auth.User, error)
-	ConfirmRegistration(ctx context.Context, token string) (*auth.User, error)
-	ResendVerificationEmail(ctx context.Context, email string) error
+	Register(ctx context.Context, email string) (*auth.User, error)
+	ConfirmRegistration(ctx context.Context, token string, password string) (*auth.User, error)
 
 	InitiatePasswordReset(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error

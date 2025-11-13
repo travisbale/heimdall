@@ -5,14 +5,13 @@ const (
 	RouteHealth = "/healthz"
 
 	// Authentication endpoints
-	RouteV1Login              = "/v1/login"
-	RouteV1Logout             = "/v1/logout"
-	RouteV1Refresh            = "/v1/refresh"
-	RouteV1Register           = "/v1/register"
-	RouteV1VerifyEmail        = "/v1/verify-email"
-	RouteV1ResendVerification = "/v1/resend-verification"
-	RouteV1ForgotPassword     = "/v1/forgot-password"
-	RouteV1ResetPassword      = "/v1/reset-password"
+	RouteV1Login          = "/v1/login"
+	RouteV1Logout         = "/v1/logout"
+	RouteV1Refresh        = "/v1/refresh"
+	RouteV1Register       = "/v1/register"
+	RouteV1VerifyEmail    = "/v1/verify-email"
+	RouteV1ForgotPassword = "/v1/forgot-password"
+	RouteV1ResetPassword  = "/v1/reset-password"
 
 	// OAuth/SSO endpoints
 	RouteV1OAuthLogin    = "/v1/oauth/login" // Individual OAuth (Google, GitHub, etc.)

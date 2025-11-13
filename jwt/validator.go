@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	// ErrInvalidToken is returned when the token is invalid
-	ErrInvalidToken = errors.New("invalid token")
-	// ErrMissingClaims is returned when expected claims are missing
+	ErrInvalidToken  = errors.New("invalid token")
 	ErrMissingClaims = errors.New("missing required claims")
 )
 
@@ -43,11 +41,9 @@ func NewValidator(publicKeyPath string) (*Validator, error) {
 // Checks signature, expiration, and presence of required tenant/user claims
 func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc)
-	if err != nil {
+	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
-	}
-	if !token.Valid {
+	} else if !token.Valid {
 		return nil, ErrInvalidToken
 	}
 

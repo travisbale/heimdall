@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 const createOIDCSession = `-- name: CreateOIDCSession :one
@@ -27,13 +28,13 @@ INSERT INTO oidc_sessions (
 `
 
 type CreateOIDCSessionParams struct {
-	State          string               `json:"state"`
-	CodeVerifier   string               `json:"code_verifier"`
-	OidcProviderID *uuid.UUID           `json:"oidc_provider_id"`
-	ProviderType   NullOidcProviderType `json:"provider_type"`
-	RedirectUri    string               `json:"redirect_uri"`
-	TenantID       *uuid.UUID           `json:"tenant_id"`
-	ExpiresAt      time.Time            `json:"expires_at"`
+	State          string                `json:"state"`
+	CodeVerifier   string                `json:"code_verifier"`
+	OidcProviderID *uuid.UUID            `json:"oidc_provider_id"`
+	ProviderType   *sdk.OIDCProviderType `json:"provider_type"`
+	RedirectUri    string                `json:"redirect_uri"`
+	TenantID       *uuid.UUID            `json:"tenant_id"`
+	ExpiresAt      time.Time             `json:"expires_at"`
 }
 
 func (q *Queries) CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) (OidcSession, error) {

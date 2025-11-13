@@ -25,6 +25,14 @@ CREATE INDEX idx_users_tenant_id ON users(tenant_id);
 -- Create index on status for filtering users by status
 CREATE INDEX idx_users_status ON users(status);
 
+-- Partial unique index: only one active user per email
+-- This allows:
+-- - Only one active account per email at any time (current employee)
+-- - Multiple inactive accounts with same email (historical records of past employees)
+-- - Email reassignment when employees leave and new ones join
+CREATE UNIQUE INDEX idx_users_email_unique_active ON users(email)
+WHERE status = 'active';
+
 -- Create verification_tokens table
 CREATE TABLE verification_tokens (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -99,7 +107,7 @@ CREATE TABLE oidc_providers (
 
     -- OAuth client credentials (populated by dynamic registration)
     client_id TEXT NOT NULL,
-    client_secret TEXT NOT NULL, -- TODO: Encrypt at rest in production
+    client_secret TEXT NOT NULL,
 
     -- Configuration
     scopes TEXT[] DEFAULT ARRAY['openid', 'email', 'profile'],
@@ -165,14 +173,6 @@ CREATE TABLE oidc_links (
     -- A provider user ID can only be linked to one user per provider config (prevent account takeover)
     UNIQUE(oidc_provider_id, provider_user_id)
 );
-
--- Partial unique index: emails without OIDC links must be globally unique
--- This allows:
--- - Password-based users: globally unique email (no OIDC link)
--- - Individual OAuth users: globally unique email (no OIDC link)
--- - SSO users: email can be reassigned across tenants (has OIDC link)
-CREATE UNIQUE INDEX idx_users_email_unique_without_link ON users(email)
-WHERE NOT EXISTS (SELECT 1 FROM oidc_links WHERE oidc_links.user_id = users.id);
 
 -- Index for looking up user by provider credentials
 CREATE INDEX idx_oidc_links_provider_lookup ON oidc_links(oidc_provider_id, provider_user_id);

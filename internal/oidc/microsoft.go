@@ -57,15 +57,10 @@ func NewMicrosoftProvider(ctx context.Context, clientID, clientSecret, redirectU
 }
 
 // GetAuthorizationURL generates the OAuth authorization URL with PKCE
-func (m *MicrosoftProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
+func (m *MicrosoftProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	// Update redirect URI if provided
 	if redirectURI != "" {
 		m.config.RedirectURL = redirectURI
-	}
-
-	// Update scopes if provided
-	if len(scopes) > 0 {
-		m.config.Scopes = scopes
 	}
 
 	// Generate PKCE code challenge

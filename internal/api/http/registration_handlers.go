@@ -24,14 +24,14 @@ func NewRegistrationHandler(userService userService, jwtService jwtService, secu
 	}
 }
 
-// Register handles user registration
+// Register handles user registration (email only, password set during verification)
 func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req sdk.RegisterRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	user, err := h.userService.Register(r.Context(), req.Email, req.Password)
+	user, err := h.userService.Register(r.Context(), req.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrDuplicateEmail):
@@ -53,39 +53,28 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ConfirmRegistration handles email verification and returns JWT tokens for auto-login
-// Verifies token pre-authentication, then issues tokens to log user in immediately
+// ConfirmRegistration handles email verification, sets password, and returns JWT tokens for auto-login
 func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
 	var req sdk.VerifyEmailRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	user, err := h.userService.ConfirmRegistration(r.Context(), req.Token)
+	user, err := h.userService.ConfirmRegistration(r.Context(), req.Token, req.Password)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
+		switch {
+		case errors.Is(err, auth.ErrVerificationTokenNotFound):
+			respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
+
+		case errors.Is(err, auth.ErrAccountAlreadyVerified):
+			respondError(w, http.StatusBadRequest, "Account has already been verified", err)
+
+		default:
+			respondError(w, http.StatusInternalServerError, "Failed to verify email", err)
+		}
 		return
 	}
 
 	// Auto-login after successful verification for better UX
 	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
-}
-
-// ResendVerificationEmail handles resending the verification email
-func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
-	var req sdk.ResendVerificationRequest
-	if !decodeAndValidateJSON(w, r, &req) {
-		return
-	}
-
-	err := h.userService.ResendVerificationEmail(r.Context(), req.Email)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to resend verification email", err)
-		return
-	}
-
-	// Always return success to prevent user enumeration attacks
-	respondJSON(w, http.StatusOK, sdk.ResendVerificationResponse{
-		Message: "If an unverified account exists with this email, a new verification email has been sent.",
-	})
 }

@@ -27,7 +27,6 @@ func NewAuthHandler(authService authService) *AuthHandler {
 
 // CreateUser implements the gRPC CreateUser endpoint
 func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
-	// Validate request
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
 	}
@@ -35,13 +34,11 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 		return nil, fmt.Errorf("tenant_id is required")
 	}
 
-	// Parse tenant ID
 	tenantID, err := uuid.Parse(req.TenantId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant_id: %w", err)
 	}
 
-	// Create user
 	user, tempPassword, err := h.authService.CreateUser(ctx, tenantID, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)

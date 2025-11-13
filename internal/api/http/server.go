@@ -39,7 +39,7 @@ func NewServer(config *Config) *Server {
 	// Create domain handlers
 	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.TrustedProxyMode, config.Logger)
 	registrationHandler := NewRegistrationHandler(config.UserService, config.JWTService, secureCookies)
-	passwordResetHandler := NewPasswordResetHandler(config.UserService)
+	passwordResetHandler := NewPasswordResetHandler(config.UserService, config.Logger)
 	oidcAuthHandler := NewOIDCAuthHandler(config.OIDCService, config.UserService, config.JWTService, secureCookies)
 	oidcProvidersHandler := NewOIDCProvidersHandler(config.OIDCService)
 
@@ -62,7 +62,7 @@ func NewServer(config *Config) *Server {
 		}))
 	}
 
-	// Health check endpoint (public, no auth required, no rate limit)
+	// Health check endpoint (nginx internal, no auth required, no rate limit)
 	router.Head(sdk.RouteHealth, HandleHealth)
 
 	// Supported OAuth provider types (public, no auth required, no rate limit)
@@ -74,7 +74,6 @@ func NewServer(config *Config) *Server {
 
 		r.Post(sdk.RouteV1Register, registrationHandler.Register)
 		r.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
-		r.Post(sdk.RouteV1ResendVerification, registrationHandler.ResendVerificationEmail)
 	})
 
 	// Strict rate limit for authentication endpoints (prevent brute force attacks)

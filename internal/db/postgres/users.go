@@ -91,18 +91,19 @@ func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*auth.User,
 	return result, err
 }
 
-// UpdateUser updates a user with tenant isolation
-func (u *UsersDB) UpdateUser(ctx context.Context, id uuid.UUID, email string, status auth.UserStatus) (*auth.User, error) {
+// UpdateUser performs a flexible partial update without tenant isolation
+// Used for pre-authentication operations (email verification, password reset)
+func (u *UsersDB) UpdateUser(ctx context.Context, params *auth.UpdateUserParams) (*auth.User, error) {
 	var result *auth.User
 
-	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.UpdateUser(ctx, sqlc.UpdateUserParams{
-			ID:     id,
-			Email:  email,
-			Status: status,
+			ID:           params.ID,
+			PasswordHash: params.PasswordHash,
+			Status:       params.Status,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to update user: %w", err)
 		}
 
 		result, err = convertUserToDomain(dbUser)
@@ -110,57 +111,12 @@ func (u *UsersDB) UpdateUser(ctx context.Context, id uuid.UUID, email string, st
 	})
 
 	return result, err
-}
-
-// UpdateUserPassword updates a user's password with tenant isolation
-func (u *UsersDB) UpdateUserPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
-	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		return q.UpdateUserPassword(ctx, sqlc.UpdateUserPasswordParams{
-			ID:           id,
-			PasswordHash: passwordHash,
-		})
-	})
 }
 
 // UpdateLastLogin updates a user's last login timestamp with tenant isolation
 func (u *UsersDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		return q.UpdateLastLogin(ctx, id)
-	})
-}
-
-// UpdateUserStatus updates a user's status without tenant isolation and returns the updated user
-// Email verification tokens contain user ID, so tenant context is unnecessary for this operation
-func (u *UsersDB) UpdateUserStatus(ctx context.Context, id uuid.UUID, status auth.UserStatus) (*auth.User, error) {
-	var result *auth.User
-
-	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		dbUser, err := q.UpdateUserStatus(ctx, sqlc.UpdateUserStatusParams{
-			ID:     id,
-			Status: status,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update user status: %w", err)
-		}
-
-		result, err = convertUserToDomain(dbUser)
-		return err
-	})
-
-	return result, err
-}
-
-// UpdatePassword updates a user's password without tenant isolation
-// Password reset tokens contain user ID, so tenant context is unnecessary
-func (u *UsersDB) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
-	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		if err := q.UpdateUserPassword(ctx, sqlc.UpdateUserPasswordParams{
-			ID:           id,
-			PasswordHash: passwordHash,
-		}); err != nil {
-			return fmt.Errorf("failed to update password: %w", err)
-		}
-		return nil
 	})
 }
 

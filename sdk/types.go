@@ -129,21 +129,15 @@ type CreateUserResponse struct {
 }
 
 // RegisterRequest represents the registration request body
+// Password is set during email verification, not during initial registration
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email string `json:"email"`
 }
 
 // Validate validates the registration request
 func (r *RegisterRequest) Validate() error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
-	}
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
-	}
-	if len(r.Password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
 	}
 	return nil
 }
@@ -156,8 +150,10 @@ type RegisterResponse struct {
 }
 
 // VerifyEmailRequest represents the email verification request body
+// User proves email ownership and sets their password
 type VerifyEmailRequest struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
+	Password string `json:"password"`
 }
 
 // Validate validates the verify email request
@@ -165,25 +161,13 @@ func (r *VerifyEmailRequest) Validate() error {
 	if r.Token == "" {
 		return fmt.Errorf("token is required")
 	}
-	return nil
-}
-
-// ResendVerificationRequest represents the resend verification email request body
-type ResendVerificationRequest struct {
-	Email string `json:"email"`
-}
-
-// Validate validates the resend verification request
-func (r *ResendVerificationRequest) Validate() error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if len(r.Password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
 	}
 	return nil
-}
-
-// ResendVerificationResponse represents the response from resending verification email
-type ResendVerificationResponse struct {
-	Message string `json:"message"`
 }
 
 // ForgotPasswordRequest represents the forgot password request body

@@ -24,36 +24,24 @@ func NewGenericProvider(ctx context.Context, issuerURL, clientID, clientSecret s
 		return nil, fmt.Errorf("failed to discover OIDC provider: %w", err)
 	}
 
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: clientID,
-	})
-
-	endpoint := provider.Endpoint()
-
-	// Redirect URI set dynamically per-request to support multi-tenant deployments
-	oauth2Config := oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Endpoint:     endpoint,
-		Scopes:       scopes,
-	}
-
 	return &GenericProvider{
-		provider:     provider,
-		verifier:     verifier,
-		oauth2Config: oauth2Config,
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{
+			ClientID: clientID,
+		}),
+		oauth2Config: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     provider.Endpoint(),
+			Scopes:       scopes,
+		},
 	}, nil
 }
 
 // GetAuthorizationURL generates OAuth authorization URL with PKCE for secure public clients
-func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
+func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	config := p.oauth2Config
-	if redirectURI != "" {
-		config.RedirectURL = redirectURI
-	}
-	if len(scopes) > 0 {
-		config.Scopes = scopes
-	}
+	config.RedirectURL = redirectURI
 
 	// PKCE prevents authorization code interception attacks
 	codeChallenge := generateCodeChallenge(codeVerifier)
@@ -69,23 +57,17 @@ func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI s
 
 // ExchangeCode exchanges authorization code for access and ID tokens using PKCE
 func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
-	config := p.oauth2Config
-	if redirectURI != "" {
-		config.RedirectURL = redirectURI
-	}
+	p.oauth2Config.RedirectURL = redirectURI
 
 	// PKCE verifier must match the challenge sent in authorization request
-	token, err := config.Exchange(
-		ctx,
-		code,
-		oauth2.SetAuthURLParam("code_verifier", codeVerifier),
-	)
+	authCodeOpt := oauth2.SetAuthURLParam("code_verifier", codeVerifier)
+	token, err := p.oauth2Config.Exchange(ctx, code, authCodeOpt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
 
 	// ID token contains user identity claims signed by provider
-	idToken := ""
+	var idToken string
 	if rawIDToken, ok := token.Extra("id_token").(string); ok {
 		idToken = rawIDToken
 	}

@@ -9,7 +9,6 @@ import (
 )
 
 // Cipher provides AES-256-GCM encryption for sensitive data (OIDC client secrets)
-// GCM mode provides both encryption and authentication to detect tampering
 type Cipher struct {
 	gcm cipher.AEAD
 }
@@ -35,8 +34,8 @@ func NewCipher(key []byte) (*Cipher, error) {
 }
 
 // Encrypt encrypts plaintext using AES-256-GCM and returns a base64-encoded string
-// Nonce is prepended to ciphertext for decryption; must be unique per encryption
 func (c *Cipher) Encrypt(plaintext string) (string, error) {
+	// Nonce is prepended to ciphertext for decryption; must be unique per encryption
 	nonce := make([]byte, c.gcm.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return "", fmt.Errorf("failed to generate nonce: %w", err)
@@ -49,13 +48,13 @@ func (c *Cipher) Encrypt(plaintext string) (string, error) {
 }
 
 // Decrypt decrypts a base64-encoded ciphertext using AES-256-GCM
-// Extracts nonce from ciphertext and verifies authentication tag before returning plaintext
 func (c *Cipher) Decrypt(ciphertext string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
 
+	// Extracts nonce from ciphertext and verifies authentication tag before returning plaintext
 	nonceSize := c.gcm.NonceSize()
 	if len(data) < nonceSize {
 		return "", fmt.Errorf("ciphertext too short")

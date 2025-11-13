@@ -112,7 +112,6 @@ var (
 		Destination: &config.TrustedProxyMode,
 	}
 
-	// CORSAllowedOriginsFlag defines allowed CORS origins
 	CORSAllowedOriginsFlag = &cli.StringSliceFlag{
 		Name:        "cors-allowed-origins",
 		Usage:       "Comma-separated list of allowed CORS origins (e.g., http://localhost:5173,http://localhost:3000)",
@@ -120,7 +119,6 @@ var (
 		Destination: &config.CORSAllowedOrigins,
 	}
 
-	// EncryptionKeyFlag defines the encryption key for sensitive data
 	EncryptionKeyFlag = &cli.StringFlag{
 		Name:        "encryption-key",
 		Usage:       "AES-256 encryption key for sensitive data (32 bytes, hex-encoded). Use ENCRYPTION_KEY env var instead for security.",

@@ -49,9 +49,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, auth.ErrEmailNotVerified):
 			respondError(w, http.StatusForbidden, "Please verify your email address before logging in", err)
 
-		case errors.Is(err, auth.ErrAccountIsInactive):
-			respondError(w, http.StatusForbidden, "Your account is not active", err)
-
 		case errors.Is(err, auth.ErrAccountLocked):
 			respondError(w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
 
@@ -152,6 +149,6 @@ func stripPort(addr string) string {
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		return host
 	}
-	// If no port or parsing failed, return as-is
+
 	return addr
 }

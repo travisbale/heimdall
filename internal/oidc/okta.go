@@ -50,15 +50,10 @@ func NewOktaProvider(ctx context.Context, domain, clientID, clientSecret, redire
 }
 
 // GetAuthorizationURL generates the OAuth authorization URL with PKCE
-func (o *OktaProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
+func (o *OktaProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	// Update redirect URI if provided
 	if redirectURI != "" {
 		o.config.RedirectURL = redirectURI
-	}
-
-	// Update scopes if provided
-	if len(scopes) > 0 {
-		o.config.Scopes = scopes
 	}
 
 	// Generate PKCE code challenge

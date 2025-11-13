@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // OIDCSessionsDB manages OAuth flow sessions (state, PKCE, provider tracking)
@@ -26,20 +25,11 @@ func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OI
 	var result *auth.OIDCSession
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		// Convert ProviderType pointer to NullOidcProviderType
-		var providerType sqlc.NullOidcProviderType
-		if session.ProviderType != nil {
-			providerType = sqlc.NullOidcProviderType{
-				OidcProviderType: sqlc.OidcProviderType(*session.ProviderType),
-				Valid:            true,
-			}
-		}
-
 		dbSession, err := q.CreateOIDCSession(ctx, sqlc.CreateOIDCSessionParams{
 			State:          session.State,
 			CodeVerifier:   session.CodeVerifier,
 			OidcProviderID: session.OIDCProviderID,
-			ProviderType:   providerType,
+			ProviderType:   session.ProviderType,
 			RedirectUri:    session.RedirectURI,
 			TenantID:       session.TenantID,
 			ExpiresAt:      session.ExpiresAt,
@@ -99,19 +89,12 @@ func (o *OIDCSessionsDB) DeleteExpiredOIDCSessions(ctx context.Context) error {
 
 // convertOIDCSessionToDomain converts a database OAuthSession to a domain OAuthSession
 func convertOIDCSessionToDomain(dbSession sqlc.OidcSession) *auth.OIDCSession {
-	// Convert NullOidcProviderType to pointer
-	var providerType *sdk.OIDCProviderType
-	if dbSession.ProviderType.Valid {
-		pt := sdk.OIDCProviderType(dbSession.ProviderType.OidcProviderType)
-		providerType = &pt
-	}
-
 	return &auth.OIDCSession{
 		ID:             dbSession.ID,
 		State:          dbSession.State,
 		CodeVerifier:   dbSession.CodeVerifier,
 		OIDCProviderID: dbSession.OidcProviderID,
-		ProviderType:   providerType,
+		ProviderType:   dbSession.ProviderType,
 		RedirectURI:    dbSession.RedirectUri,
 		TenantID:       dbSession.TenantID,
 		CreatedAt:      dbSession.CreatedAt,

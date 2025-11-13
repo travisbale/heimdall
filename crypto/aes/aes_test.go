@@ -197,7 +197,7 @@ func TestGenerateKey(t *testing.T) {
 func TestGenerateKeyIsRandom(t *testing.T) {
 	// Generate multiple keys and verify they're all different
 	keys := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		key, err := GenerateKey()
 		if err != nil {
 			t.Fatalf("GenerateKey() error = %v", err)

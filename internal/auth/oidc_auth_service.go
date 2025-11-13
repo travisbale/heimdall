@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,13 +13,11 @@ import (
 
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)
 func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, error) {
-	// Extract domain from email address
 	domain, err := extractEmailDomain(email)
 	if err != nil {
 		return "", fmt.Errorf("invalid email format: %w", err)
 	}
 
-	// Find corporate provider for this domain (auto-detect)
 	providerConfigs, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup SSO provider: %w", err)
@@ -31,13 +30,12 @@ func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, 
 	// Use the first enabled provider config
 	providerConfig := providerConfigs[0]
 
-	// Create corporate provider instance
 	provider, err := s.providerFactory.NewProvider(
 		ctx,
 		providerConfig.IssuerURL,
 		providerConfig.ClientID,
 		providerConfig.ClientSecret,
-		providerConfig.Scopes, // Scopes already set by CreateOIDCProvider
+		providerConfig.Scopes,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize SSO provider: %w", err)
@@ -72,7 +70,7 @@ func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, 
 	}
 
 	// Use scopes from provider configuration
-	authURL, err := provider.GetAuthorizationURL(state, codeVerifier, session.RedirectURI, providerConfig.Scopes)
+	authURL, err := provider.GetAuthorizationURL(state, codeVerifier, session.RedirectURI)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate authorization URL: %w", err)
 	}
@@ -116,7 +114,7 @@ func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCP
 		return "", fmt.Errorf("failed to create OIDC session: %w", err)
 	}
 
-	authURL, err := oidcProvider.GetAuthorizationURL(state, codeVerifier, session.RedirectURI, defaultOIDCScopes)
+	authURL, err := oidcProvider.GetAuthorizationURL(state, codeVerifier, session.RedirectURI)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate authorization URL: %w", err)
 	}
@@ -192,19 +190,29 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 
 	// Handle existing user login
 	if existingLink != nil {
-		err = s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, existingLink.ID)
-		if err != nil {
-			s.logger.Error("failed to update OIDC link last used", "error", err)
-		}
-
-		user, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get user: %w", err)
-		}
-
-		return user, existingLink, nil
+		return s.handleExistingSSOUser(ctx, existingLink, userInfo)
 	}
 
+	return s.autoProvisionSSOUser(ctx, providerConfig, oidcProvider, tokenResponse.IDToken, userInfo)
+}
+
+// handleExistingSSOUser processes login for users with existing SSO links
+func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
+	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
+		s.logger.Error("failed to update OIDC link last used", "error", err)
+	}
+
+	// Get the user account
+	user, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, link, nil
+}
+
+// autoProvisionSSOUser creates or links a user account during SSO login
+func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *OIDCProviderConfig, oidcProvider OIDCProvider, idToken string, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
 	// Check if auto-provisioning is enabled
 	if !providerConfig.AutoCreateUsers {
 		return nil, nil, ErrAutoProvisioningDisabled
@@ -212,14 +220,33 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 
 	// Check if email verification is required for this provider
 	if providerConfig.RequireEmailVerification {
-		if err := s.verifyEmailVerified(ctx, oidcProvider, tokenResponse.IDToken, userInfo); err != nil {
+		if err := s.verifyEmailVerified(ctx, oidcProvider, idToken, userInfo); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	s.logger.Info("corporate SSO auto-provisioning", "email", userInfo.Email, "tenant_id", providerConfig.TenantID)
+	// Check if user with this email already exists
+	// Since we're here, provider sub is NEW (no existing link found), so if email exists:
+	// - Email was reassigned to new employee (requires admin intervention)
+	existingUser, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return nil, nil, fmt.Errorf("failed to check existing user: %w", err)
+	}
 
-	// Create user in tenant
+	if existingUser != nil {
+		// Email exists but provider sub is different → likely email reassignment
+		// Require admin to manually deactivate old account before new employee can login
+		s.logger.Error("SSO login blocked: email exists with different provider sub",
+			"email", userInfo.Email,
+			"existing_user_id", existingUser.ID,
+			"existing_status", existingUser.Status,
+			"new_provider_sub", userInfo.Sub,
+			"provider_id", providerConfig.ID)
+
+		return nil, nil, ErrEmailConflict
+	}
+
+	// Create new user account
 	user := &User{
 		TenantID: providerConfig.TenantID,
 		Email:    userInfo.Email,
@@ -231,7 +258,7 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 		return nil, nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Create OIDC link
+	// Create OIDC link for the user (whether existing or newly created)
 	link := &OIDCLink{
 		UserID:           user.ID,
 		OIDCProviderID:   providerConfig.ID,

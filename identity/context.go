@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// contextKey is a custom type for context keys to avoid collisions
 type contextKey string
 
 const (
@@ -15,13 +14,8 @@ const (
 	tenantIDContextKey contextKey = "tenant_id"
 )
 
-var (
-	// ErrNoUserInContext is returned when no user ID is found in the context
-	ErrNoUserInContext = errors.New("no user ID found in context")
-
-	// ErrNoTenantInContext is returned when no tenant ID is found in the context
-	ErrNoTenantInContext = errors.New("no tenant ID found in context")
-)
+var ErrNoUserInContext = errors.New("no user ID found in context")
+var ErrNoTenantInContext = errors.New("no tenant ID found in context")
 
 // WithUser adds both user ID and tenant ID to the context
 // Used by JWT middleware to propagate authenticated identity to handlers and database layer

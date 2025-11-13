@@ -41,7 +41,6 @@ func NewServer(config *Config) *Server {
 }
 
 func (s *Server) ListenAndServe() error {
-	// Create gRPC listener
 	listener, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC listener: %w", err)

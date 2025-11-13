@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 type OidcProviderType string
@@ -165,36 +166,36 @@ type OidcLink struct {
 }
 
 type OidcProvider struct {
-	ID                       uuid.UUID                   `json:"id"`
-	TenantID                 uuid.UUID                   `json:"tenant_id"`
-	ProviderName             string                      `json:"provider_name"`
-	IssuerUrl                string                      `json:"issuer_url"`
-	ClientID                 string                      `json:"client_id"`
-	ClientSecret             string                      `json:"client_secret"`
-	Scopes                   []string                    `json:"scopes"`
-	Enabled                  bool                        `json:"enabled"`
-	AllowedDomains           []string                    `json:"allowed_domains"`
-	AutoCreateUsers          bool                        `json:"auto_create_users"`
-	RequireEmailVerification bool                        `json:"require_email_verification"`
-	RegistrationAccessToken  string                      `json:"registration_access_token"`
-	RegistrationClientUri    string                      `json:"registration_client_uri"`
-	ClientIDIssuedAt         *time.Time                  `json:"client_id_issued_at"`
-	ClientSecretExpiresAt    *time.Time                  `json:"client_secret_expires_at"`
-	RegistrationMethod       auth.OIDCRegistrationMethod `json:"registration_method"`
-	CreatedAt                time.Time                   `json:"created_at"`
-	UpdatedAt                time.Time                   `json:"updated_at"`
+	ID                       uuid.UUID                  `json:"id"`
+	TenantID                 uuid.UUID                  `json:"tenant_id"`
+	ProviderName             string                     `json:"provider_name"`
+	IssuerUrl                string                     `json:"issuer_url"`
+	ClientID                 string                     `json:"client_id"`
+	ClientSecret             string                     `json:"client_secret"`
+	Scopes                   []string                   `json:"scopes"`
+	Enabled                  bool                       `json:"enabled"`
+	AllowedDomains           []string                   `json:"allowed_domains"`
+	AutoCreateUsers          bool                       `json:"auto_create_users"`
+	RequireEmailVerification bool                       `json:"require_email_verification"`
+	RegistrationAccessToken  string                     `json:"registration_access_token"`
+	RegistrationClientUri    string                     `json:"registration_client_uri"`
+	ClientIDIssuedAt         *time.Time                 `json:"client_id_issued_at"`
+	ClientSecretExpiresAt    *time.Time                 `json:"client_secret_expires_at"`
+	RegistrationMethod       sdk.OIDCRegistrationMethod `json:"registration_method"`
+	CreatedAt                time.Time                  `json:"created_at"`
+	UpdatedAt                time.Time                  `json:"updated_at"`
 }
 
 type OidcSession struct {
-	ID             uuid.UUID            `json:"id"`
-	State          string               `json:"state"`
-	CodeVerifier   string               `json:"code_verifier"`
-	OidcProviderID *uuid.UUID           `json:"oidc_provider_id"`
-	ProviderType   NullOidcProviderType `json:"provider_type"`
-	RedirectUri    string               `json:"redirect_uri"`
-	TenantID       *uuid.UUID           `json:"tenant_id"`
-	CreatedAt      time.Time            `json:"created_at"`
-	ExpiresAt      time.Time            `json:"expires_at"`
+	ID             uuid.UUID             `json:"id"`
+	State          string                `json:"state"`
+	CodeVerifier   string                `json:"code_verifier"`
+	OidcProviderID *uuid.UUID            `json:"oidc_provider_id"`
+	ProviderType   *sdk.OIDCProviderType `json:"provider_type"`
+	RedirectUri    string                `json:"redirect_uri"`
+	TenantID       *uuid.UUID            `json:"tenant_id"`
+	CreatedAt      time.Time             `json:"created_at"`
+	ExpiresAt      time.Time             `json:"expires_at"`
 }
 
 type PasswordResetToken struct {

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,23 +17,6 @@ const (
 	UserStatusInactive   UserStatus = "inactive"
 )
 
-// TenantStatus represents the status of a tenant
-type TenantStatus string
-
-const (
-	TenantStatusActive    TenantStatus = "active"
-	TenantStatusSuspended TenantStatus = "suspended"
-	TenantStatusInactive  TenantStatus = "inactive"
-)
-
-// OIDCRegistrationMethod tracks whether client credentials were entered manually or via RFC 7591
-type OIDCRegistrationMethod string
-
-const (
-	OIDCRegistrationMethodManual  OIDCRegistrationMethod = "manual"  // Admin manually entered client ID/secret
-	OIDCRegistrationMethodDynamic OIDCRegistrationMethod = "dynamic" // Dynamically registered via RFC 7591
-)
-
 // User represents a user in the system
 type User struct {
 	ID           uuid.UUID
@@ -47,13 +29,11 @@ type User struct {
 	LastLoginAt  *time.Time
 }
 
-// Tenant represents a tenant in the system
-type Tenant struct {
-	ID        uuid.UUID
-	Name      string
-	Status    TenantStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
+// UpdateUserParams supports partial updates using optional pointer fields
+type UpdateUserParams struct {
+	ID           uuid.UUID
+	PasswordHash *string
+	Status       *UserStatus
 }
 
 // Token represents a temporary token (verification, password reset, etc.)
@@ -89,7 +69,7 @@ type OIDCProviderConfig struct {
 	ClientIDIssuedAt        *time.Time
 	ClientSecretExpiresAt   *time.Time
 
-	RegistrationMethod OIDCRegistrationMethod
+	RegistrationMethod sdk.OIDCRegistrationMethod
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -155,21 +135,6 @@ type OIDCRegistration struct {
 	GrantTypes              []string `json:"grant_types,omitempty"`
 	ResponseTypes           []string `json:"response_types,omitempty"`
 	RedirectURIs            []string `json:"redirect_uris,omitempty"`
-}
-
-// OIDCProvider defines the interface for OIDC provider implementations
-type OIDCProvider interface {
-	// GetAuthorizationURL generates the OAuth authorization URL with PKCE
-	GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error)
-
-	// ExchangeCode exchanges an authorization code for tokens
-	ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*OIDCTokenResponse, error)
-
-	// GetUserInfo retrieves user information from the provider
-	GetUserInfo(ctx context.Context, accessToken string) (*OIDCUserInfo, error)
-
-	// ValidateIDToken validates and parses an ID token
-	ValidateIDToken(ctx context.Context, idToken string) (*OIDCClaims, error)
 }
 
 // OIDCTokenResponse represents the response from an OAuth token exchange

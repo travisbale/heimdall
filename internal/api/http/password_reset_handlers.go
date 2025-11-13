@@ -1,20 +1,24 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // PasswordResetHandler handles password reset HTTP requests
 type PasswordResetHandler struct {
 	userService userService
+	logger      logger
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
-func NewPasswordResetHandler(userService userService) *PasswordResetHandler {
+func NewPasswordResetHandler(userService userService, logger logger) *PasswordResetHandler {
 	return &PasswordResetHandler{
 		userService: userService,
+		logger:      logger,
 	}
 }
 
@@ -27,11 +31,15 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 
 	err := h.userService.InitiatePasswordReset(r.Context(), req.Email)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to process password reset request", err)
-		return
+		switch {
+		case errors.Is(err, auth.ErrUserNotFound):
+			h.logger.Info("password reset requested for non-existent user", "email", req.Email)
+		default:
+			h.logger.Error("failed to initiate password reset", "email", req.Email, "error", err)
+		}
 	}
 
-	// Always return success to prevent user enumeration attacks
+	// Always return success regardless of outcome (prevent user enumeration)
 	respondJSON(w, http.StatusOK, sdk.ForgotPasswordResponse{
 		Message: "If an account exists with this email, a password reset link has been sent.",
 	})
@@ -46,7 +54,12 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 
 	err := h.userService.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
+		switch {
+		case errors.Is(err, auth.ErrPasswordResetTokenNotFound):
+			respondError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
+		default:
+			respondError(w, http.StatusInternalServerError, "Failed to reset password", err)
+		}
 		return
 	}
 

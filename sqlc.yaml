@@ -34,18 +34,29 @@ sql:
               pointer: true
               type: "time.Time"
           - db_type: "user_status"
+            nullable: false
             go_type:
               import: "github.com/travisbale/heimdall/internal/auth"
               type: "UserStatus"
-          - db_type: "tenant_status"
+          - db_type: "user_status"
+            nullable: true
             go_type:
               import: "github.com/travisbale/heimdall/internal/auth"
-              type: "TenantStatus"
+              pointer: true
+              type: "UserStatus"
           - db_type: "oidc_provider_type"
+            nullable: true
             go_type:
               import: "github.com/travisbale/heimdall/sdk"
+              pointer: true
+              type: "OIDCProviderType"
+          - db_type: "oidc_provider_type"
+            nullable: false
+            go_type:
+              import: "github.com/travisbale/heimdall/sdk"
+              pointer: false
               type: "OIDCProviderType"
           - db_type: "oidc_registration_method"
             go_type:
-              import: "github.com/travisbale/heimdall/internal/auth"
+              import: "github.com/travisbale/heimdall/sdk"
               type: "OIDCRegistrationMethod"

@@ -27,7 +27,6 @@ func NewOIDCAuthHandler(oidcService oidcService, userService userService, jwtSer
 }
 
 // Login initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
-// Each user gets their own tenant; no OIDC links created
 func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req sdk.OIDCLoginRequest
 	if !decodeAndValidateJSON(w, r, &req) {
@@ -52,14 +51,13 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // SSOLogin initiates a corporate SSO login flow for enterprise domains
-// Uses OIDC links to track users by provider's immutable sub claim (not email)
 func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	var req sdk.SSOLoginRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	// Start corporate SSO login flow using tenant-specific provider (domain extracted internally)
+	// Start corporate SSO login flow using tenant-specific provider
 	authURL, err := h.oidcService.StartSSOLogin(r.Context(), req.Email)
 	if err != nil {
 		switch {
@@ -116,6 +114,9 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 		case errors.Is(err, auth.ErrProviderEmailNotVerified):
 			respondError(w, http.StatusBadRequest, "Email must be verified by your OAuth provider", err)
+
+		case errors.Is(err, auth.ErrEmailConflict):
+			respondError(w, http.StatusConflict, "This email address is associated with an existing account. Please contact your administrator.", err)
 
 		default:
 			respondError(w, http.StatusInternalServerError, "Failed to process OAuth callback", err)

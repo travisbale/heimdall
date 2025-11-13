@@ -83,7 +83,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create JWT service: %w", err)
 	}
 
-	// Create password hasher
 	passwordHasher := argon2.NewHasher(&argon2.Config{
 		Memory:      argon2Memory,
 		Iterations:  argon2Iterations,
@@ -92,7 +91,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Parallelism: argon2Threads,
 	})
 
-	// Create email service
 	emailService, err := mailman.NewEmailService(config.MailmanGRPCAddress, config.PublicURL)
 	if err != nil {
 		db.Close()
@@ -113,7 +111,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create encryption cipher: %w", err)
 	}
 
-	// Repository layer wraps sqlc-generated code with domain logic
 	usersDB := postgres.NewUsersDB(db)
 	verificationTokensDB := postgres.NewVerificationTokensDB(db)
 	passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
@@ -122,62 +119,11 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	oidcLinksDB := postgres.NewOIDCLinksDB(db)
 	oidcSessionsDB := postgres.NewOIDCSessionsDB(db)
 
-	// Create login attempts service
 	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, logger.With("module", "login_attempts_service"))
 
 	// System-wide providers enable "Login with Google/GitHub" before user authentication
 	// Tenant-specific providers (stored in DB) are used for enterprise SSO
 	systemProviders := make(map[sdk.OIDCProviderType]auth.OIDCProvider)
-
-	// Example: Configure Google OAuth for public login
-	// In production, read from environment variables:
-	//
-	//   if googleClientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID"); googleClientID != "" {
-	//       googleClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
-	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
-	//       googleProvider, err := oidc.NewGoogleProvider(ctx, googleClientID, googleClientSecret, redirectURI)
-	//       if err != nil {
-	//           config.Logger.Error("failed to create Google provider", "error", err)
-	//       } else {
-	//           systemProviders[sdk.OIDCProviderTypeGoogle] = googleProvider
-	//           config.Logger.Info("registered system Google OAuth provider")
-	//       }
-	//   }
-	//
-	// Similarly for other providers:
-	//   if msClientID := os.Getenv("MICROSOFT_OAUTH_CLIENT_ID"); msClientID != "" {
-	//       // Microsoft requires tenant ID ("common", "organizations", "consumers", or specific tenant)
-	//       tenantID := os.Getenv("MICROSOFT_OAUTH_TENANT_ID")
-	//       if tenantID == "" {
-	//           tenantID = "common" // Default: allow both work/school and personal accounts
-	//       }
-	//       msClientSecret := os.Getenv("MICROSOFT_OAUTH_CLIENT_SECRET")
-	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
-	//       msProvider, err := oidc.NewMicrosoftProvider(ctx, msClientID, msClientSecret, redirectURI, tenantID)
-	//       if err != nil {
-	//           config.Logger.Error("failed to create Microsoft provider", "error", err)
-	//       } else {
-	//           systemProviders[sdk.OIDCProviderTypeMicrosoft] = msProvider
-	//           config.Logger.Info("registered system Microsoft OAuth provider")
-	//       }
-	//   }
-	//
-	//   if ghClientID := os.Getenv("GITHUB_OAUTH_CLIENT_ID"); ghClientID != "" {
-	//       ghClientSecret := os.Getenv("GITHUB_OAUTH_CLIENT_SECRET")
-	//       redirectURI := config.BaseURL + "/v1/oauth/callback"
-	//       ghProvider := oidc.NewGitHubProvider(ghClientID, ghClientSecret, redirectURI)
-	//       systemProviders[sdk.OIDCProviderTypeGitHub] = ghProvider
-	//       config.Logger.Info("registered system GitHub OAuth provider")
-	//   }
-	//
-	// For tenant-specific OAuth configurations (Enterprise SSO):
-	// - Admins create OIDC provider configs via the API (stored in database)
-	// - The provider factory dynamically creates provider instances from DB config
-	// - Used for authenticated "link" operations and corporate SSO with allowed domains
-
-	// Registration client handles OIDC discovery and dynamic client registration
-	oidcClient := oidc.NewRegistrationClient()
-	providerFactory := oidc.NewProviderFactory()
 
 	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
 		OIDCProviderDB:     oidcProvidersDB,
@@ -185,13 +131,12 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		OIDCSessionDB:      oidcSessionsDB,
 		UserDB:             usersDB,
 		SystemProviders:    systemProviders,
-		RegistrationClient: oidcClient,
-		ProviderFactory:    providerFactory,
+		RegistrationClient: oidc.NewRegistrationClient(),
+		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
 		Logger:             logger.With("module", "oidc_service"),
 	})
 
-	// Create user service (depends on oidcService for SSO checking)
 	authService := auth.NewUserService(&auth.UserServiceConfig{
 		UserDB:               usersDB,
 		Hasher:               passwordHasher,
@@ -214,7 +159,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Logger:             logger.With("module", "http_server"),
 	})
 
-	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
 		Addr:        config.GRPCAddress,
 		AuthService: authService,
@@ -244,15 +188,9 @@ func (s *Server) Start() error {
 
 // Shutdown gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
-	// Stop gRPC server
 	s.grpcServer.GracefulStop()
-
-	// Close email service connection
 	s.emailService.Close()
-
-	// Close database connection
 	s.db.Close()
 
-	// Shutdown HTTP server
 	return s.httpServer.Shutdown(ctx)
 }

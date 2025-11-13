@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 const createOIDCProvider = `-- name: CreateOIDCProvider :one
@@ -36,21 +36,21 @@ INSERT INTO oidc_providers (
 `
 
 type CreateOIDCProviderParams struct {
-	TenantID                 uuid.UUID                   `json:"tenant_id"`
-	ProviderName             string                      `json:"provider_name"`
-	IssuerUrl                string                      `json:"issuer_url"`
-	ClientID                 string                      `json:"client_id"`
-	ClientSecret             string                      `json:"client_secret"`
-	Scopes                   []string                    `json:"scopes"`
-	Enabled                  bool                        `json:"enabled"`
-	AllowedDomains           []string                    `json:"allowed_domains"`
-	AutoCreateUsers          bool                        `json:"auto_create_users"`
-	RequireEmailVerification bool                        `json:"require_email_verification"`
-	RegistrationAccessToken  string                      `json:"registration_access_token"`
-	RegistrationClientUri    string                      `json:"registration_client_uri"`
-	ClientIDIssuedAt         *time.Time                  `json:"client_id_issued_at"`
-	ClientSecretExpiresAt    *time.Time                  `json:"client_secret_expires_at"`
-	RegistrationMethod       auth.OIDCRegistrationMethod `json:"registration_method"`
+	TenantID                 uuid.UUID                  `json:"tenant_id"`
+	ProviderName             string                     `json:"provider_name"`
+	IssuerUrl                string                     `json:"issuer_url"`
+	ClientID                 string                     `json:"client_id"`
+	ClientSecret             string                     `json:"client_secret"`
+	Scopes                   []string                   `json:"scopes"`
+	Enabled                  bool                       `json:"enabled"`
+	AllowedDomains           []string                   `json:"allowed_domains"`
+	AutoCreateUsers          bool                       `json:"auto_create_users"`
+	RequireEmailVerification bool                       `json:"require_email_verification"`
+	RegistrationAccessToken  string                     `json:"registration_access_token"`
+	RegistrationClientUri    string                     `json:"registration_client_uri"`
+	ClientIDIssuedAt         *time.Time                 `json:"client_id_issued_at"`
+	ClientSecretExpiresAt    *time.Time                 `json:"client_secret_expires_at"`
+	RegistrationMethod       sdk.OIDCRegistrationMethod `json:"registration_method"`
 }
 
 func (q *Queries) CreateOIDCProvider(ctx context.Context, arg CreateOIDCProviderParams) (OidcProvider, error) {

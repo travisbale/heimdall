@@ -142,15 +142,6 @@ func (c *HTTPClient) VerifyEmail(ctx context.Context, req VerifyEmailRequest) (*
 	return &resp, nil
 }
 
-// ResendVerification resends the verification email to a user
-func (c *HTTPClient) ResendVerification(ctx context.Context, req ResendVerificationRequest) (*ResendVerificationResponse, error) {
-	var resp ResendVerificationResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1ResendVerification, &req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // ForgotPassword initiates the password reset process
 func (c *HTTPClient) ForgotPassword(ctx context.Context, req ForgotPasswordRequest) (*ForgotPasswordResponse, error) {
 	var resp ForgotPasswordResponse

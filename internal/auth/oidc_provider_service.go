@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // CreateOIDCProvider creates a new OIDC provider configuration manually or dynamically
@@ -31,7 +32,7 @@ func (s *OIDCService) createManualOIDCProvider(ctx context.Context, provider *OI
 		return nil, fmt.Errorf("OIDC discovery failed (issuer unreachable): %w", err)
 	}
 
-	provider.RegistrationMethod = OIDCRegistrationMethodManual
+	provider.RegistrationMethod = sdk.OIDCRegistrationMethodManual
 
 	return s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
 }
@@ -58,7 +59,7 @@ func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *O
 	// Populate provider with registration response
 	provider.ClientID = registration.ClientID
 	provider.ClientSecret = registration.ClientSecret
-	provider.RegistrationMethod = OIDCRegistrationMethodDynamic
+	provider.RegistrationMethod = sdk.OIDCRegistrationMethodDynamic
 
 	if registration.RegistrationAccessToken != "" {
 		provider.RegistrationAccessToken = registration.RegistrationAccessToken
@@ -106,7 +107,7 @@ func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UU
 
 	// Only attempt to unregister dynamically registered clients
 	// Manually registered clients must be cleaned up by the admin at the IdP
-	if provider.RegistrationMethod == OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
+	if provider.RegistrationMethod == sdk.OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
 		if err := s.registrationClient.Unregister(ctx, provider.RegistrationClientURI, provider.RegistrationAccessToken); err != nil {
 			s.logger.Error("failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
 		} else {
@@ -117,22 +118,21 @@ func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UU
 	return s.oidcProviderDB.DeleteOIDCProviderByID(ctx, providerID)
 }
 
-// IsPasswordRegistrationAllowed verifies if password-based registration is permitted for an email domain
-func (s *OIDCService) IsPasswordRegistrationAllowed(ctx context.Context, email string) error {
+// IsSSORequired verifies if SSO login is required for the email domain
+func (s *OIDCService) IsSSORequired(ctx context.Context, email string) (bool, error) {
 	domain, err := extractEmailDomain(email)
 	if err != nil {
-		return fmt.Errorf("invalid email format: %w", err)
+		return false, fmt.Errorf("invalid email format: %w", err)
 	}
 
 	providers, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
-		return fmt.Errorf("failed to check SSO providers for domain: %w", err)
+		return false, fmt.Errorf("failed to check SSO providers for domain: %w", err)
 	}
 
-	// Return ErrSSORequired if the domain is configured for SSO-only authentication
 	if len(providers) > 0 {
-		return ErrSSORequired
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }

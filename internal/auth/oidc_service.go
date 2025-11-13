@@ -54,6 +54,21 @@ type oidcProviderFactory interface {
 	NewProvider(ctx context.Context, issuerURL, clientID, clientSecret string, scopes []string) (OIDCProvider, error)
 }
 
+// OIDCProvider defines the interface for OIDC provider implementations
+type OIDCProvider interface {
+	// GetAuthorizationURL generates the OAuth authorization URL with PKCE
+	GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error)
+
+	// ExchangeCode exchanges an authorization code for tokens
+	ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*OIDCTokenResponse, error)
+
+	// GetUserInfo retrieves user information from the provider
+	GetUserInfo(ctx context.Context, accessToken string) (*OIDCUserInfo, error)
+
+	// ValidateIDToken validates and parses an ID token
+	ValidateIDToken(ctx context.Context, idToken string) (*OIDCClaims, error)
+}
+
 // OIDCServiceConfig holds the dependencies for creating an OIDCService
 type OIDCServiceConfig struct {
 	OIDCProviderDB     oidcProviderDB

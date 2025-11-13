@@ -11,6 +11,7 @@ var ErrDuplicateEmail = errors.New("email address is already registered")
 var ErrAccountLocked = errors.New("account is temporarily locked due to too many failed login attempts")
 var ErrVerificationTokenNotFound = errors.New("verification token not found or expired")
 var ErrPasswordResetTokenNotFound = errors.New("password reset token not found or expired")
+var ErrAccountAlreadyVerified = errors.New("account has already been verified")
 
 // OIDC flow errors
 var ErrOIDCLinkNotFound = errors.New("oidc link not found")
@@ -31,3 +32,4 @@ var ErrOIDCProviderNotConfigured = errors.New("OAuth provider is not configured"
 var ErrSSORequired = errors.New("this email domain requires SSO login")
 var ErrAutoProvisioningDisabled = errors.New("automatic user provisioning is not enabled for this domain")
 var ErrProviderEmailNotVerified = errors.New("email not verified by OAuth provider")
+var ErrEmailConflict = errors.New("email address conflicts with existing account")

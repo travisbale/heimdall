@@ -97,7 +97,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
 FROM users
-WHERE email = $1
+WHERE email = $1 AND status != 'inactive'
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -129,67 +129,21 @@ func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
-SET email = $2,
-    status = $3,
+SET password_hash = COALESCE($1, password_hash),
+    status = COALESCE($2, status),
     updated_at = now()
-WHERE id = $1
+WHERE id = $3
 RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
 `
 
 type UpdateUserParams struct {
-	ID     uuid.UUID       `json:"id"`
-	Email  string          `json:"email"`
-	Status auth.UserStatus `json:"status"`
+	PasswordHash *string          `json:"password_hash"`
+	Status       *auth.UserStatus `json:"status"`
+	ID           uuid.UUID        `json:"id"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Email, arg.Status)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLoginAt,
-	)
-	return i, err
-}
-
-const updateUserPassword = `-- name: UpdateUserPassword :exec
-UPDATE users
-SET password_hash = $2,
-    updated_at = now()
-WHERE id = $1
-`
-
-type UpdateUserPasswordParams struct {
-	ID           uuid.UUID `json:"id"`
-	PasswordHash string    `json:"password_hash"`
-}
-
-func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
-	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
-	return err
-}
-
-const updateUserStatus = `-- name: UpdateUserStatus :one
-UPDATE users
-SET status = $2,
-    updated_at = now()
-WHERE id = $1
-RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
-`
-
-type UpdateUserStatusParams struct {
-	ID     uuid.UUID       `json:"id"`
-	Status auth.UserStatus `json:"status"`
-}
-
-func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateUser, arg.PasswordHash, arg.Status, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,

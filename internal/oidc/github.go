@@ -35,15 +35,10 @@ func NewGitHubProvider(clientID, clientSecret, redirectURI string) *GitHubProvid
 }
 
 // GetAuthorizationURL generates the OAuth authorization URL with PKCE
-func (g *GitHubProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
+func (g *GitHubProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	// Update redirect URI if provided
 	if redirectURI != "" {
 		g.config.RedirectURL = redirectURI
-	}
-
-	// Update scopes if provided
-	if len(scopes) > 0 {
-		g.config.Scopes = scopes
 	}
 
 	// Generate PKCE code challenge

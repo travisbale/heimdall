@@ -8,12 +8,7 @@ import (
 )
 
 const (
-	// verificationTemplateID is the template ID in mailman for email verification
-	// Template must exist in mailman with variables: email, verification_url
-	verificationTemplateID = "email-verification"
-
-	// passwordResetTemplateID is the template ID in mailman for password reset
-	// Template must exist in mailman with variables: email, reset_url
+	verificationTemplateID  = "email-verification"
 	passwordResetTemplateID = "password-reset"
 )
 
@@ -24,7 +19,6 @@ type EmailService struct {
 }
 
 // NewEmailService creates a new mailman email service
-// It creates and manages its own gRPC client connection to mailman
 func NewEmailService(mailmanAddress, baseURL string) (*EmailService, error) {
 	client, err := sdk.NewGRPCClient(mailmanAddress)
 	if err != nil {

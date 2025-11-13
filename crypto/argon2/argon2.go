@@ -12,7 +12,6 @@ import (
 )
 
 // hashPassword generates an Argon2id hash of the password
-// Encodes parameters in hash string so verification can use same settings
 func hashPassword(memory, iterations, saltLength, keyLength uint32, parallelism uint8, password string) (string, error) {
 	salt := make([]byte, saltLength)
 	if _, err := rand.Read(salt); err != nil {
@@ -24,6 +23,7 @@ func hashPassword(memory, iterations, saltLength, keyLength uint32, parallelism 
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
+	// Encodes parameters in hash string so verification can use same settings
 	// Format: $argon2id$v=19$m=65536,t=1,p=4$<salt>$<hash>
 	encodedHash := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, memory, iterations, parallelism, b64Salt, b64Hash)
@@ -32,8 +32,8 @@ func hashPassword(memory, iterations, saltLength, keyLength uint32, parallelism 
 }
 
 // compareHashAndPassword verifies that the provided password matches the hash
-// Extracts parameters from encoded hash to ensure verification uses same settings as hashing
 func compareHashAndPassword(password, encodedHash string) error {
+	// Extracts parameters from encoded hash to ensure verification uses same settings as hashing
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
 		return fmt.Errorf("invalid hash format")

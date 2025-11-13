@@ -47,13 +47,9 @@ func NewGoogleProvider(ctx context.Context, clientID, clientSecret, redirectURI 
 }
 
 // GetAuthorizationURL generates Google OAuth URL with PKCE and consent prompt
-func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string, scopes []string) (string, error) {
+func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	if redirectURI != "" {
 		g.config.RedirectURL = redirectURI
-	}
-
-	if len(scopes) > 0 {
-		g.config.Scopes = scopes
 	}
 
 	codeChallenge := generateCodeChallenge(codeVerifier)

@@ -49,7 +49,6 @@ func NewOIDCProvidersHandler(oidcService oidcService) *OIDCProvidersHandler {
 }
 
 // CreateProvider creates a new OAuth provider configuration for corporate SSO
-// Performs OIDC discovery and optionally dynamic client registration
 func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req sdk.CreateOIDCProviderRequest
 	if !decodeAndValidateJSON(w, r, &req) {
@@ -204,7 +203,6 @@ func (h *OIDCProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Req
 }
 
 // convertProviderToSDK converts internal provider config to API response format
-// Excludes client secret from responses for security
 func convertProviderToSDK(provider *auth.OIDCProviderConfig) sdk.OIDCProvider {
 	return sdk.OIDCProvider{
 		ID:                       provider.ID,
@@ -216,7 +214,7 @@ func convertProviderToSDK(provider *auth.OIDCProviderConfig) sdk.OIDCProvider {
 		AllowedDomains:           provider.AllowedDomains,
 		AutoCreateUsers:          provider.AutoCreateUsers,
 		RequireEmailVerification: provider.RequireEmailVerification,
-		RegistrationMethod:       sdk.OIDCRegistrationMethod(provider.RegistrationMethod),
+		RegistrationMethod:       provider.RegistrationMethod,
 		ClientIDIssuedAt:         provider.ClientIDIssuedAt,
 		ClientSecretExpiresAt:    provider.ClientSecretExpiresAt,
 		CreatedAt:                provider.CreatedAt,
