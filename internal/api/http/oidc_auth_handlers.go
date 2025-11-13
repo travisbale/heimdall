@@ -59,11 +59,8 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract domain from email to look up tenant's OIDC provider configuration
-	domain := extractDomainFromEmail(req.Email)
-
-	// Start corporate SSO login flow using tenant-specific provider
-	authURL, err := h.oidcService.StartSSOLogin(r.Context(), domain)
+	// Start corporate SSO login flow using tenant-specific provider (domain extracted internally)
+	authURL, err := h.oidcService.StartSSOLogin(r.Context(), req.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrSSONotConfigured):
@@ -107,7 +104,6 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// Exchange code for tokens, fetch user info, and create/link account
 	user, _, err := h.oidcService.HandleOIDCCallback(r.Context(), state, code)
 	if err != nil {
-		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrOIDCSessionNotFound):
 			respondError(w, http.StatusBadRequest, "Invalid or expired OAuth session", err)
@@ -129,18 +125,4 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Issue JWT tokens to complete login
 	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
-}
-
-// extractDomainFromEmail extracts the domain portion from an email address
-// Assumes email validation already happened, searches from end for performance
-func extractDomainFromEmail(email string) string {
-	// Find the @ symbol by searching backwards (more efficient for typical email formats)
-	atIndex := -1
-	for i := len(email) - 1; i >= 0; i-- {
-		if email[i] == '@' {
-			atIndex = i
-			break
-		}
-	}
-	return email[atIndex+1:]
 }

@@ -1,26 +1,20 @@
 package http
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/travisbale/heimdall/sdk"
 )
 
-type passwordResetService interface {
-	InitiatePasswordReset(ctx context.Context, email string) error
-	ResetPassword(ctx context.Context, token, newPassword string) error
-}
-
 // PasswordResetHandler handles password reset HTTP requests
 type PasswordResetHandler struct {
-	passwordResetService passwordResetService
+	userService userService
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
-func NewPasswordResetHandler(passwordResetService passwordResetService) *PasswordResetHandler {
+func NewPasswordResetHandler(userService userService) *PasswordResetHandler {
 	return &PasswordResetHandler{
-		passwordResetService: passwordResetService,
+		userService: userService,
 	}
 }
 
@@ -31,7 +25,7 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err := h.passwordResetService.InitiatePasswordReset(r.Context(), req.Email)
+	err := h.userService.InitiatePasswordReset(r.Context(), req.Email)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to process password reset request", err)
 		return
@@ -50,7 +44,7 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err := h.passwordResetService.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	err := h.userService.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
 		return

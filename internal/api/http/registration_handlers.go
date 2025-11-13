@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -9,27 +8,19 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-type registrationService interface {
-	Register(ctx context.Context, email, password string) (*auth.User, error)
-	ConfirmRegistration(ctx context.Context, token string) (*auth.User, error)
-	ResendVerificationEmail(ctx context.Context, email string) error
-}
-
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
-	registrationService registrationService
-	userService         userService
-	jwtService          jwtService
-	secureCookies       bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
+	userService   userService
+	jwtService    jwtService
+	secureCookies bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
-func NewRegistrationHandler(registrationService registrationService, userService userService, jwtService jwtService, secureCookies bool) *RegistrationHandler {
+func NewRegistrationHandler(userService userService, jwtService jwtService, secureCookies bool) *RegistrationHandler {
 	return &RegistrationHandler{
-		registrationService: registrationService,
-		userService:         userService,
-		jwtService:          jwtService,
-		secureCookies:       secureCookies,
+		userService:   userService,
+		jwtService:    jwtService,
+		secureCookies: secureCookies,
 	}
 }
 
@@ -40,9 +31,8 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.registrationService.Register(r.Context(), req.Email, req.Password)
+	user, err := h.userService.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
-		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrDuplicateEmail):
 			respondError(w, http.StatusConflict, "Email address is already registered", err)
@@ -71,7 +61,7 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	user, err := h.registrationService.ConfirmRegistration(r.Context(), req.Token)
+	user, err := h.userService.ConfirmRegistration(r.Context(), req.Token)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
 		return
@@ -88,7 +78,7 @@ func (h *RegistrationHandler) ResendVerificationEmail(w http.ResponseWriter, r *
 		return
 	}
 
-	err := h.registrationService.ResendVerificationEmail(r.Context(), req.Email)
+	err := h.userService.ResendVerificationEmail(r.Context(), req.Email)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to resend verification email", err)
 		return

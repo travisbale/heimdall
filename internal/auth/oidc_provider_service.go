@@ -33,7 +33,6 @@ func (s *OIDCService) createManualOIDCProvider(ctx context.Context, provider *OI
 
 	provider.RegistrationMethod = OIDCRegistrationMethodManual
 
-	// Store in database
 	return s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
 }
 
@@ -79,32 +78,27 @@ func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *O
 		provider.ClientSecretExpiresAt = &expiresAt
 	}
 
-	// Store in database
 	return s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
 }
 
-// GetOIDCProvider retrieves an OIDC provider by ID (admin operation)
+// GetOIDCProvider retrieves an OIDC provider by ID
 func (s *OIDCService) GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*OIDCProviderConfig, error) {
 	return s.oidcProviderDB.GetOIDCProviderByID(ctx, providerID)
 }
 
-// ListOIDCProviders lists all OIDC providers for a tenant (admin operation)
+// ListOIDCProviders lists all OIDC providers for a tenant
 func (s *OIDCService) ListOIDCProviders(ctx context.Context) ([]*OIDCProviderConfig, error) {
 	return s.oidcProviderDB.ListOIDCProviders(ctx)
 }
 
-// UpdateOIDCProvider updates an OIDC provider configuration (admin operation)
+// UpdateOIDCProvider updates an OIDC provider configuration
 func (s *OIDCService) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDCProviderParams) (*OIDCProviderConfig, error) {
-	// RLS automatically enforces tenant isolation at the database layer
-	// If the provider doesn't exist or doesn't belong to this tenant, ErrOIDCProviderNotFound will be returned
 	return s.oidcProviderDB.UpdateOIDCProvider(ctx, params)
 }
 
 // DeleteOIDCProvider deletes an OIDC provider (admin operation)
 // For dynamically registered providers, also attempts to unregister the OAuth client
 func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error {
-	// Verify the provider belongs to this tenant by fetching it first
-	// (RLS will automatically enforce tenant isolation)
 	provider, err := s.oidcProviderDB.GetOIDCProviderByID(ctx, providerID)
 	if err != nil {
 		return err
@@ -112,18 +106,33 @@ func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UU
 
 	// Only attempt to unregister dynamically registered clients
 	// Manually registered clients must be cleaned up by the admin at the IdP
-	if provider.RegistrationMethod == OIDCRegistrationMethodDynamic &&
-		provider.RegistrationClientURI != "" {
-
-		s.logger.Info("unregistering dynamically registered OAuth client", "client_id", provider.ClientID, "issuer_url", provider.IssuerURL)
+	if provider.RegistrationMethod == OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
 		if err := s.registrationClient.Unregister(ctx, provider.RegistrationClientURI, provider.RegistrationAccessToken); err != nil {
 			s.logger.Error("failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
 		} else {
 			s.logger.Info("OAuth client unregistered successfully", "client_id", provider.ClientID)
 		}
-	} else if provider.RegistrationMethod == OIDCRegistrationMethodManual {
-		s.logger.Info("deleting manually registered OIDC provider (client must be cleaned up manually at IdP)", "client_id", provider.ClientID, "issuer_url", provider.IssuerURL)
 	}
 
 	return s.oidcProviderDB.DeleteOIDCProviderByID(ctx, providerID)
+}
+
+// IsPasswordRegistrationAllowed verifies if password-based registration is permitted for an email domain
+func (s *OIDCService) IsPasswordRegistrationAllowed(ctx context.Context, email string) error {
+	domain, err := extractEmailDomain(email)
+	if err != nil {
+		return fmt.Errorf("invalid email format: %w", err)
+	}
+
+	providers, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
+	if err != nil {
+		return fmt.Errorf("failed to check SSO providers for domain: %w", err)
+	}
+
+	// Return ErrSSORequired if the domain is configured for SSO-only authentication
+	if len(providers) > 0 {
+		return ErrSSORequired
+	}
+
+	return nil
 }

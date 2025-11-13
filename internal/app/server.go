@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/travisbale/heimdall/crypto/aes"
@@ -27,11 +28,6 @@ const (
 	saltLength       = 16        // Length of the salt in bytes
 )
 
-type logger interface {
-	Info(msg string, args ...any)
-	Error(msg string, args ...any)
-}
-
 // Config holds the configuration for creating a new server
 type Config struct {
 	HTTPAddress        string
@@ -45,8 +41,8 @@ type Config struct {
 	MailmanGRPCAddress string
 	Environment        string
 	EncryptionKey      string
+	TrustedProxyMode   bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy
 	CORSAllowedOrigins []string
-	Logger             logger
 }
 
 // Server wraps the HTTP and gRPC servers and their dependencies
@@ -55,11 +51,14 @@ type Server struct {
 	grpcServer   *grpc.Server
 	db           *postgres.DB
 	emailService interface{ Close() }
+	logger       *slog.Logger
 }
 
 // NewServer creates a new server instance with all dependencies
 func NewServer(ctx context.Context, config *Config) (*Server, error) {
-	db, err := postgres.NewDB(ctx, config.DatabaseURL, config.Logger)
+	logger := slog.Default()
+
+	db, err := postgres.NewDB(ctx, config.DatabaseURL, logger.With("module", "postgres"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -124,19 +123,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	oidcSessionsDB := postgres.NewOIDCSessionsDB(db)
 
 	// Create login attempts service
-	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, config.Logger)
-
-	// Create auth service
-	authService := auth.NewUserService(&auth.UserServiceConfig{
-		UserDB:               usersDB,
-		Hasher:               passwordHasher,
-		EmailService:         emailService,
-		VerificationTokenDB:  verificationTokensDB,
-		PasswordResetTokenDB: passwordResetTokensDB,
-		LoginAttemptsService: loginAttemptsService,
-		OIDCProviderDB:       oidcProvidersDB,
-		Logger:               config.Logger,
-	})
+	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, logger.With("module", "login_attempts_service"))
 
 	// System-wide providers enable "Login with Google/GitHub" before user authentication
 	// Tenant-specific providers (stored in DB) are used for enterprise SSO
@@ -201,24 +188,37 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		RegistrationClient: oidcClient,
 		ProviderFactory:    providerFactory,
 		PublicURL:          config.PublicURL,
-		Logger:             config.Logger,
+		Logger:             logger.With("module", "oidc_service"),
+	})
+
+	// Create user service (depends on oidcService for SSO checking)
+	authService := auth.NewUserService(&auth.UserServiceConfig{
+		UserDB:               usersDB,
+		Hasher:               passwordHasher,
+		EmailService:         emailService,
+		VerificationTokenDB:  verificationTokensDB,
+		PasswordResetTokenDB: passwordResetTokensDB,
+		LoginAttemptsService: loginAttemptsService,
+		OIDCService:          oidcService,
+		Logger:               logger.With("module", "user_service"),
 	})
 
 	httpServer := http.NewServer(&http.Config{
-		Address:              config.HTTPAddress,
-		UserService:          authService,
-		RegistrationService:  authService,
-		PasswordResetService: authService,
-		OIDCService:          oidcService,
-		JWTService:           jwtService,
-		Environment:          config.Environment,
-		CORSAllowedOrigins:   config.CORSAllowedOrigins,
+		Address:            config.HTTPAddress,
+		UserService:        authService,
+		OIDCService:        oidcService,
+		JWTService:         jwtService,
+		Environment:        config.Environment,
+		TrustedProxyMode:   config.TrustedProxyMode,
+		CORSAllowedOrigins: config.CORSAllowedOrigins,
+		Logger:             logger.With("module", "http_server"),
 	})
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
 		Addr:        config.GRPCAddress,
 		AuthService: authService,
+		Logger:      logger.With("module", "grpc_server"),
 	})
 
 	return &Server{
@@ -226,6 +226,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		grpcServer:   grpcServer,
 		db:           db,
 		emailService: emailService,
+		logger:       logger,
 	}, nil
 }
 
@@ -234,7 +235,7 @@ func (s *Server) Start() error {
 	// Run gRPC in background, HTTP blocks main thread for simple shutdown handling
 	go func() {
 		if err := s.grpcServer.ListenAndServe(); err != nil {
-			fmt.Printf("%v\n", err)
+			s.logger.Error("gRPC server error", "error", err)
 		}
 	}()
 

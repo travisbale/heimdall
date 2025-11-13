@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"time"
 
 	"github.com/google/uuid"
@@ -100,28 +98,4 @@ func NewOIDCService(config *OIDCServiceConfig) *OIDCService {
 // getCallbackURL returns the full OAuth callback URL
 func (s *OIDCService) getCallbackURL() string {
 	return s.publicURL + sdk.RouteV1OAuthCallback
-}
-
-// generateSecureToken generates a cryptographically secure random token
-func generateSecureToken(numBytes int) (string, error) {
-	bytes := make([]byte, numBytes)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(bytes), nil
-}
-
-// extractEmailDomain extracts the domain from an email address
-// Assumes the email is already validated (contains @ symbol)
-func extractEmailDomain(email string) string {
-	// Find the @ symbol (searching from the end for efficiency)
-	atIndex := -1
-	for i := len(email) - 1; i >= 0; i-- {
-		if email[i] == '@' {
-			atIndex = i
-			break
-		}
-	}
-
-	return email[atIndex+1:]
 }

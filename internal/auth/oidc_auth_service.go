@@ -6,11 +6,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)
-func (s *OIDCService) StartSSOLogin(ctx context.Context, domain string) (string, error) {
+func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, error) {
+	// Extract domain from email address
+	domain, err := extractEmailDomain(email)
+	if err != nil {
+		return "", fmt.Errorf("invalid email format: %w", err)
+	}
+
 	// Find corporate provider for this domain (auto-detect)
 	providerConfigs, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
@@ -37,13 +44,13 @@ func (s *OIDCService) StartSSOLogin(ctx context.Context, domain string) (string,
 	}
 
 	// Generate CSRF state token (32 bytes, base64 encoded)
-	state, err := generateSecureToken(32)
+	state, err := token.Generate(32)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate state token: %w", err)
 	}
 
 	// Generate PKCE code verifier (32 bytes, base64 encoded)
-	codeVerifier, err := generateSecureToken(32)
+	codeVerifier, err := token.Generate(32)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate code verifier: %w", err)
 	}
@@ -82,13 +89,13 @@ func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCP
 	}
 
 	// Generate CSRF state token
-	state, err := generateSecureToken(32)
+	state, err := token.Generate(32)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate state token: %w", err)
 	}
 
 	// Generate PKCE code verifier
-	codeVerifier, err := generateSecureToken(32)
+	codeVerifier, err := token.Generate(32)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate code verifier: %w", err)
 	}

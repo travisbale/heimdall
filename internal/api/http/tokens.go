@@ -29,6 +29,7 @@ func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, us
 		return
 	}
 
+	accessExpiration := int(jwtService.GetAccessTokenExpiration().Seconds())
 	refreshExpiration := int(jwtService.GetRefreshTokenExpiration().Seconds())
 
 	// X-Forwarded-Prefix support for reverse proxy deployments
@@ -49,6 +50,6 @@ func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, us
 	respondJSON(w, http.StatusOK, sdk.LoginResponse{
 		AccessToken: accessToken,
 		TokenType:   "Bearer",
-		ExpiresIn:   accessTokenExpiry,
+		ExpiresIn:   accessExpiration,
 	})
 }

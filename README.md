@@ -5,7 +5,7 @@
 [![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-Authentication and authorization service written in Go. Handles user accounts, password hashing (Argon2), JWT issuance and validation, and role-based access control for all tenant applications.
+Authentication and authorization service written in Go. Handles user accounts, password hashing (Argon2), JWT issuance and validation, and multi-tenant access control for all tenant applications.
 
 ## Features
 
@@ -94,8 +94,8 @@ make test
   --jwt-private-key "/path/to/private-key.pem" \
   --jwt-public-key "/path/to/public-key.pem" \
   --jwt-expiration "24h" \
-  --email-link-base-url "http://localhost:8080" \
-  --mailman-grpc-address "localhost:9090" \
+  --public-url "http://localhost:8080" \
+  --mailman-grpc-address "localhost:50051" \
   --environment "development"
 ```
 
@@ -119,26 +119,32 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `GET /healthz` - Health check (no auth)
 
 **Authentication:**
+
 - `POST /v1/register` - Register new user (sends verification email)
-- `GET /v1/register/confirm?token={token}` - Verify email address
+- `POST /v1/verify-email` - Verify email address
+- `POST /v1/resend-verification` - Resend verification email
 - `POST /v1/login` - Authenticate user, returns JWT
 - `POST /v1/logout` - Logout (invalidates refresh token)
 - `POST /v1/refresh` - Refresh access token using refresh token cookie
 
 **Password Reset:**
+
 - `POST /v1/forgot-password` - Request password reset (sends email)
 - `POST /v1/reset-password` - Reset password with token
 
 **OAuth/OIDC Authentication:**
+
 - `POST /v1/oauth/login` - Start individual OAuth login (Google, Microsoft, GitHub)
 - `POST /v1/oauth/sso` - Start corporate SSO login by email domain
 - `GET /v1/oauth/callback` - OAuth callback endpoint (handles both flows)
 
-**OIDC Provider Management:**
-- `POST /v1/oidc/providers` - Create OIDC provider with dynamic registration
-- `GET /v1/oidc/providers` - Get OIDC provider details
-- `PUT /v1/oidc/providers` - Update OIDC provider configuration
-- `DELETE /v1/oidc/providers` - Delete OIDC provider
+**OIDC Provider Management:** (requires authentication)
+
+- `POST /v1/oauth/providers` - Create OIDC provider with dynamic registration
+- `GET /v1/oauth/providers` - List all OIDC providers for tenant
+- `GET /v1/oauth/providers/{providerID}` - Get OIDC provider details
+- `PUT /v1/oauth/providers/{providerID}` - Update OIDC provider configuration
+- `DELETE /v1/oauth/providers/{providerID}` - Delete OIDC provider
 
 ### gRPC (Port 9090)
 
@@ -181,30 +187,41 @@ Automated dependency updates run weekly for:
 
 ```txt
 heimdall/
-├── cmd/heimdall/          # CLI commands (serve, migrate, version)
+├── cmd/heimdall/          # CLI commands (start, migrate, cleanup, version)
+├── crypto/                # Cryptographic utilities
+│   ├── aes/              # AES encryption for sensitive data
+│   └── argon2/           # Argon2id password hashing
+├── identity/              # Tenant context utilities
 ├── internal/
-│   ├── api/              # HTTP handlers and routes
+│   ├── api/              # HTTP and gRPC handlers
+│   │   ├── http/         # HTTP REST API handlers
+│   │   └── grpc/         # gRPC service implementation
 │   ├── app/              # Server setup and lifecycle
-│   ├── auth/             # JWT, password hashing, service layer
+│   ├── auth/             # Authentication service layer and domain models
+│   ├── audit/            # Audit event definitions
 │   ├── db/postgres/      # Database layer with RLS
 │   │   ├── migrations/   # SQL schema migrations
 │   │   ├── queries/      # SQL queries (input to sqlc)
-│   │   └── sqlc/         # Generated type-safe queries
-│   ├── domain/           # Domain models and enums
-│   ├── grpc/             # gRPC service implementation
-│   └── tenant/           # Tenant context utilities
-├── proto/                # Protocol Buffer definitions
+│   │   └── internal/sqlc/# Generated type-safe queries
+│   ├── email/            # Email service integrations
+│   │   ├── mailman/      # Mailman gRPC client
+│   │   └── console/      # Console email stub (development)
+│   ├── oidc/             # OIDC provider implementations
+│   └── pb/               # Generated protobuf code
+├── jwt/                   # JWT token issuance and validation
+├── sdk/                   # Client SDK and route definitions
+├── proto/                 # Protocol Buffer definitions
 ├── .github/
 │   ├── workflows/        # CI/CD pipelines
 │   └── dependabot.yml    # Dependency automation
-├── Dockerfile            # Multi-stage Docker build
-├── Makefile              # Build commands
-└── sqlc.yaml             # sqlc configuration
+├── Dockerfile             # Multi-stage Docker build
+├── Makefile               # Build commands
+└── sqlc.yaml              # sqlc configuration
 ```
 
 ## Security Considerations
 
-- **Argon2id** - Memory-hard password hashing (64MB, 1 iteration, 4 threads)
+- **Argon2id** - Memory-hard password hashing (64MB, 2 iterations, 4 threads)
 - **JWT RSA signatures** - Asymmetric keys for token signing/verification
 - **Row-Level Security** - Database-enforced tenant isolation
 - **Non-root container** - Docker runs as `heimdall:heimdall` (uid 1000)
@@ -220,8 +237,8 @@ Environment variables:
 - `GRPC_ADDRESS` - gRPC server address (default: `:9090`)
 - `JWT_PRIVATE_KEY_PATH` - Path to RSA private key (PEM format)
 - `JWT_PUBLIC_KEY_PATH` - Path to RSA public key (PEM format)
-- `JWT_EXPIRATION` - Token lifetime (default: `24h`)
-- `EMAIL_LINK_BASE_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
+- `JWT_EXPIRATION` - Refresh token lifetime (default: `24h`)
+- `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
 - `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins

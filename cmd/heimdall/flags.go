@@ -25,34 +25,28 @@ var (
 
 	DatabaseURLFlag = &cli.StringFlag{
 		Name:        "database-url",
-		Aliases:     []string{"u"},
 		Usage:       "PostgreSQL connection URL",
 		Value:       "postgres://heimdall:heimdall_dev_password@localhost:5432/heimdall?sslmode=disable",
 		EnvVars:     []string{"DATABASE_URL"},
 		Destination: &config.DatabaseURL,
 	}
 
-	// HTTPAddressFlag defines the HTTP server listen address
 	HTTPAddressFlag = &cli.StringFlag{
 		Name:        "http-address",
-		Aliases:     []string{"a"},
 		Usage:       "HTTP address to listen on",
 		Value:       ":8080",
 		EnvVars:     []string{"HTTP_ADDRESS"},
 		Destination: &config.HTTPAddress,
 	}
 
-	// GRPCAddressFlag defines the gRPC server listen address
 	GRPCAddressFlag = &cli.StringFlag{
 		Name:        "grpc-address",
-		Aliases:     []string{"g"},
 		Usage:       "gRPC address to listen on",
 		Value:       ":9090",
 		EnvVars:     []string{"GRPC_ADDRESS"},
 		Destination: &config.GRPCAddress,
 	}
 
-	// JWTPrivateKeyFlag defines the path to the JWT private key
 	JWTIssuerFlag = &cli.StringFlag{
 		Name:        "jwt-issuer",
 		Usage:       "Name used to identify the principal that issues JWTs",
@@ -61,37 +55,30 @@ var (
 		Destination: &config.JWTIssuer,
 	}
 
-	// JWTPrivateKeyFlag defines the path to the JWT private key
 	JWTPrivateKeyFlag = &cli.StringFlag{
 		Name:        "jwt-private-key",
-		Aliases:     []string{"k"},
 		Usage:       "Path to JWT private key file (PEM format)",
 		Required:    true,
 		EnvVars:     []string{"JWT_PRIVATE_KEY_PATH"},
 		Destination: &config.JWTPrivateKeyPath,
 	}
 
-	// JWTPublicKeyFlag defines the path to the JWT public key
 	JWTPublicKeyFlag = &cli.StringFlag{
 		Name:        "jwt-public-key",
-		Aliases:     []string{"p"},
 		Usage:       "Path to JWT public key file (PEM format)",
 		Required:    true,
 		EnvVars:     []string{"JWT_PUBLIC_KEY_PATH"},
 		Destination: &config.JWTPublicKeyPath,
 	}
 
-	// JWTExpirationFlag defines the JWT token expiration duration
 	JWTExpirationFlag = &cli.DurationFlag{
 		Name:        "jwt-expiration",
-		Aliases:     []string{"x"},
 		Usage:       "JWT token expiration duration",
 		Value:       24 * time.Hour,
 		EnvVars:     []string{"JWT_EXPIRATION"},
 		Destination: &config.JWTExpiration,
 	}
 
-	// EnvironmentFlag defines the deployment environment
 	EnvironmentFlag = &cli.StringFlag{
 		Name:        "environment",
 		Aliases:     []string{"e"},
@@ -101,24 +88,28 @@ var (
 		Destination: &config.Environment,
 	}
 
-	// PublicURLFlag defines the public-facing URL
 	PublicURLFlag = &cli.StringFlag{
 		Name:        "public-url",
-		Aliases:     []string{"b"},
 		Usage:       "Public-facing URL for email links, OAuth callbacks, and external integrations",
 		Value:       "http://localhost:8080",
 		EnvVars:     []string{"PUBLIC_URL"},
 		Destination: &config.PublicURL,
 	}
 
-	// MailmanGRPCAddressFlag defines the mailman gRPC server address
 	MailmanGRPCAddressFlag = &cli.StringFlag{
 		Name:        "mailman-grpc-address",
-		Aliases:     []string{"m"},
 		Usage:       "Mailman gRPC server address",
 		Value:       "localhost:50051",
 		EnvVars:     []string{"MAILMAN_GRPC_ADDRESS"},
 		Destination: &config.MailmanGRPCAddress,
+	}
+
+	TrustedProxyModeFlag = &cli.BoolFlag{
+		Name:        "trusted-proxy-mode",
+		Usage:       "Enable IP extraction from X-Forwarded-For when behind trusted reverse proxy (nginx, cloudflare, etc). Security warning: only enable if proxy strips/validates headers.",
+		Value:       false,
+		EnvVars:     []string{"TRUSTED_PROXY_MODE"},
+		Destination: &config.TrustedProxyMode,
 	}
 
 	// CORSAllowedOriginsFlag defines allowed CORS origins

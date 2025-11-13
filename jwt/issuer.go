@@ -57,6 +57,11 @@ func (i *Issuer) IssueRefreshToken(userID, tenantID uuid.UUID) (string, error) {
 	return i.issueToken(userID, tenantID, expiresAt, nil)
 }
 
+// GetAccessTokenExpiration returns the access token expiration duration
+func (i *Issuer) GetAccessTokenExpiration() time.Duration {
+	return i.accessTokenExpiration
+}
+
 // GetRefreshTokenExpiration returns the refresh token expiration duration
 func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
 	return i.refreshTokenExpiration

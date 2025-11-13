@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log/slog"
 	"time"
 
 	"github.com/travisbale/heimdall/internal/app"
@@ -29,6 +28,8 @@ type Config struct {
 
 	Environment string // "development", "staging", "production"
 
+	TrustedProxyMode bool // Enable IP extraction from proxy headers (X-Forwarded-For)
+
 	EncryptionKey string // AES-256 key for encrypting OIDC client secrets
 
 	CORSAllowedOrigins cli.StringSlice // Browser origins allowed to make requests
@@ -49,8 +50,8 @@ func (c *Config) ToAppConfig() *app.Config {
 		PublicURL:          c.PublicURL,
 		MailmanGRPCAddress: c.MailmanGRPCAddress,
 		Environment:        c.Environment,
+		TrustedProxyMode:   c.TrustedProxyMode,
 		EncryptionKey:      c.EncryptionKey,
 		CORSAllowedOrigins: c.CORSAllowedOrigins.Value(),
-		Logger:             slog.Default(),
 	}
 }

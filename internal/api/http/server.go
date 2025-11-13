@@ -1,47 +1,31 @@
 package http
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
 
-type oidcService interface {
-	StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error)
-	StartSSOLogin(ctx context.Context, domain string) (string, error)
-	HandleOIDCCallback(ctx context.Context, state, code string) (*auth.User, *auth.OIDCLink, error)
-	// Admin operations
-	CreateOIDCProvider(ctx context.Context, provider *auth.OIDCProviderConfig, accessToken string) (*auth.OIDCProviderConfig, error)
-	GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*auth.OIDCProviderConfig, error)
-	ListOIDCProviders(ctx context.Context) ([]*auth.OIDCProviderConfig, error)
-	UpdateOIDCProvider(ctx context.Context, params *auth.UpdateOIDCProviderParams) (*auth.OIDCProviderConfig, error)
-	DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error
+type logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
 }
 
 type Config struct {
-	Address              string
-	UserService          userService
-	RegistrationService  registrationService
-	PasswordResetService passwordResetService
-	OIDCService          oidcService
-	JWTService           jwtService
-	Environment          string
-	CORSAllowedOrigins   []string
-}
-
-type jwtService interface {
-	IssueAccessToken(userID, tenantID uuid.UUID, scopes []string) (string, error)
-	IssueRefreshToken(userID, tenantID uuid.UUID) (string, error)
-	ValidateToken(token string) (*jwt.Claims, error)
-	GetRefreshTokenExpiration() time.Duration
+	Address            string
+	UserService        userService
+	OIDCService        oidcService
+	JWTService         jwtService
+	Environment        string
+	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
+	CORSAllowedOrigins []string
+	Logger             logger
 }
 
 type Server struct {
@@ -53,9 +37,9 @@ func NewServer(config *Config) *Server {
 	secureCookies := config.Environment != "development"
 
 	// Create domain handlers
-	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies)
-	registrationHandler := NewRegistrationHandler(config.RegistrationService, config.UserService, config.JWTService, secureCookies)
-	passwordResetHandler := NewPasswordResetHandler(config.PasswordResetService)
+	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.TrustedProxyMode, config.Logger)
+	registrationHandler := NewRegistrationHandler(config.UserService, config.JWTService, secureCookies)
+	passwordResetHandler := NewPasswordResetHandler(config.UserService)
 	oidcAuthHandler := NewOIDCAuthHandler(config.OIDCService, config.UserService, config.JWTService, secureCookies)
 	oidcProvidersHandler := NewOIDCProvidersHandler(config.OIDCService)
 

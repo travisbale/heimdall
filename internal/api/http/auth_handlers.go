@@ -1,40 +1,35 @@
 package http
 
 import (
-	"context"
 	"errors"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
 )
 
-const (
-	refreshTokenCookie = "refresh_token"
-	// TODO: Define this value once
-	accessTokenExpiry = 15 * 60 // 15 minutes in seconds
-)
-
-// userService defines the interface for authentication operations
-type userService interface {
-	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
-	GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error)
-}
+const refreshTokenCookie = "refresh_token"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	userService   userService
-	jwtService    jwtService
-	secureCookies bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
+	userService      userService
+	jwtService       jwtService
+	secureCookies    bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
+	trustedProxyMode bool // Enable IP extraction from X-Forwarded-For when behind trusted reverse proxy
+	logger           logger
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool) *AuthHandler {
+func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool, trustedProxyMode bool, logger logger) *AuthHandler {
 	return &AuthHandler{
-		userService:   userServiec,
-		jwtService:    jwtIssuer,
-		secureCookies: secureCookies,
+		userService:      userServiec,
+		jwtService:       jwtIssuer,
+		secureCookies:    secureCookies,
+		trustedProxyMode: trustedProxyMode,
+		logger:           logger,
 	}
 }
 
@@ -45,9 +40,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.Login(r.Context(), req.Email, req.Password, extractIPAddress(r))
+	user, err := h.userService.Login(r.Context(), req.Email, req.Password, h.extractIPAddress(r))
 	if err != nil {
-		// Map domain errors to HTTP status codes using switch for better readability
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			respondError(w, http.StatusUnauthorized, "Authentication failed", err)
@@ -116,38 +110,48 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	issueTokens(r.Context(), w, r, h.userService, h.jwtService, userID, claims.TenantID, h.secureCookies)
 }
 
-// extractIPAddress extracts the client IP address from the request
-// Checks X-Forwarded-For header first (for proxied requests), then falls back to RemoteAddr
-func extractIPAddress(r *http.Request) string {
-	// Check X-Forwarded-For header (may contain multiple IPs if behind multiple proxies)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP (the original client)
-		// X-Forwarded-For format: client, proxy1, proxy2
-		if idx := len(xff); idx > 0 {
-			for i, c := range xff {
-				if c == ',' {
-					idx = i
-					break
-				}
-			}
-			return xff[:idx]
-		}
-	}
+// extractIPAddress extracts the client IP address from the request with security validation
+func (h *AuthHandler) extractIPAddress(r *http.Request) string {
+	// Behind trusted reverse proxy - extract from proxy headers
+	if h.trustedProxyMode {
+		var ip string
 
-	// Check X-Real-IP header (single IP)
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr (format: "IP:port")
-	// Strip port if present
-	if idx := len(r.RemoteAddr); idx > 0 {
-		for i := idx - 1; i >= 0; i-- {
-			if r.RemoteAddr[i] == ':' {
-				return r.RemoteAddr[:i]
+		// Take the rightmost IP (last entry added by our trusted proxy)
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			ips := strings.Split(xff, ",")
+			if len(ips) > 0 {
+				ip = strings.TrimSpace(ips[len(ips)-1])
 			}
 		}
+
+		// Fallback to X-Real-IP if X-Forwarded-For not present
+		if ip == "" {
+			if xri := r.Header.Get("X-Real-IP"); xri != "" {
+				ip = strings.TrimSpace(xri)
+			}
+		}
+
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
+
+		h.logger.Warn("invalid IP from proxy header, falling back to RemoteAddr",
+			"invalid_ip", ip,
+			"x_forwarded_for", r.Header.Get("X-Forwarded-For"),
+			"x_real_ip", r.Header.Get("X-Real-IP"),
+		)
 	}
 
-	return r.RemoteAddr
+	// Use RemoteAddr if no valid proxy IP (or not in proxy mode)
+	return stripPort(r.RemoteAddr)
+}
+
+// stripPort removes the port from an address string (e.g., "192.168.1.1:8080" -> "192.168.1.1")
+func stripPort(addr string) string {
+	// For IPv6 addresses like "[::1]:8080", handle brackets
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	// If no port or parsing failed, return as-is
+	return addr
 }

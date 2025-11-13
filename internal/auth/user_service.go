@@ -2,13 +2,12 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/crypto/token"
 )
 
 // userDB defines the interface for user database operations
@@ -43,11 +42,6 @@ type loginAttemptsService interface {
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 
-type logger interface {
-	Info(msg string, args ...any)
-	Error(msg string, args ...any)
-}
-
 // UserServiceConfig holds the dependencies for creating a UserService
 type UserServiceConfig struct {
 	UserDB               userDB
@@ -56,7 +50,7 @@ type UserServiceConfig struct {
 	VerificationTokenDB  tokenDB
 	PasswordResetTokenDB tokenDB
 	LoginAttemptsService loginAttemptsService
-	OIDCProviderDB       oidcProviderDB
+	OIDCService          oidcService
 	Logger               logger
 }
 
@@ -68,7 +62,7 @@ type UserService struct {
 	verificationTokenDB  tokenDB
 	passwordResetTokenDB tokenDB
 	loginAttemptsService loginAttemptsService
-	oidcProviderDB       oidcProviderDB
+	oidcService          oidcService
 	logger               logger
 }
 
@@ -79,7 +73,7 @@ func NewUserService(config *UserServiceConfig) *UserService {
 		emailService:         config.EmailService,
 		verificationTokenDB:  config.VerificationTokenDB,
 		passwordResetTokenDB: config.PasswordResetTokenDB,
-		oidcProviderDB:       config.OIDCProviderDB,
+		oidcService:          config.OIDCService,
 		loginAttemptsService: config.LoginAttemptsService,
 		logger:               config.Logger,
 	}
@@ -88,13 +82,8 @@ func NewUserService(config *UserServiceConfig) *UserService {
 // Register creates new user with email verification, rejects SSO-enforced domains
 func (s *UserService) Register(ctx context.Context, email, password string) (*User, error) {
 	// Prevent password registration for domains configured with SSO
-	domain := extractEmailDomain(email)
-	providers, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
-	if err != nil {
-		s.logger.Error("failed to check SSO providers for domain", "domain", domain, "error", err)
-		// Continue with registration on lookup error (don't block legitimate users)
-	} else if len(providers) > 0 {
-		return nil, ErrSSORequired
+	if err := s.oidcService.IsPasswordRegistrationAllowed(ctx, email); err != nil {
+		return nil, err
 	}
 
 	// Check if user already exists
@@ -147,19 +136,19 @@ func (s *UserService) Register(ctx context.Context, email, password string) (*Us
 	}
 
 	// Generate verification token (24 hour expiration)
-	token, err := generateVerificationToken()
+	verificationToken, err := token.Generate(32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate verification token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, token, expiresAt)
+	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verification token: %w", err)
 	}
 
 	// Send verification email (mailman handles async via River queue)
-	if err := s.emailService.SendVerificationEmail(ctx, email, token); err != nil {
+	if err := s.emailService.SendVerificationEmail(ctx, email, verificationToken); err != nil {
 		return nil, fmt.Errorf("failed to send verification email: %w", err)
 	}
 
@@ -189,7 +178,7 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, token string) (*U
 	// Delete the verification token
 	if err := s.verificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
 		// Log but don't fail - the user is already activated
-		fmt.Printf("Warning: failed to delete verification token: %v\n", err)
+		s.logger.Error("failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
 	}
 
 	return user, nil
@@ -219,41 +208,29 @@ func (s *UserService) ResendVerificationEmail(ctx context.Context, email string)
 	_ = s.verificationTokenDB.DeleteToken(ctx, user.ID)
 
 	// Generate new verification token (24 hour expiration)
-	token, err := generateVerificationToken()
+	verificationToken, err := token.Generate(32)
 	if err != nil {
 		return fmt.Errorf("failed to generate verification token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, token, expiresAt)
+	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
 	if err != nil {
 		return fmt.Errorf("failed to create verification token: %w", err)
 	}
 
 	// Send verification email (mailman handles async via River queue)
-	if err := s.emailService.SendVerificationEmail(ctx, email, token); err != nil {
+	if err := s.emailService.SendVerificationEmail(ctx, email, verificationToken); err != nil {
 		return fmt.Errorf("failed to send verification email: %w", err)
 	}
 
 	return nil
 }
 
-// generateVerificationToken generates a cryptographically secure verification token
-func generateVerificationToken() (string, error) {
-	// Generate 32 random bytes (256 bits)
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-
-	// Encode to base64 URL-safe format (no padding)
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bytes), nil
-}
-
 // CreateUser creates a new user with a temporary password
 func (s *UserService) CreateUser(ctx context.Context, tenantID uuid.UUID, email string) (*User, string, error) {
 	// Generate a secure temporary password
-	tempPassword, err := generateTemporaryPassword()
+	tempPassword, err := token.Generate(16)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate temporary password: %w", err)
 	}
@@ -354,20 +331,9 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 }
 
 // GetScopes returns the scopes assigned to the user
+// Currently returns empty slice - scope/permission system not yet implemented
 func (s *UserService) GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	return nil, nil
-}
-
-// generateTemporaryPassword generates a cryptographically secure temporary password
-func generateTemporaryPassword() (string, error) {
-	// Generate 16 random bytes (128 bits)
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-
-	// Encode to base64 URL-safe format (no padding)
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bytes), nil
+	return []string{}, nil
 }
 
 // InitiatePasswordReset generates a password reset token and sends a reset email
@@ -386,19 +352,19 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 	}
 
 	// Generate reset token (1 hour expiration)
-	token, err := generateVerificationToken()
+	resetToken, err := token.Generate(32)
 	if err != nil {
 		return fmt.Errorf("failed to generate reset token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(1 * time.Hour)
-	_, err = s.passwordResetTokenDB.CreateToken(ctx, user.ID, token, expiresAt)
+	_, err = s.passwordResetTokenDB.CreateToken(ctx, user.ID, resetToken, expiresAt)
 	if err != nil {
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
 
 	// Send password reset email (mailman handles async via River queue)
-	if err := s.emailService.SendPasswordResetEmail(ctx, email, token); err != nil {
+	if err := s.emailService.SendPasswordResetEmail(ctx, email, resetToken); err != nil {
 		return fmt.Errorf("failed to send password reset email: %w", err)
 	}
 
@@ -432,7 +398,7 @@ func (s *UserService) ResetPassword(ctx context.Context, token, newPassword stri
 	// Delete the reset token
 	if err := s.passwordResetTokenDB.DeleteToken(ctx, resetToken.UserID); err != nil {
 		// Log but don't fail - the password is already updated
-		fmt.Printf("Warning: failed to delete reset token: %v\n", err)
+		s.logger.Error("failed to delete reset token", "error", err, "user_id", resetToken.UserID)
 	}
 
 	return nil

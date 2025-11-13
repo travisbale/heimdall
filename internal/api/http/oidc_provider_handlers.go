@@ -70,7 +70,6 @@ func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Req
 
 	result, err := h.oidcService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
 	if err != nil {
-		// Map domain errors to appropriate HTTP status codes
 		switch {
 		case errors.Is(err, auth.ErrOIDCDiscoveryFailed):
 			respondError(w, http.StatusBadRequest, "Unable to discover OIDC provider. Check the issuer URL.", err)
