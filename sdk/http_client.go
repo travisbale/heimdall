@@ -170,6 +170,69 @@ func (c *HTTPClient) OAuthLogin(ctx context.Context, req OIDCLoginRequest) (*OID
 	return &resp, nil
 }
 
+// SSOLogin initiates a corporate SSO login flow
+// Returns the authorization URL that the user should be redirected to
+func (c *HTTPClient) SSOLogin(ctx context.Context, req SSOLoginRequest) (*OIDCAuthResponse, error) {
+	var resp OIDCAuthResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1SSOLogin, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListSupportedProviders returns the list of OAuth providers available for individual login
+func (c *HTTPClient) ListSupportedProviders(ctx context.Context) (*ListSupportedOIDCProvidersResponse, error) {
+	var resp ListSupportedOIDCProvidersResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1OAuthSupportedTypes, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// CreateOIDCProvider creates a new OIDC provider configuration for corporate SSO
+func (c *HTTPClient) CreateOIDCProvider(ctx context.Context, req CreateOIDCProviderRequest) (*OIDCProviderResponse, error) {
+	var resp OIDCProviderResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1OAuthProviders, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetOIDCProvider retrieves an OIDC provider by ID
+func (c *HTTPClient) GetOIDCProvider(ctx context.Context, req GetOIDCProviderRequest) (*OIDCProviderResponse, error) {
+	var resp OIDCProviderResponse
+	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListOIDCProviders lists all OIDC providers for the tenant
+func (c *HTTPClient) ListOIDCProviders(ctx context.Context) (*ListOIDCProvidersResponse, error) {
+	var resp ListOIDCProvidersResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1OAuthProviders, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// UpdateOIDCProvider updates an OIDC provider configuration
+func (c *HTTPClient) UpdateOIDCProvider(ctx context.Context, req UpdateOIDCProviderRequest) (*OIDCProviderResponse, error) {
+	var resp OIDCProviderResponse
+	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
+	if err := c.doRequest(ctx, http.MethodPut, route, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// DeleteOIDCProvider deletes an OIDC provider
+func (c *HTTPClient) DeleteOIDCProvider(ctx context.Context, req DeleteOIDCProviderRequest) error {
+	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
+	return c.doRequest(ctx, http.MethodDelete, route, nil, nil)
+}
+
 func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req validatable, result any) error {
 	var reqBody []byte = nil
 	var err error

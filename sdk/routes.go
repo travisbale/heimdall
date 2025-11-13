@@ -14,11 +14,9 @@ const (
 	RouteV1ResetPassword  = "/v1/reset-password"
 
 	// OAuth/SSO endpoints
-	RouteV1OAuthLogin    = "/v1/oauth/login" // Individual OAuth (Google, GitHub, etc.)
-	RouteV1SSOLogin      = "/v1/sso/login"   // Corporate SSO (domain-based routing)
-	RouteV1OAuthLinks    = "/v1/oauth/links"
-	RouteV1OAuthLink     = "/v1/oauth/links/{providerID}"
-	RouteV1OAuthCallback = "/v1/oauth/callback"
+	RouteV1OAuthLogin    = "/v1/oauth/login"    // Individual OAuth (Google, GitHub, etc.)
+	RouteV1SSOLogin      = "/v1/sso/login"      // Corporate SSO (domain-based routing)
+	RouteV1OAuthCallback = "/v1/oauth/callback" // OAuth callback handler
 
 	// OAuth provider configuration (authenticated)
 	RouteV1OAuthProviders      = "/v1/oauth/providers"
