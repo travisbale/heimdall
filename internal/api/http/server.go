@@ -34,7 +34,7 @@ type Server struct {
 
 func NewServer(config *Config) *Server {
 	// Secure cookies required for production/staging to enforce HTTPS-only transmission
-	secureCookies := config.Environment != "development"
+	secureCookies := config.Environment != "development" && config.Environment != "test"
 
 	// Create domain handlers
 	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.TrustedProxyMode, config.Logger)
@@ -70,7 +70,9 @@ func NewServer(config *Config) *Server {
 
 	// Moderate rate limit for registration endpoints (less sensitive than authentication)
 	router.Group(func(r chi.Router) {
-		r.Use(newRateLimitMiddleware(ModerateRateLimit))
+		if config.Environment != "test" {
+			r.Use(newRateLimitMiddleware(ModerateRateLimit))
+		}
 
 		r.Post(sdk.RouteV1Register, registrationHandler.Register)
 		r.Post(sdk.RouteV1VerifyEmail, registrationHandler.ConfirmRegistration)
@@ -78,7 +80,9 @@ func NewServer(config *Config) *Server {
 
 	// Strict rate limit for authentication endpoints (prevent brute force attacks)
 	router.Group(func(r chi.Router) {
-		r.Use(newRateLimitMiddleware(StrictRateLimit))
+		if config.Environment != "test" {
+			r.Use(newRateLimitMiddleware(StrictRateLimit))
+		}
 
 		r.Post(sdk.RouteV1Login, authHandler.Login)
 		r.Post(sdk.RouteV1Logout, authHandler.Logout)

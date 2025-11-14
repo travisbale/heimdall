@@ -52,5 +52,5 @@ WHERE id = $1;
 -- This query bypasses RLS to search across all tenants
 SELECT * FROM oidc_providers
 WHERE enabled = true
-  AND $1 = ANY(allowed_domains)
+  AND sqlc.arg('domain')::text = ANY(allowed_domains)
 ORDER BY created_at ASC;

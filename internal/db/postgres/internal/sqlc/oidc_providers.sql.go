@@ -139,14 +139,14 @@ func (q *Queries) GetOIDCProvider(ctx context.Context, id uuid.UUID) (OidcProvid
 const getOIDCProvidersByDomain = `-- name: GetOIDCProvidersByDomain :many
 SELECT id, tenant_id, provider_name, issuer_url, client_id, client_secret, scopes, enabled, allowed_domains, auto_create_users, require_email_verification, registration_access_token, registration_client_uri, client_id_issued_at, client_secret_expires_at, registration_method, created_at, updated_at FROM oidc_providers
 WHERE enabled = true
-  AND $1 = ANY(allowed_domains)
+  AND $1::text = ANY(allowed_domains)
 ORDER BY created_at ASC
 `
 
 // Find all OAuth providers configured for an email domain (cross-tenant, for SSO discovery)
 // This query bypasses RLS to search across all tenants
-func (q *Queries) GetOIDCProvidersByDomain(ctx context.Context, allowedDomains []string) ([]OidcProvider, error) {
-	rows, err := q.db.Query(ctx, getOIDCProvidersByDomain, allowedDomains)
+func (q *Queries) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]OidcProvider, error) {
+	rows, err := q.db.Query(ctx, getOIDCProvidersByDomain, domain)
 	if err != nil {
 		return nil, err
 	}

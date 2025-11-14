@@ -181,7 +181,7 @@ func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain s
 	// Domain-based lookup doesn't use tenant context (pre-authentication)
 	// Uses WithTransaction to bypass RLS and search across all tenants
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		dbProviders, err := q.GetOIDCProvidersByDomain(ctx, []string{domain})
+		dbProviders, err := q.GetOIDCProvidersByDomain(ctx, domain)
 		if err != nil {
 			return fmt.Errorf("failed to get oauth providers by domain: %w", err)
 		}

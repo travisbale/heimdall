@@ -50,11 +50,12 @@ func (u *UsersDB) CreateUser(ctx context.Context, user *auth.User) (*auth.User, 
 	return result, err
 }
 
-// GetUser retrieves a user by ID with tenant isolation
+// GetUser retrieves a user by ID without tenant isolation
+// Used for pre-authentication operations (email verification, SSO login)
 func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*auth.User, error) {
 	var result *auth.User
 
-	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.GetUser(ctx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
