@@ -80,7 +80,7 @@ func (c *GRPCClient) Close() error {
 
 // CreateUser creates a new user for a tenant
 func (c *GRPCClient) CreateUser(ctx context.Context, req CreateUserRequest) (*CreateUserResponse, error) {
-	if err := req.Validate(); err != nil {
+	if err := req.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid request")
 	}
 

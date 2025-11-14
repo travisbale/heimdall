@@ -14,7 +14,7 @@ import (
 
 // validatable interface for requests that support validation
 type validatable interface {
-	Validate() error
+	Validate(ctx context.Context) error
 }
 
 // HTTPClient is an HTTP client for the heimdall API
@@ -238,7 +238,7 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 	var err error
 
 	if req != nil {
-		if err := req.Validate(); err != nil {
+		if err := req.Validate(ctx); err != nil {
 			return fmt.Errorf("invalid request: %w", err)
 		}
 

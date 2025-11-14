@@ -49,7 +49,7 @@ func TestGenerate_Randomness(t *testing.T) {
 
 	tokens := make(map[string]bool)
 
-	for i := 0; i < numTokens; i++ {
+	for range numTokens {
 		token, err := Generate(tokenSize)
 		if err != nil {
 			t.Fatalf("failed to generate token: %v", err)

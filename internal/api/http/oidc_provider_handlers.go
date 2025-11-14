@@ -96,7 +96,7 @@ func (h *OIDCProvidersHandler) GetProvider(w http.ResponseWriter, r *http.Reques
 		ProviderID: parseUUID(chi.URLParam(r, "providerID")),
 	}
 
-	if err := req.Validate(); err != nil {
+	if err := req.Validate(r.Context()); err != nil {
 		respondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
@@ -145,7 +145,7 @@ func (h *OIDCProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Req
 
 	req.ProviderID = parseUUID(chi.URLParam(r, "providerID"))
 
-	if err := req.Validate(); err != nil {
+	if err := req.Validate(r.Context()); err != nil {
 		respondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
@@ -183,7 +183,7 @@ func (h *OIDCProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Req
 		ProviderID: parseUUID(chi.URLParam(r, "providerID")),
 	}
 
-	if err := req.Validate(); err != nil {
+	if err := req.Validate(r.Context()); err != nil {
 		respondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}

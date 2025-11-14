@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -50,7 +51,7 @@ func decodeJSON(r *http.Request, v any) error {
 
 // validator is an interface for types that can validate themselves
 type validator interface {
-	Validate() error
+	Validate(ctx context.Context) error
 }
 
 // decodeAndValidateJSON decodes and validates JSON, returns false if error response was sent
@@ -60,7 +61,7 @@ func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator
 		return false
 	}
 
-	if err := req.Validate(); err != nil {
+	if err := req.Validate(r.Context()); err != nil {
 		respondError(w, http.StatusBadRequest, err.Error(), err)
 		return false
 	}

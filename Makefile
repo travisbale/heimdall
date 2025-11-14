@@ -1,4 +1,4 @@
-.PHONY: build dev test clean sqlc protoc fmt lint tidy download docker-build migrate-up migrate-down help
+.PHONY: build dev test coverage-html clean sqlc protoc fmt lint tidy download docker-build migrate-up migrate-down help
 
 # Version is derived from git tags
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -18,13 +18,21 @@ dev: fmt
 # Run all tests
 test:
 	@echo "Running tests..."
-	@go test -v -race ./...
+	@go test -v -race -coverprofile=coverage.out -covermode=atomic \
+		$$(go list ./... | grep -v -e '/internal/api' -e '/internal/db' -e '/internal/pb' -e '/cmd/' -e '/internal/email')
+	@echo "Unit test coverage: $$(go tool cover -func=coverage.out | grep total | awk '{print $$3}')"
+
+# Generate HTML coverage report
+coverage-html: test
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
 	@go clean
 	@rm -rf bin
+	@rm -f coverage.out coverage.html
 
 # Format code
 fmt:
@@ -82,7 +90,8 @@ help:
 	@echo "  build          - Build production binary"
 	@echo "  dev            - Build with debug symbols (faster compilation)"
 	@echo "  run            - Build and run the service"
-	@echo "  test           - Run all tests"
+	@echo "  test           - Run all tests with coverage"
+	@echo "  coverage-html  - Generate HTML coverage report"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  deps           - Install and tidy Go dependencies"
 	@echo "  sqlc           - Generate sqlc code from queries"

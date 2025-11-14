@@ -1,12 +1,14 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/crypto/password"
 )
 
 // emailRegex is a basic email validation pattern
@@ -75,7 +77,7 @@ type LoginRequest struct {
 }
 
 // Validate validates the login request
-func (r *LoginRequest) Validate() error {
+func (r *LoginRequest) Validate(ctx context.Context) error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
@@ -110,7 +112,7 @@ type CreateUserRequest struct {
 }
 
 // Validate validates the create user request
-func (r *CreateUserRequest) Validate() error {
+func (r *CreateUserRequest) Validate(ctx context.Context) error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
@@ -135,7 +137,7 @@ type RegisterRequest struct {
 }
 
 // Validate validates the registration request
-func (r *RegisterRequest) Validate() error {
+func (r *RegisterRequest) Validate(ctx context.Context) error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
@@ -157,17 +159,16 @@ type VerifyEmailRequest struct {
 }
 
 // Validate validates the verify email request
-func (r *VerifyEmailRequest) Validate() error {
+func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
 	if r.Token == "" {
 		return fmt.Errorf("token is required")
 	}
 	if r.Password == "" {
 		return fmt.Errorf("password is required")
 	}
-	if len(r.Password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
-	}
-	return nil
+
+	// Validate password against security policy
+	return password.NewValidator().Validate(ctx, r.Password)
 }
 
 // ForgotPasswordRequest represents the forgot password request body
@@ -176,7 +177,7 @@ type ForgotPasswordRequest struct {
 }
 
 // Validate validates the forgot password request
-func (r *ForgotPasswordRequest) Validate() error {
+func (r *ForgotPasswordRequest) Validate(ctx context.Context) error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
@@ -195,17 +196,16 @@ type ResetPasswordRequest struct {
 }
 
 // Validate validates the reset password request
-func (r *ResetPasswordRequest) Validate() error {
+func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
 	if r.Token == "" {
 		return fmt.Errorf("token is required")
 	}
 	if r.NewPassword == "" {
 		return fmt.Errorf("new password is required")
 	}
-	if len(r.NewPassword) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
-	}
-	return nil
+
+	// Validate password against security policy
+	return password.NewValidator().Validate(ctx, r.NewPassword)
 }
 
 // ResetPasswordResponse represents the reset password response
@@ -227,7 +227,7 @@ type OIDCLoginRequest struct {
 }
 
 // Validate validates the OIDC login request
-func (r *OIDCLoginRequest) Validate() error {
+func (r *OIDCLoginRequest) Validate(ctx context.Context) error {
 	if !r.ProviderType.IsValid() {
 		return fmt.Errorf("invalid provider_type: must be one of google, microsoft, github, or okta")
 	}
@@ -240,7 +240,7 @@ type SSOLoginRequest struct {
 }
 
 // Validate validates the SSO login request
-func (r *SSOLoginRequest) Validate() error {
+func (r *SSOLoginRequest) Validate(ctx context.Context) error {
 	if !emailRegex.MatchString(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
@@ -285,7 +285,7 @@ type CreateOIDCProviderRequest struct {
 }
 
 // Validate validates the create OIDC provider request
-func (r *CreateOIDCProviderRequest) Validate() error {
+func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
 	if r.ProviderName == "" {
 		return fmt.Errorf("provider_name is required")
 	}
@@ -312,7 +312,7 @@ type GetOIDCProviderRequest struct {
 }
 
 // Validate validates the get OIDC provider request
-func (r *GetOIDCProviderRequest) Validate() error {
+func (r *GetOIDCProviderRequest) Validate(ctx context.Context) error {
 	if r.ProviderID == uuid.Nil {
 		return fmt.Errorf("provider_id is required")
 	}
@@ -333,7 +333,7 @@ type UpdateOIDCProviderRequest struct {
 }
 
 // Validate validates the update OIDC provider request
-func (r *UpdateOIDCProviderRequest) Validate() error {
+func (r *UpdateOIDCProviderRequest) Validate(ctx context.Context) error {
 	if r.ProviderID == uuid.Nil {
 		return fmt.Errorf("provider_id is required")
 	}
@@ -353,7 +353,7 @@ type DeleteOIDCProviderRequest struct {
 }
 
 // Validate validates the delete OIDC provider request
-func (r *DeleteOIDCProviderRequest) Validate() error {
+func (r *DeleteOIDCProviderRequest) Validate(ctx context.Context) error {
 	if r.ProviderID == uuid.Nil {
 		return fmt.Errorf("provider_id is required")
 	}

@@ -391,7 +391,7 @@ func TestLoginAttemptsFlow_ProgressiveLockout(t *testing.T) {
 	email := "attacker@example.com"
 
 	// First 4 attempts - no lockout
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		db.recentFailedCount = int64(i)
 		err := service.RecordFailedLogin(ctx, email, nil, nil, nil)
 		if err != nil {
