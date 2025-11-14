@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.24'
-  GOLANGCI_LINT_VERSION: 'v1.61'
+  GO_VERSION: "1.25"
+  GOLANGCI_LINT_VERSION: "v2.6.0"
 
 jobs:
   lint:
