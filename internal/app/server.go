@@ -43,6 +43,22 @@ type Config struct {
 	EncryptionKey      string
 	TrustedProxyMode   bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy
 	CORSAllowedOrigins []string
+
+	// OAuth provider configuration for individual logins
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleIssuerURL    string
+
+	MicrosoftClientID     string
+	MicrosoftClientSecret string
+	MicrosoftTenantID     string
+	MicrosoftIssuerURL    string
+
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubAuthURL      string
+	GitHubTokenURL     string
+	GitHubAPIBase      string
 }
 
 // Server wraps the HTTP and gRPC servers and their dependencies
@@ -124,6 +140,58 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	// System-wide providers enable "Login with Google/GitHub" before user authentication
 	// Tenant-specific providers (stored in DB) are used for enterprise SSO
 	systemProviders := make(map[sdk.OIDCProviderType]auth.OIDCProvider)
+
+	// OAuth callback redirect URI (same for all providers)
+	redirectURI := config.PublicURL + "/v1/oauth/callback"
+
+	// Configure Google OAuth provider if credentials are provided
+	if config.GoogleClientID != "" && config.GoogleClientSecret != "" {
+		googleProvider, err := oidc.NewGoogleProvider(ctx, &oidc.ProviderConfig{
+			ClientID:     config.GoogleClientID,
+			ClientSecret: config.GoogleClientSecret,
+			RedirectURI:  redirectURI,
+			IssuerURL:    config.GoogleIssuerURL,
+		})
+		if err != nil {
+			db.Close()
+			emailService.Close()
+			return nil, fmt.Errorf("failed to create Google OAuth provider: %w", err)
+		}
+		systemProviders[sdk.OIDCProviderTypeGoogle] = googleProvider
+		logger.Info("Google OAuth provider configured")
+	}
+
+	// Configure Microsoft OAuth provider if credentials are provided
+	if config.MicrosoftClientID != "" && config.MicrosoftClientSecret != "" {
+		microsoftProvider, err := oidc.NewMicrosoftProvider(ctx, &oidc.ProviderConfig{
+			ClientID:     config.MicrosoftClientID,
+			ClientSecret: config.MicrosoftClientSecret,
+			RedirectURI:  redirectURI,
+			TenantID:     config.MicrosoftTenantID,
+			IssuerURL:    config.MicrosoftIssuerURL,
+		})
+		if err != nil {
+			db.Close()
+			emailService.Close()
+			return nil, fmt.Errorf("failed to create Microsoft OAuth provider: %w", err)
+		}
+		systemProviders[sdk.OIDCProviderTypeMicrosoft] = microsoftProvider
+		logger.Info("Microsoft OAuth provider configured")
+	}
+
+	// Configure GitHub OAuth provider if credentials are provided
+	if config.GitHubClientID != "" && config.GitHubClientSecret != "" {
+		githubProvider := oidc.NewGitHubProvider(&oidc.ProviderConfig{
+			ClientID:     config.GitHubClientID,
+			ClientSecret: config.GitHubClientSecret,
+			RedirectURI:  redirectURI,
+			AuthURL:      config.GitHubAuthURL,
+			TokenURL:     config.GitHubTokenURL,
+			APIBase:      config.GitHubAPIBase,
+		})
+		systemProviders[sdk.OIDCProviderTypeGitHub] = githubProvider
+		logger.Info("GitHub OAuth provider configured")
+	}
 
 	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
 		OIDCProviderDB:     oidcProvidersDB,

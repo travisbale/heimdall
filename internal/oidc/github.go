@@ -10,27 +10,31 @@ import (
 	"github.com/travisbale/heimdall/internal/auth"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 )
 
 // GitHubProvider implements OAuth authentication for GitHub
 // Note: GitHub uses OAuth 2.0 but doesn't fully support OIDC (no ID tokens)
 type GitHubProvider struct {
-	config *oauth2.Config
+	config  *oauth2.Config
+	apiBase string // Base URL for GitHub API (allows override for testing)
 }
 
 // NewGitHubProvider creates a new GitHub OAuth provider
-func NewGitHubProvider(clientID, clientSecret, redirectURI string) *GitHubProvider {
+func NewGitHubProvider(cfg *ProviderConfig) *GitHubProvider {
 	config := &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURI,
-		Endpoint:     github.Endpoint,
-		Scopes:       []string{"user:email", "read:user"},
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		RedirectURL:  cfg.RedirectURI,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  cfg.AuthURL,
+			TokenURL: cfg.TokenURL,
+		},
+		Scopes: []string{"user:email", "read:user"},
 	}
 
 	return &GitHubProvider{
-		config: config,
+		config:  config,
+		apiBase: cfg.APIBase,
 	}
 }
 
@@ -154,7 +158,7 @@ type gitHubEmail struct {
 
 // getGitHubUser fetches the user profile from GitHub
 func (g *GitHubProvider) getGitHubUser(ctx context.Context, accessToken string) (*gitHubUser, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", g.apiBase+"/user", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -183,7 +187,7 @@ func (g *GitHubProvider) getGitHubUser(ctx context.Context, accessToken string) 
 
 // getGitHubEmail fetches the primary verified email from GitHub
 func (g *GitHubProvider) getGitHubEmail(ctx context.Context, accessToken string) (string, bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", g.apiBase+"/user/emails", nil)
 	if err != nil {
 		return "", false, fmt.Errorf("failed to create request: %w", err)
 	}

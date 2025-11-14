@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -152,6 +153,9 @@ func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string
 
 // handleSSOCallback processes corporate SSO callbacks
 func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
+	// Add tenant context from session for database queries (pre-authentication flow)
+	ctx = identity.WithTenant(ctx, *session.TenantID)
+
 	// Get tenant-specific provider configuration
 	providerConfig, err := s.oidcProviderDB.GetOIDCProviderByID(ctx, *session.OIDCProviderID)
 	if err != nil {

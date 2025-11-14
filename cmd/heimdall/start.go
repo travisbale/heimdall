@@ -30,6 +30,18 @@ var startCmd = &cli.Command{
 		TrustedProxyModeFlag,
 		EncryptionKeyFlag,
 		CORSAllowedOriginsFlag,
+		GoogleClientIDFlag,
+		GoogleClientSecretFlag,
+		GoogleIssuerURLFlag,
+		MicrosoftClientIDFlag,
+		MicrosoftClientSecretFlag,
+		MicrosoftTenantIDFlag,
+		MicrosoftIssuerURLFlag,
+		GitHubClientIDFlag,
+		GitHubClientSecretFlag,
+		GitHubAuthURLFlag,
+		GitHubTokenURLFlag,
+		GitHubAPIBaseFlag,
 	},
 	Action: func(c *cli.Context) error {
 		appConfig := config.ToAppConfig()

@@ -25,6 +25,12 @@ func WithUser(ctx context.Context, userID, tenantID uuid.UUID) context.Context {
 	return ctx
 }
 
+// WithTenant adds only tenant ID to the context
+// Used for pre-authentication flows (e.g., OAuth callbacks) where tenant is known but user isn't authenticated yet
+func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, tenantIDContextKey, tenantID)
+}
+
 // GetUser retrieves the user ID from the context
 func GetUser(ctx context.Context) (uuid.UUID, error) {
 	userID, ok := ctx.Value(userIDContextKey).(uuid.UUID)

@@ -126,4 +126,92 @@ var (
 		EnvVars:     []string{"ENCRYPTION_KEY"},
 		Destination: &config.EncryptionKey,
 	}
+
+	// Google OAuth provider flags
+	GoogleClientIDFlag = &cli.StringFlag{
+		Name:        "google-client-id",
+		Usage:       "Google OAuth client ID for individual login",
+		EnvVars:     []string{"GOOGLE_CLIENT_ID"},
+		Destination: &config.GoogleClientID,
+	}
+
+	GoogleClientSecretFlag = &cli.StringFlag{
+		Name:        "google-client-secret",
+		Usage:       "Google OAuth client secret",
+		EnvVars:     []string{"GOOGLE_CLIENT_SECRET"},
+		Destination: &config.GoogleClientSecret,
+	}
+
+	GoogleIssuerURLFlag = &cli.StringFlag{
+		Name:        "google-issuer-url",
+		Usage:       "Google OIDC issuer URL (optional, defaults to https://accounts.google.com, mainly for testing)",
+		EnvVars:     []string{"GOOGLE_ISSUER_URL"},
+		Destination: &config.GoogleIssuerURL,
+	}
+
+	// Microsoft OAuth provider flags
+	MicrosoftClientIDFlag = &cli.StringFlag{
+		Name:        "microsoft-client-id",
+		Usage:       "Microsoft OAuth client ID for individual login",
+		EnvVars:     []string{"MICROSOFT_CLIENT_ID"},
+		Destination: &config.MicrosoftClientID,
+	}
+
+	MicrosoftClientSecretFlag = &cli.StringFlag{
+		Name:        "microsoft-client-secret",
+		Usage:       "Microsoft OAuth client secret",
+		EnvVars:     []string{"MICROSOFT_CLIENT_SECRET"},
+		Destination: &config.MicrosoftClientSecret,
+	}
+
+	MicrosoftTenantIDFlag = &cli.StringFlag{
+		Name:        "microsoft-tenant-id",
+		Usage:       "Microsoft Azure AD tenant ID (defaults to 'common' for multi-tenant)",
+		Value:       "common",
+		EnvVars:     []string{"MICROSOFT_TENANT_ID"},
+		Destination: &config.MicrosoftTenantID,
+	}
+
+	MicrosoftIssuerURLFlag = &cli.StringFlag{
+		Name:        "microsoft-issuer-url",
+		Usage:       "Microsoft OIDC issuer URL (optional, mainly for testing)",
+		EnvVars:     []string{"MICROSOFT_ISSUER_URL"},
+		Destination: &config.MicrosoftIssuerURL,
+	}
+
+	// GitHub OAuth provider flags
+	GitHubClientIDFlag = &cli.StringFlag{
+		Name:        "github-client-id",
+		Usage:       "GitHub OAuth client ID for individual login",
+		EnvVars:     []string{"GITHUB_CLIENT_ID"},
+		Destination: &config.GitHubClientID,
+	}
+
+	GitHubClientSecretFlag = &cli.StringFlag{
+		Name:        "github-client-secret",
+		Usage:       "GitHub OAuth client secret",
+		EnvVars:     []string{"GITHUB_CLIENT_SECRET"},
+		Destination: &config.GitHubClientSecret,
+	}
+
+	GitHubAuthURLFlag = &cli.StringFlag{
+		Name:        "github-auth-url",
+		Usage:       "GitHub OAuth authorization URL (optional, mainly for testing)",
+		EnvVars:     []string{"GITHUB_AUTH_URL"},
+		Destination: &config.GitHubAuthURL,
+	}
+
+	GitHubTokenURLFlag = &cli.StringFlag{
+		Name:        "github-token-url",
+		Usage:       "GitHub OAuth token URL (optional, mainly for testing)",
+		EnvVars:     []string{"GITHUB_TOKEN_URL"},
+		Destination: &config.GitHubTokenURL,
+	}
+
+	GitHubAPIBaseFlag = &cli.StringFlag{
+		Name:        "github-api-base",
+		Usage:       "GitHub API base URL (optional, defaults to https://api.github.com, mainly for testing)",
+		EnvVars:     []string{"GITHUB_API_BASE"},
+		Destination: &config.GitHubAPIBase,
+	}
 )

@@ -20,33 +20,32 @@ type MicrosoftProvider struct {
 }
 
 // NewMicrosoftProvider creates a new Microsoft OIDC provider
-// tenantID should be "common", "organizations", "consumers", or a specific tenant ID
-func NewMicrosoftProvider(ctx context.Context, clientID, clientSecret, redirectURI, tenantID string) (*MicrosoftProvider, error) {
-	// Default to "common" tenant if not specified (allows both work/school and personal accounts)
-	if tenantID == "" {
-		tenantID = "common"
-	}
-
-	// Use OIDC discovery for Microsoft
-	issuerURL := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tenantID)
-	provider, err := oidc.NewProvider(ctx, issuerURL)
+func NewMicrosoftProvider(ctx context.Context, cfg *ProviderConfig) (*MicrosoftProvider, error) {
+	// Use OIDC discovery
+	provider, err := oidc.NewProvider(ctx, cfg.IssuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
 	}
 
-	// Use the microsoft package endpoint which handles tenant properly
-	endpoint := microsoft.AzureADEndpoint(tenantID)
+	// Use the microsoft package endpoint which handles tenant properly (unless overridden)
+	var endpoint oauth2.Endpoint
+	if cfg.IssuerURL == fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", cfg.TenantID) {
+		endpoint = microsoft.AzureADEndpoint(cfg.TenantID)
+	} else {
+		// Custom endpoint for testing - use discovered endpoints
+		endpoint = provider.Endpoint()
+	}
 
 	config := &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURI,
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		RedirectURL:  cfg.RedirectURI,
 		Endpoint:     endpoint,
 		Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
 	}
 
 	verifier := provider.Verifier(&oidc.Config{
-		ClientID: clientID,
+		ClientID: cfg.ClientID,
 	})
 
 	return &MicrosoftProvider{

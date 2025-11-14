@@ -79,14 +79,46 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts(ip_address);
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) - Tenant Isolation
 -- ============================================================================
--- Enable RLS to automatically enforce tenant isolation at the database level.
--- This prevents accidental cross-tenant data access even if application code has bugs.
+-- RLS provides database-level tenant isolation when tenant context is set,
+-- while allowing cross-tenant operations (pre-auth flows, cleanup jobs) when needed.
+--
+-- Approach:
+-- - FORCE RLS ensures policies apply even to table owner (postgres user)
+-- - SELECT policies allow either:
+--   1. WithTenantContext (tenant_id = UUID) → enforces tenant isolation
+--   2. WithTransaction (tenant_id = '') → bypass for intentional cross-tenant operations
+-- - INSERT/UPDATE/DELETE require tenant context (except where noted)
 
--- Enable RLS on all tenant scoped tables
+-- Enable RLS on users table
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 
--- Policy for users table (direct tenant_id)
-CREATE POLICY tenant_isolation_policy ON users
+-- SELECT: Allow with or without tenant context
+-- Without context (pre-auth): login, registration, email verification
+-- With context (post-auth): enforce tenant isolation
+CREATE POLICY users_select_policy ON users FOR SELECT
+    USING (
+        CASE
+            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+        END
+    );
+
+-- INSERT: Allow with or without tenant context (registration is pre-auth)
+CREATE POLICY users_insert_policy ON users FOR INSERT
+    WITH CHECK (tenant_id IS NOT NULL);
+
+-- UPDATE: Allow with or without tenant context (email verification is pre-auth)
+CREATE POLICY users_update_policy ON users FOR UPDATE
+    USING (
+        CASE
+            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+        END
+    );
+
+-- DELETE: Require tenant context (post-auth only)
+CREATE POLICY users_delete_policy ON users FOR DELETE
     USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- ============================================================================
@@ -141,10 +173,35 @@ CREATE INDEX idx_oidc_providers_tenant_enabled ON oidc_providers(tenant_id, enab
 -- Index for domain-based tenant discovery (GIN index for array contains)
 CREATE INDEX idx_oidc_providers_domains ON oidc_providers USING GIN (allowed_domains);
 
--- Row Level Security for multi-tenancy
+-- Enable RLS on oidc_providers table
 ALTER TABLE oidc_providers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE oidc_providers FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_policy ON oidc_providers
+-- SELECT: Allow with or without tenant context
+-- Without context: SSO domain discovery (cross-tenant lookup)
+-- With context (post-auth): enforce tenant isolation
+CREATE POLICY oidc_providers_select_policy ON oidc_providers FOR SELECT
+    USING (
+        CASE
+            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+        END
+    );
+
+-- INSERT/UPDATE/DELETE: Require tenant context (post-auth only)
+CREATE POLICY oidc_providers_insert_policy ON oidc_providers FOR INSERT
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE POLICY oidc_providers_update_policy ON oidc_providers FOR UPDATE
+    USING (
+        CASE
+            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+        END
+    )
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE POLICY oidc_providers_delete_policy ON oidc_providers FOR DELETE
     USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- OIDC provider linkages to users

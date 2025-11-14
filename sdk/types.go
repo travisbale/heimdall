@@ -292,8 +292,14 @@ func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
 	if r.IssuerURL == "" {
 		return fmt.Errorf("issuer_url is required")
 	}
-	// Basic URL validation
-	if !strings.HasPrefix(r.IssuerURL, "https://") {
+
+	// HTTPS required for production security, but allow HTTP for localhost/testing
+	isHTTPS := strings.HasPrefix(r.IssuerURL, "https://")
+	isLocalhost := strings.HasPrefix(r.IssuerURL, "http://localhost") ||
+		strings.HasPrefix(r.IssuerURL, "http://127.0.0.1") ||
+		strings.HasPrefix(r.IssuerURL, "http://oidc-mock")
+
+	if !isHTTPS && !isLocalhost {
 		return fmt.Errorf("issuer_url must use HTTPS")
 	}
 	// ClientID and ClientSecret must be provided together (manual) or both omitted (dynamic)

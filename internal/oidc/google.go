@@ -15,34 +15,36 @@ import (
 
 // GoogleProvider implements Google OIDC for individual OAuth login (not SSO)
 type GoogleProvider struct {
-	config   *oauth2.Config
-	provider *oidc.Provider
-	verifier *oidc.IDTokenVerifier
+	config    *oauth2.Config
+	provider  *oidc.Provider
+	verifier  *oidc.IDTokenVerifier
+	issuerURL string // Store issuer URL to distinguish production vs test
 }
 
-func NewGoogleProvider(ctx context.Context, clientID, clientSecret, redirectURI string) (*GoogleProvider, error) {
-	// Performs OIDC discovery to fetch Google's endpoints and public keys
-	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
+func NewGoogleProvider(ctx context.Context, cfg *ProviderConfig) (*GoogleProvider, error) {
+	// Performs OIDC discovery to fetch provider's endpoints and public keys
+	provider, err := oidc.NewProvider(ctx, cfg.IssuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
 	}
 
 	config := &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURI,
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		RedirectURL:  cfg.RedirectURI,
 		Endpoint:     provider.Endpoint(), // Auto-discovered from .well-known/openid-configuration
 		Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
 	}
 
 	verifier := provider.Verifier(&oidc.Config{
-		ClientID: clientID,
+		ClientID: cfg.ClientID,
 	})
 
 	return &GoogleProvider{
-		config:   config,
-		provider: provider,
-		verifier: verifier,
+		config:    config,
+		provider:  provider,
+		verifier:  verifier,
+		issuerURL: cfg.IssuerURL,
 	}, nil
 }
 
@@ -54,13 +56,22 @@ func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI st
 
 	codeChallenge := generateCodeChallenge(codeVerifier)
 
-	authURL := g.config.AuthCodeURL(
-		state,
+	// Build authorization URL parameters
+	params := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("access_type", "offline"), // Request refresh token
-		oauth2.SetAuthURLParam("prompt", "consent"),      // Force consent to get refresh token
-	)
+	}
+
+	// Only add Google-specific params for production Google endpoint
+	// Mock OAuth servers don't support prompt=consent and it prevents automatic redirects
+	if g.issuerURL == "https://accounts.google.com" {
+		params = append(params,
+			oauth2.SetAuthURLParam("access_type", "offline"), // Request refresh token
+			oauth2.SetAuthURLParam("prompt", "consent"),      // Force consent to get refresh token
+		)
+	}
+
+	authURL := g.config.AuthCodeURL(state, params...)
 
 	return authURL, nil
 }

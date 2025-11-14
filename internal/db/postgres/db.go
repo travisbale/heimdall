@@ -76,6 +76,24 @@ func (d *DB) Pool() *pgxpool.Pool {
 // WithTransaction executes a function within a database transaction.
 // Use for pre-authentication operations (registration, email verification) where tenant context is unavailable
 func (d *DB) WithTransaction(ctx context.Context, fn func(*sqlc.Queries) error) error {
+	// Empty string signals cross-tenant operation for RLS policies
+	return d.withTenantTransaction(ctx, "", fn)
+}
+
+// WithTenantContext executes a function within a tenant-scoped transaction.
+// Sets app.current_tenant_id for Row Level Security policies to enforce automatic tenant isolation
+func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error) error {
+	tenantID, err := identity.GetTenant(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get tenant from context: %w", err)
+	}
+
+	return d.withTenantTransaction(ctx, tenantID.String(), fn)
+}
+
+// withTenantTransaction executes a function within a transaction with the specified tenant ID.
+// tenantID should be a UUID string or empty string for cross-tenant operations
+func (d *DB) withTenantTransaction(ctx context.Context, tenantID string, fn func(*sqlc.Queries) error) error {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -87,34 +105,9 @@ func (d *DB) WithTransaction(ctx context.Context, fn func(*sqlc.Queries) error) 
 		}
 	}()
 
-	queries := sqlc.New(tx)
-	if err := fn(queries); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-// WithTenantContext executes a function within a tenant-scoped transaction.
-// Sets app.current_tenant_id for Row Level Security policies to enforce automatic tenant isolation
-func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error) error {
-	tenantID, err := identity.GetTenant(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get tenant from context: %w", err)
-	}
-
-	tx, err := d.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() {
-		if err2 := tx.Rollback(ctx); err2 != nil {
-			slog.Error("failed to rollback transaction", "error", err2)
-		}
-	}()
-
-	// SET LOCAL ensures tenant isolation lasts only for this transaction
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant_id = $1", tenantID.String())
+	// SET LOCAL ensures the tenant context lasts only for this transaction
+	query := fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantID)
+	_, err = tx.Exec(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to set tenant context: %w", err)
 	}
