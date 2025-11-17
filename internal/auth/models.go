@@ -18,6 +18,13 @@ const (
 	UserStatusInactive   UserStatus = "inactive"
 )
 
+// Tenant represents a tenant in the system
+type Tenant struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // User represents a user in the system
 type User struct {
 	ID           uuid.UUID
@@ -37,8 +44,8 @@ type UpdateUserParams struct {
 	Status       *UserStatus
 }
 
-// Token represents a temporary token (verification, password reset, etc.)
-type Token struct {
+// UserToken represents a temporary token (verification, password reset, etc.)
+type UserToken struct {
 	UserID    uuid.UUID
 	Token     string
 	ExpiresAt time.Time
@@ -138,13 +145,12 @@ type OIDCRegistration struct {
 	RedirectURIs            []string `json:"redirect_uris,omitempty"`
 }
 
-// OIDCTokenResponse represents the response from an OAuth token exchange
+// OIDCTokenResponse represents tokens from an OAuth token exchange
 type OIDCTokenResponse struct {
 	AccessToken  string
 	IDToken      string
 	RefreshToken string
 	ExpiresIn    int
-	TokenType    string
 }
 
 // OIDCUserInfo from provider's userinfo endpoint (standard + custom claims)
@@ -179,4 +185,33 @@ type OIDCClaims struct {
 	Audience      string
 	ExpiresAt     time.Time
 	IssuedAt      time.Time
+}
+
+// Permission represents a system-wide permission
+type Permission struct {
+	ID          uuid.UUID
+	Name        string // e.g., "employee:create"
+	Description string
+}
+
+// Role represents a tenant-specific role
+type Role struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	Name        string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// EffectivePermission represents a user permission assignment
+type EffectivePermission struct {
+	Permission *Permission
+	Effect     sdk.PermissionEffect
+}
+
+// DirectPermission represents input for setting direct user permissions
+type DirectPermission struct {
+	PermissionID uuid.UUID
+	Effect       sdk.PermissionEffect
 }

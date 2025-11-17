@@ -2,6 +2,8 @@ package auth
 
 import "errors"
 
+// import "errors"
+
 // Authentication errors
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrUserNotFound = errors.New("user not found")
@@ -33,3 +35,7 @@ var ErrSSORequired = errors.New("this email domain requires SSO login")
 var ErrAutoProvisioningDisabled = errors.New("automatic user provisioning is not enabled for this domain")
 var ErrProviderEmailNotVerified = errors.New("email not verified by OAuth provider")
 var ErrEmailConflict = errors.New("email address conflicts with existing account")
+
+// RBAC errors
+var ErrRoleNotFound = errors.New("role not found")
+var ErrPermissionNotFound = errors.New("permission not found")

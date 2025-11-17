@@ -8,13 +8,14 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // Claims represents the JWT claims structure
 type Claims struct {
 	jwt.RegisteredClaims
-	TenantID    uuid.UUID `json:"tenant_id"`
-	Permissions []string  `json:"permissions,omitempty"`
+	TenantID uuid.UUID   `json:"tenant_id"`
+	Scopes   []sdk.Scope `json:"scopes,omitempty"`
 }
 
 // Issuer handles JWT token generation
@@ -46,9 +47,9 @@ func NewIssuer(config *Config) (*Issuer, error) {
 }
 
 // IssueAccessToken creates short-lived token for API requests (typically 15 min)
-func (i *Issuer) IssueAccessToken(userID, tenantID uuid.UUID, permissions []string) (string, error) {
+func (i *Issuer) IssueAccessToken(userID, tenantID uuid.UUID, scopes []sdk.Scope) (string, error) {
 	expiresAt := time.Now().Add(i.accessTokenExpiration)
-	return i.issueToken(userID, tenantID, expiresAt, permissions)
+	return i.issueToken(userID, tenantID, expiresAt, scopes)
 }
 
 // IssueRefreshToken creates long-lived token for obtaining new access tokens (typically 24h)
@@ -69,11 +70,11 @@ func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
 
 // issueToken generates a new JWT token for the user
 // Uses RS256 (RSA asymmetric signing) so tokens can be verified without access to private key
-func (i *Issuer) issueToken(userID, tenantID uuid.UUID, expiresAt time.Time, permissions []string) (string, error) {
+func (i *Issuer) issueToken(userID, tenantID uuid.UUID, expiresAt time.Time, scopes []sdk.Scope) (string, error) {
 	now := time.Now()
 	claims := &Claims{
-		TenantID:    tenantID,
-		Permissions: permissions,
+		TenantID: tenantID,
+		Scopes:   scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    i.issuer,
 			Subject:   userID.String(),

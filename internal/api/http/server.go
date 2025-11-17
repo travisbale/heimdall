@@ -17,42 +17,33 @@ type logger interface {
 	Error(msg string, args ...any)
 }
 
-type Config struct {
-	Address            string
-	UserService        userService
-	OIDCService        oidcService
-	JWTService         jwtService
-	Environment        string
-	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
-	CORSAllowedOrigins []string
-	Logger             logger
-}
-
 type Server struct {
 	*http.Server
 }
 
 func NewServer(config *Config) *Server {
-	// Secure cookies required for production/staging to enforce HTTPS-only transmission
-	secureCookies := config.Environment != "development" && config.Environment != "test"
-
 	// Create domain handlers
-	authHandler := NewAuthHandler(config.UserService, config.JWTService, secureCookies, config.TrustedProxyMode, config.Logger)
-	registrationHandler := NewRegistrationHandler(config.UserService, config.JWTService, secureCookies)
-	passwordResetHandler := NewPasswordResetHandler(config.UserService, config.Logger)
-	oidcAuthHandler := NewOIDCAuthHandler(config.OIDCService, config.UserService, config.JWTService, secureCookies)
-	oidcProvidersHandler := NewOIDCProvidersHandler(config.OIDCService)
+	authHandler := NewAuthHandler(config)
+	registrationHandler := NewRegistrationHandler(config)
+	passwordResetHandler := NewPasswordResetHandler(config)
+	oidcAuthHandler := NewOIDCAuthHandler(config)
+	oidcProvidersHandler := NewOIDCProvidersHandler(config)
+	rbacHandler := NewRBACHandler(config)
 
-	router := chi.NewRouter()
+	// Create JWT middleware
+	jwtMiddleware := jwt.NewHTTPMiddleware(config.JWTService)
+	require := jwtMiddleware.RequireScope
+
+	r := chi.NewRouter()
 
 	// Global middleware
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.RequestID)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
 
 	// CORS enabled only when origins specified (browser-based clients require this)
 	if len(config.CORSAllowedOrigins) > 0 {
-		router.Use(cors.Handler(cors.Options{
+		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins:   config.CORSAllowedOrigins,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
@@ -63,13 +54,13 @@ func NewServer(config *Config) *Server {
 	}
 
 	// Health check endpoint (nginx internal, no auth required, no rate limit)
-	router.Head(sdk.RouteHealth, HandleHealth)
+	r.Head(sdk.RouteHealth, HandleHealth)
 
 	// Supported OAuth provider types (public, no auth required, no rate limit)
-	router.Get(sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)
+	r.Get(sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)
 
 	// Moderate rate limit for registration endpoints (less sensitive than authentication)
-	router.Group(func(r chi.Router) {
+	r.Group(func(r chi.Router) {
 		if config.Environment != "test" {
 			r.Use(newRateLimitMiddleware(ModerateRateLimit))
 		}
@@ -79,7 +70,7 @@ func NewServer(config *Config) *Server {
 	})
 
 	// Strict rate limit for authentication endpoints (prevent brute force attacks)
-	router.Group(func(r chi.Router) {
+	r.Group(func(r chi.Router) {
 		if config.Environment != "test" {
 			r.Use(newRateLimitMiddleware(StrictRateLimit))
 		}
@@ -94,21 +85,39 @@ func NewServer(config *Config) *Server {
 		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
 	})
 
-	// Protected routes require JWT authentication and tenant context
-	router.Group(func(r chi.Router) {
-		r.Use(jwt.Middleware(config.JWTService))
+	// OIDC provider management
+	r.With(require(sdk.ScopeOIDCCreate)).Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateOIDCProvider)
+	r.With(require(sdk.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListOIDCProviders)
+	r.With(require(sdk.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetOIDCProvider)
+	r.With(require(sdk.ScopeOIDCUpdate)).Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateOIDCProvider)
+	r.With(require(sdk.ScopeOIDCDelete)).Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteOIDCProvider)
 
-		r.Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateProvider)
-		r.Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListProviders)
-		r.Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetProvider)
-		r.Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateProvider)
-		r.Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteProvider)
-	})
+	// RBAC - Permissions
+	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Permissions, rbacHandler.ListPermissions)
+
+	// RBAC - Roles
+	r.With(require(sdk.ScopeRoleCreate)).Post(sdk.RouteV1Roles, rbacHandler.CreateRole)
+	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Roles, rbacHandler.ListRoles)
+	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Role, rbacHandler.GetRole)
+	r.With(require(sdk.ScopeRoleUpdate)).Put(sdk.RouteV1Role, rbacHandler.UpdateRole)
+	r.With(require(sdk.ScopeRoleDelete)).Delete(sdk.RouteV1Role, rbacHandler.DeleteRole)
+
+	// RBAC - Role permissions
+	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1RolePermissions, rbacHandler.GetRolePermissions)
+	r.With(require(sdk.ScopeRoleUpdate)).Put(sdk.RouteV1RolePermissions, rbacHandler.SetRolePermissions)
+
+	// RBAC - User roles
+	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserRoles, rbacHandler.GetUserRoles)
+	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserRoles, rbacHandler.SetUserRoles)
+
+	// RBAC - User direct permissions
+	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserPermissions, rbacHandler.GetDirectPermissions)
+	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
 
 	return &Server{
 		&http.Server{
 			Addr:              config.Address,
-			Handler:           router,
+			Handler:           r,
 			ReadHeaderTimeout: 5 * time.Second, // Prevents Slowloris attacks
 		},
 	}

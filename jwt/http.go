@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // contextKey is a custom type for context keys to avoid collisions
@@ -19,9 +20,21 @@ type validator interface {
 	ValidateToken(token string) (*Claims, error)
 }
 
-// Middleware creates an HTTP middleware that validates JWT tokens
+// HTTPMiddleware provides JWT authentication and authorization middleware
+type HTTPMiddleware struct {
+	validator validator
+}
+
+// NewHTTPMiddleware creates a new JWT HTTP middleware
+func NewHTTPMiddleware(validator validator) *HTTPMiddleware {
+	return &HTTPMiddleware{
+		validator: validator,
+	}
+}
+
+// Authenticate returns HTTP middleware that validates JWT tokens and authenticates users
 // Extracts user ID and tenant ID from token and adds to request context for downstream handlers
-func Middleware(validator validator) func(http.Handler) http.Handler {
+func (m *HTTPMiddleware) Authenticate() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -39,7 +52,7 @@ func Middleware(validator validator) func(http.Handler) http.Handler {
 
 			tokenString := parts[1]
 
-			claims, err := validator.ValidateToken(tokenString)
+			claims, err := m.validator.ValidateToken(tokenString)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return
@@ -57,6 +70,51 @@ func Middleware(validator validator) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// RequireScopes returns middleware that authenticates users and verifies they have all required scopes
+func (m *HTTPMiddleware) RequireScopes(requiredScopes []sdk.Scope) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		// First authenticate to validate token and extract claims
+		authMiddleware := m.Authenticate()
+
+		// Then check scopes (authorization)
+		checkScopes := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, err := getClaimsFromContext(r.Context())
+			if err != nil {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+
+			userScopes := make(map[sdk.Scope]bool)
+			for _, scope := range claims.Scopes {
+				userScopes[scope] = true
+			}
+
+			// Check if user has all required scopes
+			var missingScopes []sdk.Scope
+			for _, required := range requiredScopes {
+				if !userScopes[required] {
+					missingScopes = append(missingScopes, required)
+				}
+			}
+
+			if len(missingScopes) > 0 {
+				http.Error(w, `{"error":"insufficient permissions"}`, http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+
+		return authMiddleware(checkScopes)
+	}
+}
+
+// RequireScope returns middleware that authenticates users and verifies they have the required scope
+// Convenience method for requiring a single scope
+func (m *HTTPMiddleware) RequireScope(requiredScope sdk.Scope) func(http.Handler) http.Handler {
+	return m.RequireScopes([]sdk.Scope{requiredScope})
 }
 
 // GetJWTClaims extracts the full JWT claims from the request context

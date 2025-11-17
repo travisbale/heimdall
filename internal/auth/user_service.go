@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
+	"github.com/travisbale/heimdall/identity"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 const registrationTokenExpiration = 24 * time.Hour
@@ -20,6 +22,10 @@ type userDB interface {
 	UpdateUser(ctx context.Context, params *UpdateUserParams) (*User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+}
+
+type tenantsDB interface {
+	CreateTenant(ctx context.Context, tenantID uuid.UUID) (*Tenant, error)
 }
 
 type hasher interface {
@@ -37,8 +43,8 @@ type emailService interface {
 }
 
 type tokenDB interface {
-	CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*Token, error)
-	GetToken(ctx context.Context, token string) (*Token, error)
+	CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*UserToken, error)
+	GetToken(ctx context.Context, token string) (*UserToken, error)
 	DeleteToken(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -48,39 +54,51 @@ type loginAttemptsService interface {
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 
+type rbacService interface {
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+	SetupSystemAdminRole(ctx context.Context, userID uuid.UUID) error
+	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
+}
+
 // UserServiceConfig holds the dependencies for creating a UserService
 type UserServiceConfig struct {
 	UserDB               userDB
+	TenantsDB            tenantsDB
 	Hasher               hasher
 	EmailService         emailService
 	VerificationTokenDB  tokenDB
 	PasswordResetTokenDB tokenDB
 	LoginAttemptsService loginAttemptsService
 	OIDCService          oidcService
+	RBACService          rbacService
 	Logger               logger
 }
 
 // UserService handles user registration, login, email verification, and password management
 type UserService struct {
 	userDB               userDB
+	tenantsDB            tenantsDB
 	hasher               hasher
 	emailService         emailService
 	verificationTokenDB  tokenDB
 	passwordResetTokenDB tokenDB
 	loginAttemptsService loginAttemptsService
 	oidcService          oidcService
+	rbacService          rbacService
 	logger               logger
 }
 
 func NewUserService(config *UserServiceConfig) *UserService {
 	return &UserService{
 		userDB:               config.UserDB,
+		tenantsDB:            config.TenantsDB,
 		hasher:               config.Hasher,
 		emailService:         config.EmailService,
 		verificationTokenDB:  config.VerificationTokenDB,
 		passwordResetTokenDB: config.PasswordResetTokenDB,
 		oidcService:          config.OIDCService,
 		loginAttemptsService: config.LoginAttemptsService,
+		rbacService:          config.RBACService,
 		logger:               config.Logger,
 	}
 }
@@ -100,8 +118,14 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			// Create a new user under a new tenant
+			// Create a new tenant for the user
 			tenantID := uuid.New()
+			_, err := s.tenantsDB.CreateTenant(ctx, tenantID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create tenant: %w", err)
+			}
+
+			// Create the user under the new tenant
 			user = &User{
 				TenantID:     tenantID,
 				Email:        email,
@@ -112,6 +136,14 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 			user, err = s.userDB.CreateUser(ctx, user)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create user: %w", err)
+			}
+
+			// Setup System Admin role for the first user in the tenant
+			// Set tenant context for RBAC operations which require tenant isolation
+			ctxWithTenant := identity.WithUser(ctx, user.ID, tenantID)
+			err = s.rbacService.SetupSystemAdminRole(ctxWithTenant, user.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to setup System Admin role: %w", err)
 			}
 
 		default:
@@ -183,8 +215,13 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, token string, pas
 	return user, nil
 }
 
-// CreateUser creates a new user with a temporary password
-func (s *UserService) CreateUser(ctx context.Context, tenantID uuid.UUID, email string) (*User, string, error) {
+// CreateUser creates a new user with a temporary password and assigns specified roles
+func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uuid.UUID) (*User, string, error) {
+	tenantID, err := identity.GetTenant(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get tenant from context: %w", err)
+	}
+
 	tempPassword, err := token.Generate(16)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate temporary password: %w", err)
@@ -205,6 +242,14 @@ func (s *UserService) CreateUser(ctx context.Context, tenantID uuid.UUID, email 
 	user, err = s.userDB.CreateUser(ctx, user)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Assign roles to the user if provided
+	if len(roleIDs) > 0 {
+		err = s.rbacService.SetUserRoles(ctx, user.ID, roleIDs)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to assign roles to user: %w", err)
+		}
 	}
 
 	return user, tempPassword, nil
@@ -266,12 +311,6 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 	}
 
 	return user, nil
-}
-
-// GetScopes returns the scopes assigned to the user
-func (s *UserService) GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	// Scope/permission system not yet implemented
-	return []string{}, nil
 }
 
 // InitiatePasswordReset generates a password reset token and sends a reset email

@@ -22,8 +22,8 @@ func NewPasswordResetTokensDB(db *DB) *PasswordResetTokensDB {
 }
 
 // CreateToken creates or replaces reset token (user_id is PK, enforces one token per user)
-func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.Token, error) {
-	var result *auth.Token
+func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.UserToken, error) {
+	var result *auth.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreatePasswordResetToken(ctx, sqlc.CreatePasswordResetTokenParams{
@@ -35,7 +35,7 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 			return fmt.Errorf("failed to create password reset token: %w", err)
 		}
 
-		result = &auth.Token{
+		result = &auth.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
@@ -48,8 +48,8 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 }
 
 // GetToken retrieves token by token string (pre-authentication, no tenant context)
-func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*auth.Token, error) {
-	var result *auth.Token
+func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*auth.UserToken, error) {
+	var result *auth.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetPasswordResetToken(ctx, token)
@@ -60,7 +60,7 @@ func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*au
 			return fmt.Errorf("failed to get password reset token: %w", err)
 		}
 
-		result = &auth.Token{
+		result = &auth.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,

@@ -5,13 +5,17 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // issueTokens creates JWT token pair and stores refresh token in HTTP-only cookie
 // Access token returned in response body, refresh token in secure cookie to prevent XSS attacks
-func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, userService userService, jwtService jwtService, userID, tenantID uuid.UUID, secureCookies bool) {
-	scopes, err := userService.GetScopes(ctx, userID)
+func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, rbacService rbacService, jwtService jwtService, userID, tenantID uuid.UUID, secureCookies bool) {
+	// Set tenant context for RBAC permission lookups
+	ctx = identity.WithUser(ctx, userID, tenantID)
+
+	scopes, err := rbacService.GetUserScopes(ctx, userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
 		return

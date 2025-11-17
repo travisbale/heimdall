@@ -13,7 +13,6 @@ import (
 // userService defines the interface for user authentication and management operations
 type userService interface {
 	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
-	GetScopes(ctx context.Context, userID uuid.UUID) ([]string, error)
 
 	Register(ctx context.Context, email string) (*auth.User, error)
 	ConfirmRegistration(ctx context.Context, token string, password string) (*auth.User, error)
@@ -24,7 +23,7 @@ type userService interface {
 
 // jwtService defines the interface for JWT token operations
 type jwtService interface {
-	IssueAccessToken(userID, tenantID uuid.UUID, scopes []string) (string, error)
+	IssueAccessToken(userID, tenantID uuid.UUID, scopes []sdk.Scope) (string, error)
 	IssueRefreshToken(userID, tenantID uuid.UUID) (string, error)
 	ValidateToken(token string) (*jwt.Claims, error)
 	GetAccessTokenExpiration() time.Duration
@@ -42,4 +41,25 @@ type oidcService interface {
 	ListOIDCProviders(ctx context.Context) ([]*auth.OIDCProviderConfig, error)
 	UpdateOIDCProvider(ctx context.Context, params *auth.UpdateOIDCProviderParams) (*auth.OIDCProviderConfig, error)
 	DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error
+}
+
+// rbacService defines the interface for RBAC operations
+type rbacService interface {
+	ListPermissions(ctx context.Context) ([]*auth.Permission, error)
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+
+	CreateRole(ctx context.Context, name, description string) (*auth.Role, error)
+	GetRole(ctx context.Context, roleID uuid.UUID) (*auth.Role, error)
+	ListRoles(ctx context.Context) ([]*auth.Role, error)
+	UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*auth.Role, error)
+	DeleteRole(ctx context.Context, roleID uuid.UUID) error
+
+	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*auth.Permission, error)
+	SetRolePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error
+
+	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
+	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*auth.Role, error)
+
+	SetDirectPermissions(ctx context.Context, userID uuid.UUID, permissions []auth.DirectPermission) error
+	GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*auth.EffectivePermission, error)
 }

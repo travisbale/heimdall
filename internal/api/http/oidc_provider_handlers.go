@@ -12,7 +12,7 @@ import (
 // ListSupportedProviders returns OAuth providers available for individual login (not SSO)
 // Public endpoint used by login UI to display "Login with Google" buttons
 func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
-	providers := []sdk.SupportedOIDCProviderType{
+	providers := []sdk.OIDCProviderTypeInfo{
 		{
 			Type:        sdk.OIDCProviderTypeGoogle,
 			DisplayName: sdk.OIDCProviderTypeGoogle.DisplayName(),
@@ -31,7 +31,7 @@ func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	respondJSON(w, http.StatusOK, sdk.ListSupportedOIDCProvidersResponse{
+	respondJSON(w, http.StatusOK, sdk.OIDCProviderTypesResponse{
 		Providers: providers,
 	})
 }
@@ -42,14 +42,14 @@ type OIDCProvidersHandler struct {
 }
 
 // NewOIDCProvidersHandler creates a new OIDC providers handler
-func NewOIDCProvidersHandler(oidcService oidcService) *OIDCProvidersHandler {
+func NewOIDCProvidersHandler(config *Config) *OIDCProvidersHandler {
 	return &OIDCProvidersHandler{
-		oidcService: oidcService,
+		oidcService: config.OIDCService,
 	}
 }
 
-// CreateProvider creates a new OAuth provider configuration for corporate SSO
-func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
+// CreateOIDCProvider creates a new OAuth provider configuration for corporate SSO
+func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	var req sdk.CreateOIDCProviderRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
@@ -85,13 +85,11 @@ func (h *OIDCProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, sdk.OIDCProviderResponse{
-		Provider: convertProviderToSDK(result),
-	})
+	respondJSON(w, http.StatusCreated, convertProviderToSDK(result))
 }
 
-// GetProvider retrieves an OIDC provider by ID
-func (h *OIDCProvidersHandler) GetProvider(w http.ResponseWriter, r *http.Request) {
+// GetOIDCProvider retrieves an OIDC provider by ID
+func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	req := sdk.GetOIDCProviderRequest{
 		ProviderID: parseUUID(chi.URLParam(r, "providerID")),
 	}
@@ -112,13 +110,11 @@ func (h *OIDCProvidersHandler) GetProvider(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	respondJSON(w, http.StatusOK, sdk.OIDCProviderResponse{
-		Provider: convertProviderToSDK(provider),
-	})
+	respondJSON(w, http.StatusOK, convertProviderToSDK(provider))
 }
 
-// ListProviders lists all OAuth providers for the tenant
-func (h *OIDCProvidersHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
+// ListOIDCProviders lists all OAuth providers for the tenant
+func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.oidcService.ListOIDCProviders(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to list OAuth providers", err)
@@ -130,13 +126,13 @@ func (h *OIDCProvidersHandler) ListProviders(w http.ResponseWriter, r *http.Requ
 		sdkProviders[i] = convertProviderToSDK(provider)
 	}
 
-	respondJSON(w, http.StatusOK, sdk.ListOIDCProvidersResponse{
+	respondJSON(w, http.StatusOK, sdk.OIDCProvidersResponse{
 		Providers: sdkProviders,
 	})
 }
 
-// UpdateProvider updates an OAuth provider configuration
-func (h *OIDCProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
+// UpdateOIDCProvider updates an OAuth provider configuration
+func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	var req sdk.UpdateOIDCProviderRequest
 	if err := decodeJSON(r, &req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body", err)
@@ -172,13 +168,11 @@ func (h *OIDCProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	respondJSON(w, http.StatusOK, sdk.OIDCProviderResponse{
-		Provider: convertProviderToSDK(result),
-	})
+	respondJSON(w, http.StatusOK, convertProviderToSDK(result))
 }
 
-// DeleteProvider deletes an OAuth provider
-func (h *OIDCProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+// DeleteOIDCProvider deletes an OAuth provider
+func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	req := sdk.DeleteOIDCProviderRequest{
 		ProviderID: parseUUID(chi.URLParam(r, "providerID")),
 	}

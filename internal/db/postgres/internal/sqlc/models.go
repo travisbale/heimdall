@@ -100,6 +100,48 @@ func (ns NullOidcRegistrationMethod) Value() (driver.Value, error) {
 	return string(ns.OidcRegistrationMethod), nil
 }
 
+type PermissionEffect string
+
+const (
+	PermissionEffectAllow PermissionEffect = "allow"
+	PermissionEffectDeny  PermissionEffect = "deny"
+)
+
+func (e *PermissionEffect) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PermissionEffect(s)
+	case string:
+		*e = PermissionEffect(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PermissionEffect: %T", src)
+	}
+	return nil
+}
+
+type NullPermissionEffect struct {
+	PermissionEffect PermissionEffect `json:"permission_effect"`
+	Valid            bool             `json:"valid"` // Valid is true if PermissionEffect is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPermissionEffect) Scan(value interface{}) error {
+	if value == nil {
+		ns.PermissionEffect, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PermissionEffect.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPermissionEffect) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PermissionEffect), nil
+}
+
 type UserStatus string
 
 const (
@@ -205,6 +247,35 @@ type PasswordResetToken struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Permission struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type Role struct {
+	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type RolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type Tenant struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type User struct {
 	ID           uuid.UUID       `json:"id"`
 	TenantID     uuid.UUID       `json:"tenant_id"`
@@ -214,6 +285,19 @@ type User struct {
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`
 	LastLoginAt  *time.Time      `json:"last_login_at"`
+}
+
+type UserPermission struct {
+	UserID       uuid.UUID            `json:"user_id"`
+	PermissionID uuid.UUID            `json:"permission_id"`
+	TenantID     uuid.UUID            `json:"tenant_id"`
+	Effect       sdk.PermissionEffect `json:"effect"`
+}
+
+type UserRole struct {
+	UserID   uuid.UUID `json:"user_id"`
+	RoleID   uuid.UUID `json:"role_id"`
+	TenantID uuid.UUID `json:"tenant_id"`
 }
 
 type VerificationToken struct {

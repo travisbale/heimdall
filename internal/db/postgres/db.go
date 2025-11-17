@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
@@ -35,6 +36,13 @@ func NewDB(ctx context.Context, databaseURL string, logger logger) (*DB, error) 
 	config.MaxConnLifetime = time.Hour
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = time.Minute
+
+	// Load custom types (enums) from database for each connection
+	// PostgreSQL creates _typename for array types automatically
+	config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.LoadTypes(ctx, []string{"permission_effect", "_permission_effect"})
+		return err
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

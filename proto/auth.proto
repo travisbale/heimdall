@@ -14,6 +14,7 @@ service UserService {
 message CreateUserRequest {
   string email = 1;
   string tenant_id = 2;
+  repeated string role_ids = 3; // Role IDs to assign to the user
 }
 
 // CreateUserResponse contains the created user information

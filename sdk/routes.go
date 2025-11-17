@@ -22,4 +22,23 @@ const (
 	RouteV1OAuthProviders      = "/v1/oauth/providers"
 	RouteV1OAuthProvider       = "/v1/oauth/providers/{providerID}"
 	RouteV1OAuthSupportedTypes = "/v1/oauth/supported-types" // Public endpoint
+
+	// RBAC endpoints (authenticated)
+	RouteV1Permissions = "/v1/permissions" // List all system permissions
+
+	// Role management
+	RouteV1Roles = "/v1/roles"
+	RouteV1Role  = "/v1/roles/{roleID}"
+
+	// Role permissions
+	RouteV1RolePermissions = "/v1/roles/{roleID}/permissions"
+	RouteV1RolePermission  = "/v1/roles/{roleID}/permissions/{permissionID}"
+
+	// User roles
+	RouteV1UserRoles = "/v1/users/{userID}/roles"
+	RouteV1UserRole  = "/v1/users/{userID}/roles/{roleID}"
+
+	// User direct permissions
+	RouteV1UserPermissions = "/v1/users/{userID}/permissions"
+	RouteV1UserPermission  = "/v1/users/{userID}/permissions/{permissionID}"
 )

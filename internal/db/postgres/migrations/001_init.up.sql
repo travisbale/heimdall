@@ -7,10 +7,17 @@ CREATE TYPE oidc_provider_type AS ENUM ('google', 'microsoft', 'github', 'okta')
 -- Create oidc_registration_method enum type
 CREATE TYPE oidc_registration_method AS ENUM ('manual', 'dynamic');
 
+-- Create tenants table
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Create users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     status user_status NOT NULL DEFAULT 'unverified',
@@ -129,7 +136,7 @@ CREATE POLICY users_delete_policy ON users FOR DELETE
 -- Stores per-tenant OIDC provider settings (dynamically registered)
 CREATE TABLE oidc_providers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
     -- User-defined name for display (e.g., "Azure AD - Production", "Google Workspace")
     provider_name TEXT NOT NULL,
@@ -254,7 +261,7 @@ CREATE TABLE oidc_sessions (
     oidc_provider_id UUID REFERENCES oidc_providers(id) ON DELETE CASCADE,
     provider_type oidc_provider_type, -- Only for system-wide providers (individual OAuth)
     redirect_uri TEXT NOT NULL,
-    tenant_id UUID,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
 
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

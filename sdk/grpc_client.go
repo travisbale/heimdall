@@ -84,9 +84,16 @@ func (c *GRPCClient) CreateUser(ctx context.Context, req CreateUserRequest) (*Cr
 		return nil, fmt.Errorf("invalid request")
 	}
 
+	// Convert role IDs to strings
+	roleIDs := make([]string, len(req.RoleIDs))
+	for i, roleID := range req.RoleIDs {
+		roleIDs[i] = roleID.String()
+	}
+
 	pbReq := &pb.CreateUserRequest{
 		Email:    req.Email,
 		TenantId: req.TenantID.String(),
+		RoleIds:  roleIDs,
 	}
 
 	pbResp, err := c.client.CreateUser(ctx, pbReq)

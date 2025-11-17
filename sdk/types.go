@@ -39,6 +39,14 @@ const (
 	OIDCRegistrationMethodDynamic OIDCRegistrationMethod = "dynamic"
 )
 
+// PermissionEffect represents the effect of a permission (allow/deny)
+type PermissionEffect string
+
+const (
+	PermissionAllow PermissionEffect = "allow"
+	PermissionDeny  PermissionEffect = "deny"
+)
+
 // IsValid checks if the provider type is one of the defined valid types
 func (p OIDCProviderType) IsValid() bool {
 	switch p {
@@ -107,8 +115,9 @@ type HealthResponse struct {
 
 // CreateUserRequest represents the request to create a user
 type CreateUserRequest struct {
-	Email    string    `json:"email"`
-	TenantID uuid.UUID `json:"tenant_id"`
+	Email    string      `json:"email"`
+	TenantID uuid.UUID   `json:"tenant_id"`
+	RoleIDs  []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign
 }
 
 // Validate validates the create user request
@@ -215,10 +224,9 @@ type ResetPasswordResponse struct {
 
 // User represents a user in API responses
 type User struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Email    string    `json:"email"`
-	Status   string    `json:"status"`
+	ID     uuid.UUID `json:"id"`
+	Email  string    `json:"email"`
+	Status string    `json:"status"`
 }
 
 // OIDCLoginRequest represents the individual OAuth login request body
@@ -366,23 +374,211 @@ func (r *DeleteOIDCProviderRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// OIDCProviderResponse represents the response with OIDC provider details
-type OIDCProviderResponse struct {
-	Provider OIDCProvider `json:"provider"`
-}
-
-// ListOIDCProvidersResponse represents the response with list of OIDC providers
-type ListOIDCProvidersResponse struct {
+// OIDCProvidersResponse represents the response with a list of OIDC providers
+type OIDCProvidersResponse struct {
 	Providers []OIDCProvider `json:"providers"`
 }
 
-// SupportedOIDCProviderType represents a supported OAuth provider type
-type SupportedOIDCProviderType struct {
+// OIDCProviderTypeInfo represents information about a supported OAuth provider type
+type OIDCProviderTypeInfo struct {
 	Type        OIDCProviderType `json:"type"`
 	DisplayName string           `json:"display_name"`
 }
 
-// ListSupportedOIDCProvidersResponse represents the response with supported provider types
-type ListSupportedOIDCProvidersResponse struct {
-	Providers []SupportedOIDCProviderType `json:"providers"`
+// OIDCProviderTypesResponse represents the response with supported OIDC provider types
+type OIDCProviderTypesResponse struct {
+	Providers []OIDCProviderTypeInfo `json:"providers"`
+}
+
+// RBAC types
+
+// Permission represents a system permission
+type Permission struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+// PermissionsResponse represents the response with a list of permissions
+type PermissionsResponse struct {
+	Permissions []Permission `json:"permissions"`
+}
+
+// Role represents a role with its metadata
+type Role struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+// CreateRoleRequest represents the request to create a new role
+type CreateRoleRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// Validate validates the create role request
+func (r *CreateRoleRequest) Validate(ctx context.Context) error {
+	if strings.TrimSpace(r.Name) == "" {
+		return fmt.Errorf("name is required")
+	}
+	if strings.TrimSpace(r.Description) == "" {
+		return fmt.Errorf("description is required")
+	}
+	return nil
+}
+
+// UpdateRoleRequest represents the request to update a role
+type UpdateRoleRequest struct {
+	RoleID      uuid.UUID `json:"-"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+// Validate validates the update role request
+func (r *UpdateRoleRequest) Validate(ctx context.Context) error {
+	if r.RoleID == uuid.Nil {
+		return fmt.Errorf("role_id is required")
+	}
+	if strings.TrimSpace(r.Name) == "" {
+		return fmt.Errorf("name is required")
+	}
+	if strings.TrimSpace(r.Description) == "" {
+		return fmt.Errorf("description is required")
+	}
+	return nil
+}
+
+// GetRoleRequest represents the request to get a role
+type GetRoleRequest struct {
+	RoleID uuid.UUID `json:"-"`
+}
+
+// Validate validates the get role request
+func (r *GetRoleRequest) Validate(ctx context.Context) error {
+	if r.RoleID == uuid.Nil {
+		return fmt.Errorf("role_id is required")
+	}
+	return nil
+}
+
+// DeleteRoleRequest represents the request to delete a role
+type DeleteRoleRequest struct {
+	RoleID uuid.UUID `json:"-"`
+}
+
+// Validate validates the delete role request
+func (r *DeleteRoleRequest) Validate(ctx context.Context) error {
+	if r.RoleID == uuid.Nil {
+		return fmt.Errorf("role_id is required")
+	}
+	return nil
+}
+
+// RolesResponse represents the response with a list of roles
+type RolesResponse struct {
+	Roles []Role `json:"roles"`
+}
+
+// GetRolePermissionsRequest represents the request to get permissions for a role
+type GetRolePermissionsRequest struct {
+	RoleID uuid.UUID `json:"-"`
+}
+
+// Validate validates the get role permissions request
+func (r *GetRolePermissionsRequest) Validate(ctx context.Context) error {
+	if r.RoleID == uuid.Nil {
+		return fmt.Errorf("role_id is required")
+	}
+	return nil
+}
+
+// SetRolePermissionsRequest represents the request to set all permissions for a role
+type SetRolePermissionsRequest struct {
+	RoleID        uuid.UUID   `json:"-"`
+	PermissionIDs []uuid.UUID `json:"permission_ids"`
+}
+
+// Validate validates the set role permissions request
+func (r *SetRolePermissionsRequest) Validate(ctx context.Context) error {
+	if r.RoleID == uuid.Nil {
+		return fmt.Errorf("role_id is required")
+	}
+	return nil
+}
+
+// SetUserRolesRequest represents the request to set all roles for a user
+type SetUserRolesRequest struct {
+	UserID  uuid.UUID   `json:"-"`
+	RoleIDs []uuid.UUID `json:"role_ids"`
+}
+
+// Validate validates the set user roles request
+func (r *SetUserRolesRequest) Validate(ctx context.Context) error {
+	if r.UserID == uuid.Nil {
+		return fmt.Errorf("user_id is required")
+	}
+	return nil
+}
+
+// GetUserRolesRequest represents the request to get roles for a user
+type GetUserRolesRequest struct {
+	UserID uuid.UUID `json:"-"`
+}
+
+// Validate validates the get user roles request
+func (r *GetUserRolesRequest) Validate(ctx context.Context) error {
+	if r.UserID == uuid.Nil {
+		return fmt.Errorf("user_id is required")
+	}
+	return nil
+}
+
+// EffectivePermission represents a direct permission assigned to a user
+type EffectivePermission struct {
+	Permission Permission       `json:"permission"`
+	Effect     PermissionEffect `json:"effect"`
+}
+
+// DirectPermission represents a direct permission to set for a user
+type DirectPermission struct {
+	PermissionID uuid.UUID        `json:"permission_id"`
+	Effect       PermissionEffect `json:"effect"`
+}
+
+// SetDirectPermissionsRequest represents the request to set all direct permissions for a user
+type SetDirectPermissionsRequest struct {
+	UserID      uuid.UUID          `json:"-"`
+	Permissions []DirectPermission `json:"permissions"`
+}
+
+// Validate validates the set user permissions request
+func (r *SetDirectPermissionsRequest) Validate(ctx context.Context) error {
+	if r.UserID == uuid.Nil {
+		return fmt.Errorf("user_id is required")
+	}
+	for _, perm := range r.Permissions {
+		if perm.PermissionID == uuid.Nil {
+			return fmt.Errorf("permission_id is required")
+		}
+	}
+	return nil
+}
+
+// GetDirectPermissionsRequest represents the request to get direct permissions for a user
+type GetDirectPermissionsRequest struct {
+	UserID uuid.UUID `json:"-"`
+}
+
+// Validate validates the get user permissions request
+func (r *GetDirectPermissionsRequest) Validate(ctx context.Context) error {
+	if r.UserID == uuid.Nil {
+		return fmt.Errorf("user_id is required")
+	}
+	return nil
+}
+
+// DirectPermissionsResponse represents the response with direct permissions for a user
+type DirectPermissionsResponse struct {
+	Permissions []EffectivePermission `json:"permissions"`
 }

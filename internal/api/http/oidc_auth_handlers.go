@@ -12,17 +12,17 @@ import (
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
 	oidcService   oidcService
-	userService   userService
+	rbacService   rbacService
 	jwtService    jwtService
 	secureCookies bool
 }
 
-func NewOIDCAuthHandler(oidcService oidcService, userService userService, jwtService jwtService, secureCookies bool) *OIDCAuthHandler {
+func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
 	return &OIDCAuthHandler{
-		oidcService:   oidcService,
-		userService:   userService,
-		jwtService:    jwtService,
-		secureCookies: secureCookies,
+		oidcService:   config.OIDCService,
+		rbacService:   config.RBACService,
+		jwtService:    config.JWTService,
+		secureCookies: config.SecureCookies(),
 	}
 }
 
@@ -125,5 +125,5 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Issue JWT tokens to complete login
-	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
+	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }

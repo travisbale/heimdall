@@ -16,6 +16,7 @@ const refreshTokenCookie = "refresh_token"
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
 	userService      userService
+	rbacService      rbacService
 	jwtService       jwtService
 	secureCookies    bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
 	trustedProxyMode bool // Enable IP extraction from X-Forwarded-For when behind trusted reverse proxy
@@ -23,13 +24,14 @@ type AuthHandler struct {
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(userServiec userService, jwtIssuer jwtService, secureCookies bool, trustedProxyMode bool, logger logger) *AuthHandler {
+func NewAuthHandler(config *Config) *AuthHandler {
 	return &AuthHandler{
-		userService:      userServiec,
-		jwtService:       jwtIssuer,
-		secureCookies:    secureCookies,
-		trustedProxyMode: trustedProxyMode,
-		logger:           logger,
+		userService:      config.UserService,
+		rbacService:      config.RBACService,
+		jwtService:       config.JWTService,
+		secureCookies:    config.SecureCookies(),
+		trustedProxyMode: config.TrustedProxyMode,
+		logger:           config.Logger,
 	}
 }
 
@@ -58,7 +60,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issueTokens(r.Context(), w, r, h.userService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
+	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
 }
 
 // Logout handles user logout by clearing the refresh token cookie
@@ -104,7 +106,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issueTokens(r.Context(), w, r, h.userService, h.jwtService, userID, claims.TenantID, h.secureCookies)
+	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, userID, claims.TenantID, h.secureCookies)
 }
 
 // extractIPAddress extracts the client IP address from the request with security validation

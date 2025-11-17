@@ -81,7 +81,6 @@ func (g *GitHubProvider) ExchangeCode(ctx context.Context, code, codeVerifier, r
 		IDToken:      "", // GitHub doesn't provide ID tokens
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    int(time.Until(token.Expiry).Seconds()),
-		TokenType:    token.TokenType,
 	}, nil
 }
 

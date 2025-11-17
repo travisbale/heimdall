@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/pb"
 )
 
 // authService defines the interface for authentication operations
 type authService interface {
-	CreateUser(ctx context.Context, tenantID uuid.UUID, email string) (*auth.User, string, error)
+	CreateUser(ctx context.Context, email string, roleIDs []uuid.UUID) (*auth.User, string, error)
 }
 
 type AuthHandler struct {
@@ -38,8 +39,19 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant_id: %w", err)
 	}
+	// Set tenant context for database operations
+	ctx = identity.WithTenant(ctx, tenantID)
 
-	user, tempPassword, err := h.authService.CreateUser(ctx, tenantID, req.Email)
+	var roleIDs []uuid.UUID
+	for _, roleIDStr := range req.RoleIds {
+		roleID, err := uuid.Parse(roleIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid role_id %s: %w", roleIDStr, err)
+		}
+		roleIDs = append(roleIDs, roleID)
+	}
+
+	user, tempPassword, err := h.authService.CreateUser(ctx, req.Email, roleIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}

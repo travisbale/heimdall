@@ -22,8 +22,8 @@ func NewVerificationTokensDB(db *DB) *VerificationTokensDB {
 }
 
 // CreateToken creates or replaces verification token (user_id is PK, enforces one token per user)
-func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.Token, error) {
-	var result *auth.Token
+func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.UserToken, error) {
+	var result *auth.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateVerificationToken(ctx, sqlc.CreateVerificationTokenParams{
@@ -35,7 +35,7 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 			return fmt.Errorf("failed to create verification token: %w", err)
 		}
 
-		result = &auth.Token{
+		result = &auth.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
@@ -48,8 +48,8 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 }
 
 // GetToken retrieves token by token string (pre-authentication, no tenant context)
-func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*auth.Token, error) {
-	var result *auth.Token
+func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*auth.UserToken, error) {
+	var result *auth.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetVerificationToken(ctx, token)
@@ -60,7 +60,7 @@ func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*aut
 			return fmt.Errorf("failed to get verification token: %w", err)
 		}
 
-		result = &auth.Token{
+		result = &auth.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,

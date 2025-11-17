@@ -97,7 +97,6 @@ func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, red
 		IDToken:      rawIDToken,
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    int(token.Expiry.Sub(token.Expiry.Add(-token.Expiry.Sub(token.Expiry))) / 1e9),
-		TokenType:    token.TokenType,
 	}, nil
 }
 

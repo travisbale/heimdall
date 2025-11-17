@@ -75,6 +75,8 @@ type OIDCServiceConfig struct {
 	OIDCLinkDB         oidcLinkDB
 	OIDCSessionDB      oidcSessionDB
 	UserDB             userDB
+	TenantsDB          tenantsDB
+	RBACService        rbacService
 	SystemProviders    map[sdk.OIDCProviderType]OIDCProvider // System-wide providers for public login (from env vars)
 	RegistrationClient oidcRegistrationClient                // Client for OIDC discovery and dynamic registration
 	ProviderFactory    oidcProviderFactory                   // Factory for creating provider instances
@@ -88,6 +90,8 @@ type OIDCService struct {
 	oidcLinkDB         oidcLinkDB
 	oidcSessionDB      oidcSessionDB
 	userDB             userDB
+	tenantsDB          tenantsDB
+	rbacService        rbacService
 	systemProviders    map[sdk.OIDCProviderType]OIDCProvider // System-wide providers for public login
 	registrationClient oidcRegistrationClient
 	providerFactory    oidcProviderFactory
@@ -102,6 +106,8 @@ func NewOIDCService(config *OIDCServiceConfig) *OIDCService {
 		oidcLinkDB:         config.OIDCLinkDB,
 		oidcSessionDB:      config.OIDCSessionDB,
 		userDB:             config.UserDB,
+		tenantsDB:          config.TenantsDB,
+		rbacService:        config.RBACService,
 		systemProviders:    config.SystemProviders,
 		registrationClient: config.RegistrationClient,
 		providerFactory:    config.ProviderFactory,

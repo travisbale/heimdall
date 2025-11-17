@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -11,342 +10,14 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// Mock implementations for testing
-
-type mockOIDCProviderDB struct {
-	providers map[uuid.UUID]*OIDCProviderConfig
-	domains   map[string][]*OIDCProviderConfig
-}
-
-func newMockOIDCProviderDB() *mockOIDCProviderDB {
-	return &mockOIDCProviderDB{
-		providers: make(map[uuid.UUID]*OIDCProviderConfig),
-		domains:   make(map[string][]*OIDCProviderConfig),
-	}
-}
-
-func (m *mockOIDCProviderDB) CreateOIDCProvider(ctx context.Context, provider *OIDCProviderConfig) (*OIDCProviderConfig, error) {
-	provider.ID = uuid.New()
-	provider.CreatedAt = time.Now()
-	provider.UpdatedAt = time.Now()
-	m.providers[provider.ID] = provider
-	for _, domain := range provider.AllowedDomains {
-		m.domains[domain] = append(m.domains[domain], provider)
-	}
-	return provider, nil
-}
-
-func (m *mockOIDCProviderDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*OIDCProviderConfig, error) {
-	provider, ok := m.providers[id]
-	if !ok {
-		return nil, ErrOIDCProviderNotFound
-	}
-	return provider, nil
-}
-
-func (m *mockOIDCProviderDB) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*OIDCProviderConfig, error) {
-	providers, ok := m.domains[domain]
-	if !ok || len(providers) == 0 {
-		return nil, nil
-	}
-	return providers, nil
-}
-
-func (m *mockOIDCProviderDB) ListOIDCProviders(ctx context.Context) ([]*OIDCProviderConfig, error) {
-	providers := make([]*OIDCProviderConfig, 0, len(m.providers))
-	for _, p := range m.providers {
-		providers = append(providers, p)
-	}
-	return providers, nil
-}
-
-func (m *mockOIDCProviderDB) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDCProviderParams) (*OIDCProviderConfig, error) {
-	provider, ok := m.providers[params.ID]
-	if !ok {
-		return nil, ErrOIDCProviderNotFound
-	}
-	if params.ProviderName != nil {
-		provider.ProviderName = *params.ProviderName
-	}
-	if params.Enabled != nil {
-		provider.Enabled = *params.Enabled
-	}
-	provider.UpdatedAt = time.Now()
-	return provider, nil
-}
-
-func (m *mockOIDCProviderDB) DeleteOIDCProviderByID(ctx context.Context, id uuid.UUID) error {
-	if _, ok := m.providers[id]; !ok {
-		return ErrOIDCProviderNotFound
-	}
-	delete(m.providers, id)
-	return nil
-}
-
-type mockOIDCLinkDB struct {
-	links map[string]*OIDCLink // key: providerID+providerUserID
-}
-
-func newMockOIDCLinkDB() *mockOIDCLinkDB {
-	return &mockOIDCLinkDB{
-		links: make(map[string]*OIDCLink),
-	}
-}
-
-func (m *mockOIDCLinkDB) CreateOIDCLink(ctx context.Context, link *OIDCLink) (*OIDCLink, error) {
-	link.ID = uuid.New()
-	link.LinkedAt = time.Now()
-	key := link.OIDCProviderID.String() + link.ProviderUserID
-	m.links[key] = link
-	return link, nil
-}
-
-func (m *mockOIDCLinkDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid.UUID, providerUserID string) (*OIDCLink, error) {
-	key := providerID.String() + providerUserID
-	link, ok := m.links[key]
-	if !ok {
-		return nil, ErrOIDCLinkNotFound
-	}
-	return link, nil
-}
-
-func (m *mockOIDCLinkDB) GetOIDCLinkByUser(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) (*OIDCLink, error) {
-	for _, link := range m.links {
-		if link.UserID == userID && link.OIDCProviderID == providerID {
-			return link, nil
-		}
-	}
-	return nil, ErrOIDCLinkNotFound
-}
-
-func (m *mockOIDCLinkDB) ListOIDCLinksByUser(ctx context.Context, userID uuid.UUID) ([]*OIDCLink, error) {
-	links := make([]*OIDCLink, 0)
-	for _, link := range m.links {
-		if link.UserID == userID {
-			links = append(links, link)
-		}
-	}
-	return links, nil
-}
-
-func (m *mockOIDCLinkDB) UpdateOIDCLinkLastUsed(ctx context.Context, id uuid.UUID) error {
-	for _, link := range m.links {
-		if link.ID == id {
-			now := time.Now()
-			link.LastUsedAt = &now
-			return nil
-		}
-	}
-	return ErrOIDCLinkNotFound
-}
-
-func (m *mockOIDCLinkDB) DeleteOIDCLink(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) error {
-	for key, link := range m.links {
-		if link.UserID == userID && link.OIDCProviderID == providerID {
-			delete(m.links, key)
-			return nil
-		}
-	}
-	return ErrOIDCLinkNotFound
-}
-
-type mockOIDCSessionDB struct {
-	sessions map[string]*OIDCSession // key: state
-}
-
-func newMockOIDCSessionDB() *mockOIDCSessionDB {
-	return &mockOIDCSessionDB{
-		sessions: make(map[string]*OIDCSession),
-	}
-}
-
-func (m *mockOIDCSessionDB) CreateOIDCSession(ctx context.Context, session *OIDCSession) (*OIDCSession, error) {
-	session.ID = uuid.New()
-	session.CreatedAt = time.Now()
-	m.sessions[session.State] = session
-	return session, nil
-}
-
-func (m *mockOIDCSessionDB) GetOIDCSessionByState(ctx context.Context, state string) (*OIDCSession, error) {
-	session, ok := m.sessions[state]
-	if !ok {
-		return nil, ErrOIDCSessionNotFound
-	}
-	if time.Now().After(session.ExpiresAt) {
-		return nil, ErrOIDCSessionNotFound
-	}
-	return session, nil
-}
-
-func (m *mockOIDCSessionDB) DeleteOIDCSession(ctx context.Context, id uuid.UUID) error {
-	for state, session := range m.sessions {
-		if session.ID == id {
-			delete(m.sessions, state)
-			return nil
-		}
-	}
-	return ErrOIDCSessionNotFound
-}
-
-func (m *mockOIDCSessionDB) DeleteExpiredOIDCSessions(ctx context.Context) error {
-	now := time.Now()
-	for state, session := range m.sessions {
-		if now.After(session.ExpiresAt) {
-			delete(m.sessions, state)
-		}
-	}
-	return nil
-}
-
-type mockUserDB struct {
-	users  map[uuid.UUID]*User
-	emails map[string]*User
-}
-
-func newMockUserDB() *mockUserDB {
-	return &mockUserDB{
-		users:  make(map[uuid.UUID]*User),
-		emails: make(map[string]*User),
-	}
-}
-
-func (m *mockUserDB) CreateUser(ctx context.Context, user *User) (*User, error) {
-	user.ID = uuid.New()
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
-	m.users[user.ID] = user
-	m.emails[user.Email] = user
-	return user, nil
-}
-
-func (m *mockUserDB) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	user, ok := m.users[id]
-	if !ok {
-		return nil, ErrUserNotFound
-	}
-	return user, nil
-}
-
-func (m *mockUserDB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	user, ok := m.emails[email]
-	if !ok {
-		return nil, ErrUserNotFound
-	}
-	return user, nil
-}
-
-func (m *mockUserDB) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	return m.GetUserByID(ctx, id)
-}
-
-func (m *mockUserDB) UpdateUser(ctx context.Context, params *UpdateUserParams) (*User, error) {
-	user, ok := m.users[params.ID]
-	if !ok {
-		return nil, ErrUserNotFound
-	}
-	if params.PasswordHash != nil {
-		user.PasswordHash = *params.PasswordHash
-	}
-	if params.Status != nil {
-		user.Status = *params.Status
-	}
-	user.UpdatedAt = time.Now()
-	return user, nil
-}
-
-func (m *mockUserDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
-	user, ok := m.users[id]
-	if !ok {
-		return ErrUserNotFound
-	}
-	now := time.Now()
-	user.LastLoginAt = &now
-	return nil
-}
-
-func (m *mockUserDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	user, ok := m.users[id]
-	if !ok {
-		return ErrUserNotFound
-	}
-	delete(m.users, id)
-	delete(m.emails, user.Email)
-	return nil
-}
-
-type mockOIDCProvider struct {
-	authURL       string
-	authURLError  error
-	tokens        *OIDCTokenResponse
-	tokensError   error
-	userInfo      *OIDCUserInfo
-	userInfoError error
-	claims        *OIDCClaims
-	claimsError   error
-}
-
-func (m *mockOIDCProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
-	if m.authURLError != nil {
-		return "", m.authURLError
-	}
-	return m.authURL, nil
-}
-
-func (m *mockOIDCProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*OIDCTokenResponse, error) {
-	if m.tokensError != nil {
-		return nil, m.tokensError
-	}
-	return m.tokens, nil
-}
-
-func (m *mockOIDCProvider) GetUserInfo(ctx context.Context, accessToken string) (*OIDCUserInfo, error) {
-	if m.userInfoError != nil {
-		return nil, m.userInfoError
-	}
-	if m.userInfo == nil {
-		return nil, fmt.Errorf("no user info configured")
-	}
-	if err := m.userInfo.Validate(); err != nil {
-		return nil, err
-	}
-	return m.userInfo, nil
-}
-
-func (m *mockOIDCProvider) ValidateIDToken(ctx context.Context, idToken string) (*OIDCClaims, error) {
-	if m.claimsError != nil {
-		return nil, m.claimsError
-	}
-	if m.claims == nil {
-		return nil, errors.New("no claims configured")
-	}
-	return m.claims, nil
-}
-
-type mockProviderFactory struct {
-	provider OIDCProvider
-	err      error
-}
-
-func (m *mockProviderFactory) NewProvider(ctx context.Context, issuerURL, clientID, clientSecret string, scopes []string) (OIDCProvider, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.provider, nil
-}
-
-type mockLogger struct{}
-
-func (m *mockLogger) Info(msg string, args ...any)  {}
-func (m *mockLogger) Warn(msg string, args ...any)  {}
-func (m *mockLogger) Error(msg string, args ...any) {}
-func (m *mockLogger) With(args ...any) logger       { return m }
-
 // Helper to create a test OIDC service
 func newTestOIDCService(
 	providerDB *mockOIDCProviderDB,
 	linkDB *mockOIDCLinkDB,
 	sessionDB *mockOIDCSessionDB,
 	userDB *mockUserDB,
+	tenantsDB *mockTenantsDB,
+	rbacService *mockRBACService,
 	factory *mockProviderFactory,
 	systemProviders map[sdk.OIDCProviderType]OIDCProvider,
 ) *OIDCService {
@@ -355,6 +26,8 @@ func newTestOIDCService(
 		OIDCLinkDB:         linkDB,
 		OIDCSessionDB:      sessionDB,
 		UserDB:             userDB,
+		TenantsDB:          tenantsDB,
+		RBACService:        rbacService,
 		SystemProviders:    systemProviders,
 		RegistrationClient: nil, // Not needed for these tests
 		ProviderFactory:    factory,
@@ -363,250 +36,282 @@ func newTestOIDCService(
 	})
 }
 
-// Tests
+// Test Helpers
 
-func TestStartSSOLogin_Success(t *testing.T) {
+// testFixture holds all mocks needed for OIDC service tests
+type testFixture struct {
+	providerDB *mockOIDCProviderDB
+	linkDB     *mockOIDCLinkDB
+	sessionDB  *mockOIDCSessionDB
+	userDB     *mockUserDB
+	tenantsDB  *mockTenantsDB
+	service    *OIDCService
+}
+
+// newTestFixture creates a complete test fixture with all mocks
+func newTestFixture(mockProvider OIDCProvider, systemProviders map[sdk.OIDCProviderType]OIDCProvider) *testFixture {
 	providerDB := newMockOIDCProviderDB()
+	linkDB := newMockOIDCLinkDB()
 	sessionDB := newMockOIDCSessionDB()
+	userDB := newMockUserDB()
+	tenantsDB := newMockTenantsDB()
+	rbacService := newMockRBACService()
 
-	// Create a test provider for example.com domain
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	_, err := providerDB.CreateOIDCProvider(context.Background(), provider)
-	if err != nil {
-		t.Fatalf("failed to create test provider: %v", err)
+	var factory *mockProviderFactory
+	if mockProvider != nil {
+		factory = &mockProviderFactory{provider: mockProvider}
+	} else {
+		factory = &mockProviderFactory{}
 	}
 
-	mockProvider := &mockOIDCProvider{
-		authURL: "https://sso.example.com/authorize?state=test&code_challenge=...",
+	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, tenantsDB, rbacService, factory, systemProviders)
+
+	return &testFixture{
+		providerDB: providerDB,
+		linkDB:     linkDB,
+		sessionDB:  sessionDB,
+		userDB:     userDB,
+		tenantsDB:  tenantsDB,
+		service:    service,
 	}
+}
 
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
-
-	// Start SSO login for user@example.com
-	authURL, err := service.StartSSOLogin(context.Background(), "user@example.com")
-	if err != nil {
-		t.Fatalf("StartSSOLogin failed: %v", err)
+// testProviderConfig creates an OIDCProviderConfig with sensible defaults
+func testProviderConfig(tenantID uuid.UUID, domain string) *OIDCProviderConfig {
+	return &OIDCProviderConfig{
+		TenantID:                 tenantID,
+		ProviderName:             "Test SSO",
+		IssuerURL:                "https://sso.example.com",
+		ClientID:                 "client-id",
+		ClientSecret:             "client-secret",
+		Scopes:                   []string{"openid", "email", "profile"},
+		Enabled:                  true,
+		AllowedDomains:           []string{domain},
+		AutoCreateUsers:          true,
+		RequireEmailVerification: false,
 	}
+}
 
-	if authURL == "" {
-		t.Error("expected authorization URL, got empty string")
+// testSession creates an OIDCSession with sensible defaults
+func testSession(tenantID uuid.UUID, providerID uuid.UUID) *OIDCSession {
+	return &OIDCSession{
+		State:          "test-state",
+		CodeVerifier:   "test-verifier",
+		OIDCProviderID: &providerID,
+		TenantID:       &tenantID,
+		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
+		ExpiresAt:      time.Now().Add(15 * time.Minute),
 	}
+}
 
-	// Verify session was created
+// testUserInfo creates OIDCUserInfo with sensible defaults
+func testUserInfo(email, sub string) *OIDCUserInfo {
+	return &OIDCUserInfo{
+		Sub:           sub,
+		Email:         email,
+		EmailVerified: true,
+		Name:          "Test User",
+	}
+}
+
+// testTokens creates an OIDCTokenResponse with sensible defaults
+func testTokens() *OIDCTokenResponse {
+	return &OIDCTokenResponse{
+		AccessToken: "access-token",
+		IDToken:     "id-token",
+	}
+}
+
+// testUser creates a User with sensible defaults
+func testUser(tenantID uuid.UUID, email string) *User {
+	return &User{
+		TenantID: tenantID,
+		Email:    email,
+		Status:   UserStatusActive,
+	}
+}
+
+// testIndividualOAuthSession creates an OIDCSession for individual OAuth (Google, Microsoft, GitHub)
+func testIndividualOAuthSession(providerType sdk.OIDCProviderType) *OIDCSession {
+	return &OIDCSession{
+		State:          "test-state",
+		CodeVerifier:   "test-verifier",
+		OIDCProviderID: nil,
+		ProviderType:   &providerType,
+		TenantID:       nil,
+		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
+		ExpiresAt:      time.Now().Add(15 * time.Minute),
+	}
+}
+
+// Assertion Helpers
+
+// assertSessionCreated verifies that exactly one session was created with expected properties
+func assertSessionCreated(t *testing.T, sessionDB *mockOIDCSessionDB, wantProviderID *uuid.UUID, wantTenantID *uuid.UUID, wantProviderType *sdk.OIDCProviderType) {
+	t.Helper()
 	if len(sessionDB.sessions) != 1 {
 		t.Errorf("expected 1 session, got %d", len(sessionDB.sessions))
+		return
 	}
-
 	for _, session := range sessionDB.sessions {
-		if session.OIDCProviderID == nil || *session.OIDCProviderID != provider.ID {
-			t.Error("session should reference the provider")
+		if wantProviderID != nil {
+			if session.OIDCProviderID == nil {
+				t.Error("session should have OIDCProviderID set")
+			} else if *session.OIDCProviderID != *wantProviderID {
+				t.Errorf("session should reference provider %v, got %v", *wantProviderID, *session.OIDCProviderID)
+			}
 		}
-		if session.TenantID == nil || *session.TenantID != tenantID {
-			t.Error("session should reference the tenant")
+		if wantTenantID != nil {
+			if session.TenantID == nil {
+				t.Error("session should have TenantID set")
+			} else if *session.TenantID != *wantTenantID {
+				t.Errorf("session should reference tenant %v, got %v", *wantTenantID, *session.TenantID)
+			}
+		}
+		if wantProviderType != nil {
+			if session.ProviderType == nil {
+				t.Error("session should have ProviderType set")
+			} else if *session.ProviderType != *wantProviderType {
+				t.Errorf("session should have provider type %v, got %v", *wantProviderType, *session.ProviderType)
+			}
 		}
 	}
 }
 
-func TestStartSSOLogin_DomainNotConfigured(t *testing.T) {
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
+// assertUserMatch verifies user properties match expected values
+func assertUserMatch(t *testing.T, user *User, wantEmail string, wantTenantID uuid.UUID, wantStatus UserStatus) {
+	t.Helper()
+	if user.Email != wantEmail {
+		t.Errorf("expected email %s, got %s", wantEmail, user.Email)
+	}
+	if user.TenantID != wantTenantID {
+		t.Errorf("expected tenant %v, got %v", wantTenantID, user.TenantID)
+	}
+	if user.Status != wantStatus {
+		t.Errorf("expected status %s, got %s", wantStatus, user.Status)
+	}
+}
 
-	_, err := service.StartSSOLogin(context.Background(), "user@unknown.com")
+// assertLinkCreated verifies an OIDC link was created with expected properties
+func assertLinkCreated(t *testing.T, link *OIDCLink, wantSub string, wantUserID uuid.UUID) {
+	t.Helper()
+	if link == nil {
+		t.Fatal("expected OIDC link to be created")
+	}
+	if link.ProviderUserID != wantSub {
+		t.Errorf("expected provider user ID %s, got %s", wantSub, link.ProviderUserID)
+	}
+	if link.UserID != wantUserID {
+		t.Errorf("expected user ID %v, got %v", wantUserID, link.UserID)
+	}
+}
+
+// Tests
+
+func TestStartSSOLogin_Success(t *testing.T) {
+	mockProvider := &mockOIDCProvider{
+		authURL: "https://sso.example.com/authorize?state=test&code_challenge=...",
+	}
+	f := newTestFixture(mockProvider, nil)
+
+	tenantID := uuid.New()
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
+
+	authURL, err := f.service.StartSSOLogin(context.Background(), "user@example.com")
+	if err != nil {
+		t.Fatalf("StartSSOLogin failed: %v", err)
+	}
+	if authURL == "" {
+		t.Error("expected authorization URL, got empty string")
+	}
+
+	assertSessionCreated(t, f.sessionDB, &provider.ID, &tenantID, nil)
+}
+
+func TestStartSSOLogin_DomainNotConfigured(t *testing.T) {
+	f := newTestFixture(nil, nil)
+
+	_, err := f.service.StartSSOLogin(context.Background(), "user@unknown.com")
 	if !errors.Is(err, ErrSSONotConfigured) {
 		t.Errorf("expected ErrSSONotConfigured, got: %v", err)
 	}
 }
 
 func TestStartOIDCLogin_Success(t *testing.T) {
-	sessionDB := newMockOIDCSessionDB()
-
 	mockProvider := &mockOIDCProvider{
 		authURL: "https://accounts.google.com/o/oauth2/v2/auth?state=test&...",
 	}
-
 	systemProviders := map[sdk.OIDCProviderType]OIDCProvider{
 		sdk.OIDCProviderTypeGoogle: mockProvider,
 	}
+	f := newTestFixture(nil, systemProviders)
 
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		&mockProviderFactory{},
-		systemProviders,
-	)
-
-	authURL, err := service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+	authURL, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 	if err != nil {
 		t.Fatalf("StartOIDCLogin failed: %v", err)
 	}
-
 	if authURL == "" {
 		t.Error("expected authorization URL, got empty string")
 	}
 
-	// Verify session was created
-	if len(sessionDB.sessions) != 1 {
-		t.Errorf("expected 1 session, got %d", len(sessionDB.sessions))
-	}
-
-	for _, session := range sessionDB.sessions {
-		if session.ProviderType == nil || *session.ProviderType != sdk.OIDCProviderTypeGoogle {
-			t.Error("session should reference Google provider type")
-		}
-		if session.OIDCProviderID != nil {
-			t.Error("session should not reference a provider ID for system providers")
-		}
-	}
+	providerType := sdk.OIDCProviderTypeGoogle
+	assertSessionCreated(t, f.sessionDB, nil, nil, &providerType)
 }
 
 func TestStartOIDCLogin_ProviderNotConfigured(t *testing.T) {
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		make(map[sdk.OIDCProviderType]OIDCProvider), // Empty system providers
-	)
+	f := newTestFixture(nil, nil)
 
-	_, err := service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+	_, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 	if !errors.Is(err, ErrOIDCProviderNotConfigured) {
 		t.Errorf("expected ErrOIDCProviderNotConfigured, got: %v", err)
 	}
 }
 
 func TestHandleOIDCCallback_SSONewUser_AutoProvision(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	linkDB := newMockOIDCLinkDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	// Create session
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
 
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "provider-user-123",
-			Email:         "newuser@example.com",
-			EmailVerified: true,
-			Name:          "New User",
-		},
+		tokens:   testTokens(),
+		userInfo: testUserInfo("newuser@example.com", "provider-user-123"),
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	// Setup: create provider and session
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, factory, nil)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	user, link, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Execute callback
+	user, link, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback failed: %v", err)
 	}
-
 	if user == nil {
 		t.Fatal("expected user to be created")
 	}
-	if user.Email != "newuser@example.com" {
-		t.Errorf("expected email newuser@example.com, got %s", user.Email)
-	}
-	if user.TenantID != tenantID {
-		t.Error("user should be in the same tenant as the provider")
-	}
-	if user.Status != UserStatusActive {
-		t.Errorf("expected user status active, got %s", user.Status)
-	}
 
-	if link == nil {
-		t.Fatal("expected OIDC link to be created")
-	}
-	if link.ProviderUserID != "provider-user-123" {
-		t.Errorf("expected provider user ID provider-user-123, got %s", link.ProviderUserID)
-	}
+	assertUserMatch(t, user, "newuser@example.com", tenantID, UserStatusActive)
+	assertLinkCreated(t, link, "provider-user-123", user.ID)
 }
 
 func TestHandleOIDCCallback_SSOExistingUser(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	linkDB := newMockOIDCLinkDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	// Create existing user and link
-	existingUser := &User{
-		TenantID: tenantID,
-		Email:    "existing@example.com",
-		Status:   UserStatusActive,
+	mockProvider := &mockOIDCProvider{
+		tokens:   testTokens(),
+		userInfo: testUserInfo("existing@example.com", "provider-user-123"),
 	}
-	existingUser, _ = userDB.CreateUser(context.Background(), existingUser)
+	f := newTestFixture(mockProvider, nil)
+
+	// Setup: create provider, existing user, and link
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
+
+	existingUser := testUser(tenantID, "existing@example.com")
+	existingUser, _ = f.userDB.CreateUser(context.Background(), existingUser)
 
 	existingLink := &OIDCLink{
 		UserID:         existingUser.ID,
@@ -614,42 +319,18 @@ func TestHandleOIDCCallback_SSOExistingUser(t *testing.T) {
 		ProviderUserID: "provider-user-123",
 		ProviderEmail:  "existing@example.com",
 	}
-	linkDB.CreateOIDCLink(context.Background(), existingLink)
+	f.linkDB.CreateOIDCLink(context.Background(), existingLink)
 
-	// Create session
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "provider-user-123",
-			Email:         "existing@example.com",
-			EmailVerified: true,
-			Name:          "Existing User",
-		},
-	}
-
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, factory, nil)
-
-	user, link, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Execute callback
+	user, link, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback failed: %v", err)
 	}
 
+	// Should return existing user and link
 	if user.ID != existingUser.ID {
 		t.Error("should return existing user")
 	}
@@ -659,61 +340,24 @@ func TestHandleOIDCCallback_SSOExistingUser(t *testing.T) {
 }
 
 func TestHandleOIDCCallback_AutoProvisioningDisabled(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          false, // Disabled!
-		RequireEmailVerification: false,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	// Create session
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
 
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "provider-user-123",
-			Email:         "newuser@example.com",
-			EmailVerified: true,
-			Name:          "New User",
-		},
+		tokens:   testTokens(),
+		userInfo: testUserInfo("newuser@example.com", "provider-user-123"),
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	// Setup: create provider with auto-provisioning disabled
+	provider := testProviderConfig(tenantID, "example.com")
+	provider.AutoCreateUsers = false // Disabled!
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Execute callback - should fail because auto-provisioning is disabled
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrAutoProvisioningDisabled) {
 		t.Errorf("expected ErrAutoProvisioningDisabled, got: %v", err)
 	}
@@ -722,33 +366,22 @@ func TestHandleOIDCCallback_AutoProvisioningDisabled(t *testing.T) {
 func TestHandleOIDCCallback_EmailReassignment_Blocked(t *testing.T) {
 	// Test scenario: Old employee leaves company, email reassigned to new employee
 	// System should block login when email exists but provider sub is different
-	providerDB := newMockOIDCProviderDB()
-	linkDB := newMockOIDCLinkDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
+
+	// New employee has SAME email but DIFFERENT provider sub
+	mockProvider := &mockOIDCProvider{
+		tokens:   testTokens(),
+		userInfo: testUserInfo("employee@example.com", "new-provider-sub-456"),
 	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
+	f := newTestFixture(mockProvider, nil)
+
+	// Setup: create provider
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
 	// Create old employee's account with OIDC link
-	oldEmployee := &User{
-		TenantID: tenantID,
-		Email:    "employee@example.com",
-		Status:   UserStatusActive,
-	}
-	oldEmployee, _ = userDB.CreateUser(context.Background(), oldEmployee)
+	oldEmployee := testUser(tenantID, "employee@example.com")
+	oldEmployee, _ = f.userDB.CreateUser(context.Background(), oldEmployee)
 
 	oldLink := &OIDCLink{
 		UserID:         oldEmployee.ID,
@@ -756,80 +389,40 @@ func TestHandleOIDCCallback_EmailReassignment_Blocked(t *testing.T) {
 		ProviderUserID: "old-provider-sub-123", // Old employee's provider sub
 		ProviderEmail:  "employee@example.com",
 	}
-	linkDB.CreateOIDCLink(context.Background(), oldLink)
+	f.linkDB.CreateOIDCLink(context.Background(), oldLink)
 
-	// Create session for new employee login attempt
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
-	// New employee has SAME email but DIFFERENT provider sub
-	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "new-provider-sub-456", // Different provider sub!
-			Email:         "employee@example.com", // Same email address
-			EmailVerified: true,
-			Name:          "New Employee",
-		},
-	}
-
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, factory, nil)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// New employee tries to login - should be blocked
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrEmailConflict) {
 		t.Errorf("expected ErrEmailConflict for email reassignment, got: %v", err)
 	}
 
 	// Verify old account still exists and new account was NOT created
-	users := len(userDB.users)
-	if users != 1 {
-		t.Errorf("expected 1 user (old employee), got %d", users)
+	if len(f.userDB.users) != 1 {
+		t.Errorf("expected 1 user (old employee), got %d", len(f.userDB.users))
 	}
 }
 
 func TestHandleOIDCCallback_EmailReassignment_AllowedAfterDeactivation(t *testing.T) {
 	// Test scenario: Admin deactivates old employee, then new employee can login
-	providerDB := newMockOIDCProviderDB()
-	linkDB := newMockOIDCLinkDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
+
+	mockProvider := &mockOIDCProvider{
+		tokens:   testTokens(),
+		userInfo: testUserInfo("employee@example.com", "new-provider-sub-456"),
 	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
+	f := newTestFixture(mockProvider, nil)
+
+	// Setup: create provider
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
 	// Create old employee's account with OIDC link
-	oldEmployee := &User{
-		TenantID: tenantID,
-		Email:    "employee@example.com",
-		Status:   UserStatusActive,
-	}
-	oldEmployee, _ = userDB.CreateUser(context.Background(), oldEmployee)
+	oldEmployee := testUser(tenantID, "employee@example.com")
+	oldEmployee, _ = f.userDB.CreateUser(context.Background(), oldEmployee)
 
 	oldLink := &OIDCLink{
 		UserID:         oldEmployee.ID,
@@ -837,60 +430,33 @@ func TestHandleOIDCCallback_EmailReassignment_AllowedAfterDeactivation(t *testin
 		ProviderUserID: "old-provider-sub-123",
 		ProviderEmail:  "employee@example.com",
 	}
-	linkDB.CreateOIDCLink(context.Background(), oldLink)
+	f.linkDB.CreateOIDCLink(context.Background(), oldLink)
 
 	// Admin deletes old employee's account (simulating offboarding)
-	userDB.DeleteUser(context.Background(), oldEmployee.ID)
-	linkDB.DeleteOIDCLink(context.Background(), oldEmployee.ID, provider.ID)
+	f.userDB.DeleteUser(context.Background(), oldEmployee.ID)
+	f.linkDB.DeleteOIDCLink(context.Background(), oldEmployee.ID, provider.ID)
 
-	// Create session for new employee login
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
-	// New employee with same email but different provider sub
-	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "new-provider-sub-456",
-			Email:         "employee@example.com",
-			EmailVerified: true,
-			Name:          "New Employee",
-		},
-	}
-
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, factory, nil)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// New employee login should succeed now
-	user, link, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	user, link, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback should succeed after old account deleted: %v", err)
 	}
-
 	if user == nil {
 		t.Fatal("expected new user to be created")
 	}
+	if link == nil {
+		t.Fatal("expected OIDC link to be created")
+	}
+
+	// Verify new user is different from old employee
 	if user.Email != "employee@example.com" {
 		t.Errorf("expected email employee@example.com, got %s", user.Email)
 	}
 	if user.ID == oldEmployee.ID {
 		t.Error("new user should have different ID than old employee")
-	}
-
-	if link == nil {
-		t.Fatal("expected OIDC link to be created")
 	}
 	if link.ProviderUserID != "new-provider-sub-456" {
 		t.Errorf("expected new provider sub, got %s", link.ProviderUserID)
@@ -903,34 +469,22 @@ func TestHandleOIDCCallback_EmailReassignment_AllowedAfterDeactivation(t *testin
 func TestHandleOIDCCallback_EmailReassignment_SameSubDifferentEmail(t *testing.T) {
 	// Test scenario: Provider updates user's email (same sub, different email)
 	// System should handle this gracefully since we track by immutable sub claim
-
-	providerDB := newMockOIDCProviderDB()
-	linkDB := newMockOIDCLinkDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
+
+	// User logs in with SAME provider sub but DIFFERENT email (email changed at provider)
+	mockProvider := &mockOIDCProvider{
+		tokens:   testTokens(),
+		userInfo: testUserInfo("newemail@example.com", "provider-sub-123"),
 	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
+	f := newTestFixture(mockProvider, nil)
+
+	// Setup: create provider
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
 	// Create user with old email
-	user := &User{
-		TenantID: tenantID,
-		Email:    "oldemail@example.com",
-		Status:   UserStatusActive,
-	}
-	user, _ = userDB.CreateUser(context.Background(), user)
+	user := testUser(tenantID, "oldemail@example.com")
+	user, _ = f.userDB.CreateUser(context.Background(), user)
 
 	// Link with provider sub
 	link := &OIDCLink{
@@ -939,93 +493,31 @@ func TestHandleOIDCCallback_EmailReassignment_SameSubDifferentEmail(t *testing.T
 		ProviderUserID: "provider-sub-123",
 		ProviderEmail:  "oldemail@example.com",
 	}
-	linkDB.CreateOIDCLink(context.Background(), link)
+	f.linkDB.CreateOIDCLink(context.Background(), link)
 
-	// Create session
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
-	// User logs in with SAME provider sub but DIFFERENT email
-	// (email was changed at the provider)
-	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "provider-sub-123",     // Same provider sub
-			Email:         "newemail@example.com", // Different email!
-			EmailVerified: true,
-			Name:          "Same User",
-		},
-	}
-
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, factory, nil)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should succeed - we track by sub, not email
-	returnedUser, returnedLink, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	returnedUser, returnedLink, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback should succeed for same sub with different email: %v", err)
 	}
 
+	// Should return existing user and link (tracked by immutable sub)
 	if returnedUser.ID != user.ID {
 		t.Error("should return existing user")
 	}
 	if returnedLink.ID != link.ID {
 		t.Error("should return existing link")
 	}
-
-	// Note: Link's ProviderEmail field is not automatically updated
-	// This is tracked for reference but doesn't affect authentication
-	// since we authenticate by immutable provider sub, not email
 }
 
 func TestHandleOIDCCallback_EmailNotVerified(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "Example Corp SSO",
-		IssuerURL:                "https://sso.example.com",
-		ClientID:                 "client-id",
-		ClientSecret:             "client-secret",
-		Scopes:                   []string{"openid", "email", "profile"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"example.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: true, // Required!
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	// Create session
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
 
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
+		tokens: testTokens(),
 		userInfo: &OIDCUserInfo{
 			Sub:           "provider-user-123",
 			Email:         "newuser@example.com",
@@ -1036,19 +528,18 @@ func TestHandleOIDCCallback_EmailNotVerified(t *testing.T) {
 			EmailVerified: false,
 		},
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	// Setup: create provider with email verification required
+	provider := testProviderConfig(tenantID, "example.com")
+	provider.RequireEmailVerification = true
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Should fail because email is not verified
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrProviderEmailNotVerified) {
 		t.Errorf("expected ErrProviderEmailNotVerified, got: %v", err)
 	}
@@ -1057,106 +548,45 @@ func TestHandleOIDCCallback_EmailNotVerified(t *testing.T) {
 // OAuth Flow Error Cases
 
 func TestHandleOIDCCallback_TokenExchangeFailed(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Mock provider returns error during token exchange
 	mockProvider := &mockOIDCProvider{
 		tokensError: errors.New("token exchange failed"),
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Should fail when token exchange fails
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when token exchange fails")
 	}
 }
 
 func TestHandleOIDCCallback_UserInfoFetchFailed(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Token exchange succeeds but userinfo fetch fails
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
+		tokens:        testTokens(),
 		userInfoError: errors.New("userinfo endpoint failed"),
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Should fail when userinfo fetch fails
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when userinfo fetch fails")
 	}
@@ -1165,69 +595,35 @@ func TestHandleOIDCCallback_UserInfoFetchFailed(t *testing.T) {
 // Session Security Tests
 
 func TestHandleOIDCCallback_InvalidState(t *testing.T) {
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
+	f := newTestFixture(nil, nil)
 
 	// Attempt callback with state that doesn't exist
-	_, _, err := service.HandleOIDCCallback(context.Background(), "invalid-state", "auth-code")
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), "invalid-state", "auth-code")
 	if !errors.Is(err, ErrOIDCSessionNotFound) {
 		t.Errorf("expected ErrOIDCSessionNotFound for invalid state, got: %v", err)
 	}
 }
 
 func TestHandleOIDCCallback_ExpiredSession(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
 	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
+	f := newTestFixture(nil, nil)
 
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(-1 * time.Hour), // Expired 1 hour ago
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
+	// Create expired session
+	session := testSession(tenantID, provider.ID)
+	session.ExpiresAt = time.Now().Add(-1 * time.Hour) // Expired 1 hour ago
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	// Should fail for expired session
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrOIDCSessionNotFound) {
 		t.Errorf("expected ErrOIDCSessionNotFound for expired session, got: %v", err)
 	}
 }
 
 func TestStartOIDCLogin_GeneratesUniqueState(t *testing.T) {
-	sessionDB := newMockOIDCSessionDB()
-
 	mockProvider := &mockOIDCProvider{
 		authURL: "https://accounts.google.com/o/oauth2/v2/auth",
 	}
@@ -1235,27 +631,19 @@ func TestStartOIDCLogin_GeneratesUniqueState(t *testing.T) {
 	systemProviders := map[sdk.OIDCProviderType]OIDCProvider{
 		sdk.OIDCProviderTypeGoogle: mockProvider,
 	}
-
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		&mockProviderFactory{},
-		systemProviders,
-	)
+	f := newTestFixture(nil, systemProviders)
 
 	// Generate multiple sessions
 	states := make(map[string]bool)
 	for i := 0; i < 5; i++ {
-		_, err := service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+		_, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 		if err != nil {
 			t.Fatalf("StartOIDCLogin failed: %v", err)
 		}
 	}
 
 	// Verify all states are unique
-	for state := range sessionDB.sessions {
+	for state := range f.sessionDB.sessions {
 		if states[state] {
 			t.Errorf("duplicate state token generated: %s", state)
 		}
@@ -1270,123 +658,58 @@ func TestStartOIDCLogin_GeneratesUniqueState(t *testing.T) {
 // Individual OAuth Flow Tests
 
 func TestHandleOIDCCallback_IndividualOAuth_NewUser(t *testing.T) {
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
-	// Create session for individual OAuth (no tenant ID, has provider type)
-	state := "test-state"
-	providerType := sdk.OIDCProviderTypeGoogle
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: nil,           // No tenant-specific provider
-		ProviderType:   &providerType, // System-wide provider
-		TenantID:       nil,           // Tenant determined during callback
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "google-user-123",
-			Email:         "newuser@gmail.com",
-			EmailVerified: true,
-			Name:          "New User",
-		},
+		tokens:   testTokens(),
+		userInfo: testUserInfo("newuser@gmail.com", "google-user-123"),
 	}
 
 	systemProviders := map[sdk.OIDCProviderType]OIDCProvider{
 		sdk.OIDCProviderTypeGoogle: mockProvider,
 	}
+	f := newTestFixture(nil, systemProviders)
 
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		sessionDB,
-		userDB,
-		&mockProviderFactory{},
-		systemProviders,
-	)
+	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	user, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	user, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback failed: %v", err)
 	}
-
 	if user == nil {
 		t.Fatal("expected user to be created")
 	}
+
+	// Verify user created with correct details and own tenant
 	if user.Email != "newuser@gmail.com" {
 		t.Errorf("expected email newuser@gmail.com, got %s", user.Email)
 	}
 	if user.Status != UserStatusActive {
 		t.Errorf("expected user status active, got %s", user.Status)
 	}
-
-	// Verify user got their own tenant
 	if user.TenantID == uuid.Nil {
 		t.Error("user should have a tenant ID")
 	}
 }
 
 func TestHandleOIDCCallback_IndividualOAuth_ExistingUser(t *testing.T) {
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
-
-	// Create existing user
-	existingUser := &User{
-		TenantID: uuid.New(),
-		Email:    "existing@gmail.com",
-		Status:   UserStatusActive,
-	}
-	existingUser, _ = userDB.CreateUser(context.Background(), existingUser)
-
-	// Create session for individual OAuth
-	state := "test-state"
-	providerType := sdk.OIDCProviderTypeGoogle
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: nil,
-		ProviderType:   &providerType,
-		TenantID:       nil,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "google-user-123",
-			Email:         "existing@gmail.com",
-			EmailVerified: true,
-			Name:          "Existing User",
-		},
+		tokens:   testTokens(),
+		userInfo: testUserInfo("existing@gmail.com", "google-user-123"),
 	}
 
 	systemProviders := map[sdk.OIDCProviderType]OIDCProvider{
 		sdk.OIDCProviderTypeGoogle: mockProvider,
 	}
+	f := newTestFixture(nil, systemProviders)
 
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		sessionDB,
-		userDB,
-		&mockProviderFactory{},
-		systemProviders,
-	)
+	// Create existing user
+	existingUser := testUser(uuid.New(), "existing@gmail.com")
+	existingUser, _ = f.userDB.CreateUser(context.Background(), existingUser)
 
-	user, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
+
+	user, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback failed: %v", err)
 	}
@@ -1397,51 +720,25 @@ func TestHandleOIDCCallback_IndividualOAuth_ExistingUser(t *testing.T) {
 }
 
 func TestHandleOIDCCallback_IndividualOAuth_EmailNotVerified(t *testing.T) {
-	sessionDB := newMockOIDCSessionDB()
-
-	state := "test-state"
-	providerType := sdk.OIDCProviderTypeGoogle
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: nil,
-		ProviderType:   &providerType,
-		TenantID:       nil,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
+		tokens: testTokens(),
 		userInfo: &OIDCUserInfo{
 			Sub:           "google-user-123",
 			Email:         "unverified@gmail.com",
-			EmailVerified: false, // Not verified!
+			EmailVerified: false,
 			Name:          "Unverified User",
 		},
-		claims: &OIDCClaims{
-			EmailVerified: false,
-		},
+		claims: &OIDCClaims{EmailVerified: false},
 	}
-
 	systemProviders := map[sdk.OIDCProviderType]OIDCProvider{
 		sdk.OIDCProviderTypeGoogle: mockProvider,
 	}
+	f := newTestFixture(nil, systemProviders)
 
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		&mockProviderFactory{},
-		systemProviders,
-	)
+	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrProviderEmailNotVerified) {
 		t.Errorf("expected ErrProviderEmailNotVerified, got: %v", err)
 	}
@@ -1450,118 +747,50 @@ func TestHandleOIDCCallback_IndividualOAuth_EmailNotVerified(t *testing.T) {
 // Missing Required Claims Tests
 
 func TestHandleOIDCCallback_MissingSubClaim(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
+		tokens: testTokens(),
 		userInfo: &OIDCUserInfo{
-			Sub:           "", // Missing sub!
+			Sub:           "",
 			Email:         "user@example.com",
 			EmailVerified: true,
 			Name:          "User",
 		},
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	tenantID := uuid.New()
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when sub claim is missing")
 	}
 }
 
 func TestHandleOIDCCallback_MissingEmailClaim(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:        tenantID,
-		ProviderName:    "Example Corp SSO",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "client-secret",
-		Scopes:          []string{"openid", "email", "profile"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "test-verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenantID,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
 	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "access-token",
-			IDToken:     "id-token",
-		},
+		tokens: testTokens(),
 		userInfo: &OIDCUserInfo{
 			Sub:           "provider-user-123",
-			Email:         "", // Missing email!
+			Email:         "",
 			EmailVerified: true,
 			Name:          "User",
 		},
 	}
+	f := newTestFixture(mockProvider, nil)
 
-	factory := &mockProviderFactory{provider: mockProvider}
+	tenantID := uuid.New()
+	provider := testProviderConfig(tenantID, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		newMockUserDB(),
-		factory,
-		nil,
-	)
+	session := testSession(tenantID, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, _, err := service.HandleOIDCCallback(context.Background(), state, "auth-code")
+	_, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when email claim is missing")
 	}
@@ -1569,316 +798,146 @@ func TestHandleOIDCCallback_MissingEmailClaim(t *testing.T) {
 
 // OIDC Provider CRUD Tests
 
-func TestCreateOIDCProvider_Success(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
+func TestOIDCProviderCRUD(t *testing.T) {
+	t.Run("Create", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+		tenantID := uuid.New()
+		provider := testProviderConfig(tenantID, "newdomain.com")
+		provider.ProviderName = "New Provider"
 
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:                 tenantID,
-		ProviderName:             "New Provider",
-		IssuerURL:                "https://newprovider.com",
-		ClientID:                 "client-123",
-		ClientSecret:             "secret-456",
-		Scopes:                   []string{"openid", "email"},
-		Enabled:                  true,
-		AllowedDomains:           []string{"newdomain.com"},
-		AutoCreateUsers:          true,
-		RequireEmailVerification: false,
-	}
-
-	result, err := service.CreateOIDCProvider(context.Background(), provider, "")
-	if err != nil {
-		t.Fatalf("CreateOIDCProvider failed: %v", err)
-	}
-
-	if result.ID == uuid.Nil {
-		t.Error("provider should have an ID")
-	}
-	if result.ProviderName != "New Provider" {
-		t.Errorf("expected provider name 'New Provider', got %s", result.ProviderName)
-	}
-}
-
-func TestGetOIDCProvider_Success(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:       tenantID,
-		ProviderName:   "Test Provider",
-		IssuerURL:      "https://test.com",
-		ClientID:       "client-123",
-		ClientSecret:   "secret-456",
-		Scopes:         []string{"openid"},
-		Enabled:        true,
-		AllowedDomains: []string{"test.com"},
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
-
-	result, err := service.GetOIDCProvider(context.Background(), provider.ID)
-	if err != nil {
-		t.Fatalf("GetOIDCProvider failed: %v", err)
-	}
-
-	if result.ID != provider.ID {
-		t.Error("should return the correct provider")
-	}
-}
-
-func TestGetOIDCProvider_NotFound(t *testing.T) {
-	service := newTestOIDCService(
-		newMockOIDCProviderDB(),
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
-
-	_, err := service.GetOIDCProvider(context.Background(), uuid.New())
-	if !errors.Is(err, ErrOIDCProviderNotFound) {
-		t.Errorf("expected ErrOIDCProviderNotFound, got: %v", err)
-	}
-}
-
-func TestUpdateOIDCProvider_Success(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:       tenantID,
-		ProviderName:   "Original Name",
-		IssuerURL:      "https://test.com",
-		ClientID:       "client-123",
-		ClientSecret:   "secret-456",
-		Scopes:         []string{"openid"},
-		Enabled:        true,
-		AllowedDomains: []string{"test.com"},
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
-
-	newName := "Updated Name"
-	params := &UpdateOIDCProviderParams{
-		ID:           provider.ID,
-		ProviderName: &newName,
-	}
-
-	result, err := service.UpdateOIDCProvider(context.Background(), params)
-	if err != nil {
-		t.Fatalf("UpdateOIDCProvider failed: %v", err)
-	}
-
-	if result.ProviderName != "Updated Name" {
-		t.Errorf("expected provider name 'Updated Name', got %s", result.ProviderName)
-	}
-}
-
-func TestDeleteOIDCProvider_Success(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-
-	tenantID := uuid.New()
-	provider := &OIDCProviderConfig{
-		TenantID:       tenantID,
-		ProviderName:   "To Delete",
-		IssuerURL:      "https://test.com",
-		ClientID:       "client-123",
-		ClientSecret:   "secret-456",
-		Scopes:         []string{"openid"},
-		Enabled:        true,
-		AllowedDomains: []string{"test.com"},
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
-
-	err := service.DeleteOIDCProvider(context.Background(), provider.ID)
-	if err != nil {
-		t.Fatalf("DeleteOIDCProvider failed: %v", err)
-	}
-
-	// Verify it's deleted
-	_, err = service.GetOIDCProvider(context.Background(), provider.ID)
-	if !errors.Is(err, ErrOIDCProviderNotFound) {
-		t.Error("provider should be deleted")
-	}
-}
-
-func TestListOIDCProviders_Success(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-
-	tenantID := uuid.New()
-
-	// Create multiple providers
-	for i := 0; i < 3; i++ {
-		provider := &OIDCProviderConfig{
-			TenantID:       tenantID,
-			ProviderName:   "Provider " + string(rune(i)),
-			IssuerURL:      "https://test.com",
-			ClientID:       "client-123",
-			ClientSecret:   "secret-456",
-			Scopes:         []string{"openid"},
-			Enabled:        true,
-			AllowedDomains: []string{"test.com"},
+		result, err := f.service.CreateOIDCProvider(context.Background(), provider, "")
+		if err != nil {
+			t.Fatalf("CreateOIDCProvider failed: %v", err)
 		}
-		providerDB.CreateOIDCProvider(context.Background(), provider)
-	}
+		if result.ID == uuid.Nil {
+			t.Error("provider should have an ID")
+		}
+		if result.ProviderName != "New Provider" {
+			t.Errorf("expected provider name 'New Provider', got %s", result.ProviderName)
+		}
+	})
 
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{},
-		nil,
-	)
+	t.Run("Get", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+		tenantID := uuid.New()
+		provider := testProviderConfig(tenantID, "test.com")
+		provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	providers, err := service.ListOIDCProviders(context.Background())
-	if err != nil {
-		t.Fatalf("ListOIDCProviders failed: %v", err)
-	}
+		result, err := f.service.GetOIDCProvider(context.Background(), provider.ID)
+		if err != nil {
+			t.Fatalf("GetOIDCProvider failed: %v", err)
+		}
+		if result.ID != provider.ID {
+			t.Error("should return the correct provider")
+		}
+	})
 
-	if len(providers) != 3 {
-		t.Errorf("expected 3 providers, got %d", len(providers))
-	}
+	t.Run("GetNotFound", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+
+		_, err := f.service.GetOIDCProvider(context.Background(), uuid.New())
+		if !errors.Is(err, ErrOIDCProviderNotFound) {
+			t.Errorf("expected ErrOIDCProviderNotFound, got: %v", err)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+		tenantID := uuid.New()
+		provider := testProviderConfig(tenantID, "test.com")
+		provider.ProviderName = "Original Name"
+		provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
+
+		newName := "Updated Name"
+		params := &UpdateOIDCProviderParams{
+			ID:           provider.ID,
+			ProviderName: &newName,
+		}
+
+		result, err := f.service.UpdateOIDCProvider(context.Background(), params)
+		if err != nil {
+			t.Fatalf("UpdateOIDCProvider failed: %v", err)
+		}
+		if result.ProviderName != "Updated Name" {
+			t.Errorf("expected provider name 'Updated Name', got %s", result.ProviderName)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+		tenantID := uuid.New()
+		provider := testProviderConfig(tenantID, "test.com")
+		provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
+
+		err := f.service.DeleteOIDCProvider(context.Background(), provider.ID)
+		if err != nil {
+			t.Fatalf("DeleteOIDCProvider failed: %v", err)
+		}
+
+		_, err = f.service.GetOIDCProvider(context.Background(), provider.ID)
+		if !errors.Is(err, ErrOIDCProviderNotFound) {
+			t.Error("provider should be deleted")
+		}
+	})
+
+	t.Run("List", func(t *testing.T) {
+		f := newTestFixture(nil, nil)
+		tenantID := uuid.New()
+
+		for i := 0; i < 3; i++ {
+			provider := testProviderConfig(tenantID, "test.com")
+			f.providerDB.CreateOIDCProvider(context.Background(), provider)
+		}
+
+		providers, err := f.service.ListOIDCProviders(context.Background())
+		if err != nil {
+			t.Fatalf("ListOIDCProviders failed: %v", err)
+		}
+		if len(providers) != 3 {
+			t.Errorf("expected 3 providers, got %d", len(providers))
+		}
+	})
 }
 
 // Multi-tenancy Edge Cases
 
 func TestStartSSOLogin_ProviderFromDifferentTenant(t *testing.T) {
-	// This test documents that domain-based SSO discovery
-	// doesn't have tenant isolation (domains are global)
-	// This is intentional - domains are unique across all tenants
-	providerDB := newMockOIDCProviderDB()
+	// Domain-based SSO discovery doesn't have tenant isolation
+	// Domains are globally unique across all tenants
+	mockProvider := &mockOIDCProvider{authURL: "https://sso1.example.com/auth"}
+	f := newTestFixture(mockProvider, nil)
 
 	tenant1 := uuid.New()
+	provider := testProviderConfig(tenant1, "example.com")
+	f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	// Tenant 1 configures example.com
-	provider1 := &OIDCProviderConfig{
-		TenantID:        tenant1,
-		ProviderName:    "Tenant 1 Provider",
-		IssuerURL:       "https://sso1.example.com",
-		ClientID:        "client-1",
-		ClientSecret:    "secret-1",
-		Scopes:          []string{"openid"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	providerDB.CreateOIDCProvider(context.Background(), provider1)
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		newMockOIDCSessionDB(),
-		newMockUserDB(),
-		&mockProviderFactory{provider: &mockOIDCProvider{authURL: "https://sso1.example.com/auth"}},
-		nil,
-	)
-
-	// Any user with @example.com can start SSO
-	authURL, err := service.StartSSOLogin(context.Background(), "user@example.com")
+	authURL, err := f.service.StartSSOLogin(context.Background(), "user@example.com")
 	if err != nil {
 		t.Fatalf("StartSSOLogin failed: %v", err)
 	}
-
 	if authURL == "" {
 		t.Error("should generate auth URL")
 	}
 }
 
 func TestHandleOIDCCallback_CreateUserInCorrectTenant(t *testing.T) {
-	providerDB := newMockOIDCProviderDB()
-	sessionDB := newMockOIDCSessionDB()
-	userDB := newMockUserDB()
+	mockProvider := &mockOIDCProvider{
+		tokens:   testTokens(),
+		userInfo: testUserInfo("user@example.com", "sub-123"),
+	}
+	f := newTestFixture(mockProvider, nil)
 
 	tenant1 := uuid.New()
+	provider := testProviderConfig(tenant1, "example.com")
+	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	provider := &OIDCProviderConfig{
-		TenantID:        tenant1,
-		ProviderName:    "Provider",
-		IssuerURL:       "https://sso.example.com",
-		ClientID:        "client-id",
-		ClientSecret:    "secret",
-		Scopes:          []string{"openid"},
-		Enabled:         true,
-		AllowedDomains:  []string{"example.com"},
-		AutoCreateUsers: true,
-	}
-	provider, _ = providerDB.CreateOIDCProvider(context.Background(), provider)
+	session := testSession(tenant1, provider.ID)
+	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	state := "test-state"
-	session := &OIDCSession{
-		State:          state,
-		CodeVerifier:   "verifier",
-		OIDCProviderID: &provider.ID,
-		TenantID:       &tenant1,
-		RedirectURI:    "http://localhost:8080/v1/oauth/callback",
-		ExpiresAt:      time.Now().Add(15 * time.Minute),
-	}
-	sessionDB.CreateOIDCSession(context.Background(), session)
-
-	mockProvider := &mockOIDCProvider{
-		tokens: &OIDCTokenResponse{
-			AccessToken: "token",
-			IDToken:     "id-token",
-		},
-		userInfo: &OIDCUserInfo{
-			Sub:           "sub-123",
-			Email:         "user@example.com",
-			EmailVerified: true,
-		},
-	}
-
-	factory := &mockProviderFactory{provider: mockProvider}
-
-	service := newTestOIDCService(
-		providerDB,
-		newMockOIDCLinkDB(),
-		sessionDB,
-		userDB,
-		factory,
-		nil,
-	)
-
-	user, _, err := service.HandleOIDCCallback(context.Background(), state, "code")
+	user, _, err := f.service.HandleOIDCCallback(context.Background(), session.State, "code")
 	if err != nil {
 		t.Fatalf("HandleOIDCCallback failed: %v", err)
 	}
-
-	// Verify user created in correct tenant
 	if user.TenantID != tenant1 {
 		t.Errorf("user should be in tenant1, got %s", user.TenantID)
 	}

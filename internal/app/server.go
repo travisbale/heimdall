@@ -127,6 +127,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create encryption cipher: %w", err)
 	}
 
+	tenantsDB := postgres.NewTenantsDB(db)
 	usersDB := postgres.NewUsersDB(db)
 	verificationTokensDB := postgres.NewVerificationTokensDB(db)
 	passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
@@ -134,8 +135,22 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	oidcProvidersDB := postgres.NewOIDCProvidersDB(db, cipher)
 	oidcLinksDB := postgres.NewOIDCLinksDB(db)
 	oidcSessionsDB := postgres.NewOIDCSessionsDB(db)
+	rolesDB := postgres.NewRolesDB(db)
+	permissionsDB := postgres.NewPermissionsDB(db)
+	rolePermissionsDB := postgres.NewRolePermissionsDB(db)
+	userRolesDB := postgres.NewUserRolesDB(db)
+	userPermissionsDB := postgres.NewUserPermissionsDB(db)
 
 	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, logger.With("module", "login_attempts_service"))
+
+	rbacService := auth.NewRBACService(&auth.RBACServiceConfig{
+		RolesDB:           rolesDB,
+		PermissionsDB:     permissionsDB,
+		RolePermissionsDB: rolePermissionsDB,
+		UserRolesDB:       userRolesDB,
+		UserPermissionsDB: userPermissionsDB,
+		Logger:            logger.With("module", "rbac_service"),
+	})
 
 	// System-wide providers enable "Login with Google/GitHub" before user authentication
 	// Tenant-specific providers (stored in DB) are used for enterprise SSO
@@ -198,6 +213,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		OIDCLinkDB:         oidcLinksDB,
 		OIDCSessionDB:      oidcSessionsDB,
 		UserDB:             usersDB,
+		TenantsDB:          tenantsDB,
+		RBACService:        rbacService,
 		SystemProviders:    systemProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
@@ -207,12 +224,14 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	authService := auth.NewUserService(&auth.UserServiceConfig{
 		UserDB:               usersDB,
+		TenantsDB:            tenantsDB,
 		Hasher:               passwordHasher,
 		EmailService:         emailService,
 		VerificationTokenDB:  verificationTokensDB,
 		PasswordResetTokenDB: passwordResetTokensDB,
 		LoginAttemptsService: loginAttemptsService,
 		OIDCService:          oidcService,
+		RBACService:          rbacService,
 		Logger:               logger.With("module", "user_service"),
 	})
 
@@ -220,6 +239,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Address:            config.HTTPAddress,
 		UserService:        authService,
 		OIDCService:        oidcService,
+		RBACService:        rbacService,
 		JWTService:         jwtService,
 		Environment:        config.Environment,
 		TrustedProxyMode:   config.TrustedProxyMode,

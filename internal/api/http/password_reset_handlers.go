@@ -15,10 +15,10 @@ type PasswordResetHandler struct {
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
-func NewPasswordResetHandler(userService userService, logger logger) *PasswordResetHandler {
+func NewPasswordResetHandler(config *Config) *PasswordResetHandler {
 	return &PasswordResetHandler{
-		userService: userService,
-		logger:      logger,
+		userService: config.UserService,
+		logger:      config.Logger,
 	}
 }
 

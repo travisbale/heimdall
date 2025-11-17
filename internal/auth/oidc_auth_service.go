@@ -317,6 +317,10 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 
 	// Create new tenant for individual OAuth user
 	tenantID := uuid.New()
+	_, err = s.tenantsDB.CreateTenant(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tenant: %w", err)
+	}
 
 	// Create user in new tenant
 	user := &User{
@@ -328,6 +332,12 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 	user, err = s.userDB.CreateUser(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	ctxWithTenant := identity.WithUser(ctx, user.ID, tenantID)
+	err = s.rbacService.SetupSystemAdminRole(ctxWithTenant, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup System Admin role: %w", err)
 	}
 
 	s.logger.Info("created new tenant for individual OIDC user", "user_id", user.ID, "tenant_id", tenantID, "email", userInfo.Email)

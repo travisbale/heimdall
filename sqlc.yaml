@@ -60,3 +60,7 @@ sql:
             go_type:
               import: "github.com/travisbale/heimdall/sdk"
               type: "OIDCRegistrationMethod"
+          - db_type: "permission_effect"
+            go_type:
+              import: "github.com/travisbale/heimdall/sdk"
+              type: "PermissionEffect"

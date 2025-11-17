@@ -77,7 +77,6 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 		IDToken:      idToken,
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    int(token.Expiry.Sub(token.Expiry).Seconds()),
-		TokenType:    token.TokenType,
 	}, nil
 }
 

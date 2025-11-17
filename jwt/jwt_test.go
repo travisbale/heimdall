@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // Test key generation helpers
@@ -93,9 +94,9 @@ func TestIssuer_IssueAccessToken(t *testing.T) {
 
 	userID := uuid.New()
 	tenantID := uuid.New()
-	permissions := []string{"read:users", "write:users"}
+	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate}
 
-	token, err := service.IssueAccessToken(userID, tenantID, permissions)
+	token, err := service.IssueAccessToken(userID, tenantID, scopes)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -125,8 +126,8 @@ func TestIssuer_IssueAccessToken(t *testing.T) {
 		t.Errorf("expected tenant ID %s, got %s", tenantID, claims.TenantID)
 	}
 
-	if len(claims.Permissions) != 2 {
-		t.Errorf("expected 2 permissions, got %d", len(claims.Permissions))
+	if len(claims.Scopes) != 2 {
+		t.Errorf("expected 2 scopes, got %d", len(claims.Scopes))
 	}
 
 	if claims.Issuer != "test-issuer" {
@@ -159,8 +160,8 @@ func TestIssuer_IssueRefreshToken(t *testing.T) {
 		t.Fatalf("failed to parse token: %v", err)
 	}
 
-	if len(claims.Permissions) != 0 {
-		t.Errorf("expected 0 permissions in refresh token, got %d", len(claims.Permissions))
+	if len(claims.Scopes) != 0 {
+		t.Errorf("expected 0 scopes in refresh token, got %d", len(claims.Scopes))
 	}
 }
 
@@ -227,9 +228,9 @@ func TestValidator_ValidateToken_Success(t *testing.T) {
 
 	userID := uuid.New()
 	tenantID := uuid.New()
-	permissions := []string{"read:users"}
+	scopes := []sdk.Scope{sdk.ScopeUserRead}
 
-	token, err := service.IssueAccessToken(userID, tenantID, permissions)
+	token, err := service.IssueAccessToken(userID, tenantID, scopes)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -247,8 +248,8 @@ func TestValidator_ValidateToken_Success(t *testing.T) {
 		t.Errorf("expected tenant ID %s, got %s", tenantID, claims.TenantID)
 	}
 
-	if len(claims.Permissions) != 1 || claims.Permissions[0] != "read:users" {
-		t.Errorf("expected permissions [read:users], got %v", claims.Permissions)
+	if len(claims.Scopes) != 1 || claims.Scopes[0] != sdk.ScopeUserRead {
+		t.Errorf("expected scopes [user:read], got %v", claims.Scopes)
 	}
 }
 
@@ -431,10 +432,10 @@ func TestRoundTrip_AccessToken(t *testing.T) {
 
 	userID := uuid.New()
 	tenantID := uuid.New()
-	permissions := []string{"read:users", "write:users", "delete:users"}
+	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("delete:users")}
 
 	// Issue token
-	token, err := service.IssueAccessToken(userID, tenantID, permissions)
+	token, err := service.IssueAccessToken(userID, tenantID, scopes)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -454,13 +455,13 @@ func TestRoundTrip_AccessToken(t *testing.T) {
 		t.Errorf("tenant ID mismatch: expected %s, got %s", tenantID, claims.TenantID)
 	}
 
-	if len(claims.Permissions) != 3 {
-		t.Errorf("permissions count mismatch: expected 3, got %d", len(claims.Permissions))
+	if len(claims.Scopes) != 3 {
+		t.Errorf("scopes count mismatch: expected 3, got %d", len(claims.Scopes))
 	}
 
-	for i, perm := range permissions {
-		if claims.Permissions[i] != perm {
-			t.Errorf("permission mismatch at index %d: expected %s, got %s", i, perm, claims.Permissions[i])
+	for i, scope := range scopes {
+		if claims.Scopes[i] != scope {
+			t.Errorf("scope mismatch at index %d: expected %s, got %s", i, scope, claims.Scopes[i])
 		}
 	}
 }
@@ -484,9 +485,9 @@ func TestRoundTrip_RefreshToken(t *testing.T) {
 		t.Fatalf("failed to validate refresh token: %v", err)
 	}
 
-	// Verify refresh token has no permissions
-	if len(claims.Permissions) != 0 {
-		t.Errorf("expected no permissions in refresh token, got %d", len(claims.Permissions))
+	// Verify refresh token has no scopes
+	if len(claims.Scopes) != 0 {
+		t.Errorf("expected no scopes in refresh token, got %d", len(claims.Scopes))
 	}
 }
 

@@ -79,11 +79,6 @@ func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, 
 	return client, nil
 }
 
-// SetAccessToken sets the access token for authenticated requests
-func (c *HTTPClient) SetAccessToken(token string) {
-	c.accessToken = token
-}
-
 // Health checks the health of the heimdall API
 func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
 	var resp HealthResponse
@@ -95,12 +90,14 @@ func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
 }
 
 // Login authenticates a user and returns an access token
+// The access token is automatically set on the client for subsequent authenticated requests
 // The refresh token is automatically stored in the client's cookie jar
 func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1Login, &req, &resp); err != nil {
 		return nil, err
 	}
+	c.accessToken = resp.AccessToken
 	return &resp, nil
 }
 
@@ -114,12 +111,14 @@ func (c *HTTPClient) Logout(ctx context.Context) (*LogoutResponse, error) {
 }
 
 // RefreshToken refreshes the access token using the refresh token cookie
+// The access token is automatically set on the client for subsequent authenticated requests
 // The refresh token cookie must have been set by a previous Login call
 func (c *HTTPClient) RefreshToken(ctx context.Context) (*LoginResponse, error) {
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1Refresh, nil, &resp); err != nil {
 		return nil, err
 	}
+	c.accessToken = resp.AccessToken
 	return &resp, nil
 }
 
@@ -133,12 +132,14 @@ func (c *HTTPClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 }
 
 // VerifyEmail verifies a user's email address using the verification token
+// The access token is automatically set on the client for subsequent authenticated requests
 // Returns a LoginResponse with access token on successful verification
 func (c *HTTPClient) VerifyEmail(ctx context.Context, req VerifyEmailRequest) (*LoginResponse, error) {
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1VerifyEmail, &req, &resp); err != nil {
 		return nil, err
 	}
+	c.accessToken = resp.AccessToken
 	return &resp, nil
 }
 
@@ -181,8 +182,8 @@ func (c *HTTPClient) SSOLogin(ctx context.Context, req SSOLoginRequest) (*OIDCAu
 }
 
 // ListSupportedProviders returns the list of OAuth providers available for individual login
-func (c *HTTPClient) ListSupportedProviders(ctx context.Context) (*ListSupportedOIDCProvidersResponse, error) {
-	var resp ListSupportedOIDCProvidersResponse
+func (c *HTTPClient) ListSupportedProviders(ctx context.Context) (*OIDCProviderTypesResponse, error) {
+	var resp OIDCProviderTypesResponse
 	if err := c.doRequest(ctx, http.MethodGet, RouteV1OAuthSupportedTypes, nil, &resp); err != nil {
 		return nil, err
 	}
@@ -190,27 +191,27 @@ func (c *HTTPClient) ListSupportedProviders(ctx context.Context) (*ListSupported
 }
 
 // CreateOIDCProvider creates a new OIDC provider configuration for corporate SSO
-func (c *HTTPClient) CreateOIDCProvider(ctx context.Context, req CreateOIDCProviderRequest) (*OIDCProviderResponse, error) {
-	var resp OIDCProviderResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1OAuthProviders, &req, &resp); err != nil {
+func (c *HTTPClient) CreateOIDCProvider(ctx context.Context, req CreateOIDCProviderRequest) (*OIDCProvider, error) {
+	var provider OIDCProvider
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1OAuthProviders, &req, &provider); err != nil {
 		return nil, err
 	}
-	return &resp, nil
+	return &provider, nil
 }
 
 // GetOIDCProvider retrieves an OIDC provider by ID
-func (c *HTTPClient) GetOIDCProvider(ctx context.Context, req GetOIDCProviderRequest) (*OIDCProviderResponse, error) {
-	var resp OIDCProviderResponse
+func (c *HTTPClient) GetOIDCProvider(ctx context.Context, req GetOIDCProviderRequest) (*OIDCProvider, error) {
+	var provider OIDCProvider
 	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
-	if err := c.doRequest(ctx, http.MethodGet, route, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &provider); err != nil {
 		return nil, err
 	}
-	return &resp, nil
+	return &provider, nil
 }
 
 // ListOIDCProviders lists all OIDC providers for the tenant
-func (c *HTTPClient) ListOIDCProviders(ctx context.Context) (*ListOIDCProvidersResponse, error) {
-	var resp ListOIDCProvidersResponse
+func (c *HTTPClient) ListOIDCProviders(ctx context.Context) (*OIDCProvidersResponse, error) {
+	var resp OIDCProvidersResponse
 	if err := c.doRequest(ctx, http.MethodGet, RouteV1OAuthProviders, nil, &resp); err != nil {
 		return nil, err
 	}
@@ -218,19 +219,130 @@ func (c *HTTPClient) ListOIDCProviders(ctx context.Context) (*ListOIDCProvidersR
 }
 
 // UpdateOIDCProvider updates an OIDC provider configuration
-func (c *HTTPClient) UpdateOIDCProvider(ctx context.Context, req UpdateOIDCProviderRequest) (*OIDCProviderResponse, error) {
-	var resp OIDCProviderResponse
+func (c *HTTPClient) UpdateOIDCProvider(ctx context.Context, req UpdateOIDCProviderRequest) (*OIDCProvider, error) {
+	var provider OIDCProvider
 	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
-	if err := c.doRequest(ctx, http.MethodPut, route, &req, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPut, route, &req, &provider); err != nil {
 		return nil, err
 	}
-	return &resp, nil
+	return &provider, nil
 }
 
 // DeleteOIDCProvider deletes an OIDC provider
 func (c *HTTPClient) DeleteOIDCProvider(ctx context.Context, req DeleteOIDCProviderRequest) error {
 	route := fmt.Sprintf("/v1/oauth/providers/%s", req.ProviderID.String())
 	return c.doRequest(ctx, http.MethodDelete, route, nil, nil)
+}
+
+// RBAC - Permissions
+
+// ListPermissions retrieves all system permissions
+func (c *HTTPClient) ListPermissions(ctx context.Context) (*PermissionsResponse, error) {
+	var resp PermissionsResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1Permissions, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// RBAC - Roles
+
+// CreateRole creates a new role
+func (c *HTTPClient) CreateRole(ctx context.Context, req CreateRoleRequest) (*Role, error) {
+	var role Role
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Roles, &req, &role); err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+// GetRole retrieves a role by ID
+func (c *HTTPClient) GetRole(ctx context.Context, req GetRoleRequest) (*Role, error) {
+	var role Role
+	route := fmt.Sprintf("/v1/roles/%s", req.RoleID.String())
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &role); err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+// ListRoles retrieves all roles for the tenant
+func (c *HTTPClient) ListRoles(ctx context.Context) (*RolesResponse, error) {
+	var resp RolesResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1Roles, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// UpdateRole updates a role
+func (c *HTTPClient) UpdateRole(ctx context.Context, req UpdateRoleRequest) (*Role, error) {
+	var role Role
+	route := fmt.Sprintf("/v1/roles/%s", req.RoleID.String())
+	if err := c.doRequest(ctx, http.MethodPut, route, &req, &role); err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+// DeleteRole deletes a role
+func (c *HTTPClient) DeleteRole(ctx context.Context, req DeleteRoleRequest) error {
+	route := fmt.Sprintf("/v1/roles/%s", req.RoleID.String())
+	return c.doRequest(ctx, http.MethodDelete, route, nil, nil)
+}
+
+// RBAC - Role Permissions
+
+// GetRolePermissions retrieves all permissions for a role
+func (c *HTTPClient) GetRolePermissions(ctx context.Context, req GetRolePermissionsRequest) (*PermissionsResponse, error) {
+	var resp PermissionsResponse
+	route := fmt.Sprintf("/v1/roles/%s/permissions", req.RoleID.String())
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetRolePermissions sets all permissions for a role (bulk update)
+func (c *HTTPClient) SetRolePermissions(ctx context.Context, req SetRolePermissionsRequest) error {
+	route := fmt.Sprintf("/v1/roles/%s/permissions", req.RoleID.String())
+	return c.doRequest(ctx, http.MethodPut, route, &req, nil)
+}
+
+// RBAC - User Roles
+
+// GetUserRoles retrieves all roles for a user
+func (c *HTTPClient) GetUserRoles(ctx context.Context, req GetUserRolesRequest) (*RolesResponse, error) {
+	var resp RolesResponse
+	route := fmt.Sprintf("/v1/users/%s/roles", req.UserID.String())
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetUserRoles sets all roles for a user
+func (c *HTTPClient) SetUserRoles(ctx context.Context, req SetUserRolesRequest) error {
+	route := fmt.Sprintf("/v1/users/%s/roles", req.UserID.String())
+	return c.doRequest(ctx, http.MethodPut, route, &req, nil)
+}
+
+// RBAC - User Direct Permissions
+
+// GetDirectPermissions retrieves direct permissions assigned to a user
+func (c *HTTPClient) GetDirectPermissions(ctx context.Context, req GetDirectPermissionsRequest) (*DirectPermissionsResponse, error) {
+	var resp DirectPermissionsResponse
+	route := fmt.Sprintf("/v1/users/%s/permissions", req.UserID.String())
+	if err := c.doRequest(ctx, http.MethodGet, route, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetDirectPermissions sets all permissions for a user
+func (c *HTTPClient) SetDirectPermissions(ctx context.Context, req SetDirectPermissionsRequest) error {
+	route := fmt.Sprintf("/v1/users/%s/permissions", req.UserID.String())
+	return c.doRequest(ctx, http.MethodPut, route, &req, nil)
 }
 
 func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req validatable, result any) error {
