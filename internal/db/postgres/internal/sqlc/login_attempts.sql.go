@@ -74,7 +74,7 @@ INSERT INTO login_attempts (
 type InsertLoginAttemptParams struct {
 	Email       string     `json:"email"`
 	UserID      *uuid.UUID `json:"user_id"`
-	IpAddress   *string    `json:"ip_address"`
+	IpAddress   string     `json:"ip_address"`
 	LockedUntil *time.Time `json:"locked_until"`
 }
 

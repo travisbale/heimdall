@@ -21,7 +21,7 @@ func NewLoginAttemptsDB(db *DB) *LoginAttemptsDB {
 }
 
 // RecordAttempt logs failed login attempt with calculated lockout expiry (pre-authentication operation)
-func (r *LoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lockedUntil *time.Time) error {
+func (r *LoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lockedUntil *time.Time) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		_, err := q.InsertLoginAttempt(ctx, sqlc.InsertLoginAttemptParams{
 			Email:       email,

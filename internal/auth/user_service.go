@@ -45,8 +45,8 @@ type tokenDB interface {
 }
 
 type loginAttemptsService interface {
-	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string, lastLoginAt *time.Time) error
-	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress *string) error
+	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lastLoginAt *time.Time) error
+	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string) error
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 

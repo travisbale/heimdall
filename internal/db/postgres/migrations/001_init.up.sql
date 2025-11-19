@@ -68,7 +68,7 @@ CREATE TABLE login_attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    ip_address TEXT,
+    ip_address TEXT NOT NULL DEFAULT '',
     locked_until TIMESTAMPTZ,
     attempted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

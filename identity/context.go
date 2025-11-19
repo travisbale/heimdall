@@ -12,6 +12,7 @@ type contextKey string
 const (
 	userIDContextKey   contextKey = "user_id"
 	tenantIDContextKey contextKey = "tenant_id"
+	ipAddressKey       contextKey = "ip_address"
 )
 
 var ErrNoUserInContext = errors.New("no user ID found in context")
@@ -62,4 +63,20 @@ func GetUserAndTenant(ctx context.Context) (userID, tenantID uuid.UUID, err erro
 	}
 
 	return userID, tenantID, nil
+}
+
+// WithIPAddress adds the client IP address to the context
+// Used by HTTP middleware to propagate the client IP for logging and security
+func WithIPAddress(ctx context.Context, ipAddress string) context.Context {
+	return context.WithValue(ctx, ipAddressKey, ipAddress)
+}
+
+// GetIPAddress retrieves the client IP address from the context
+// Returns empty string if no IP address is set
+func GetIPAddress(ctx context.Context) string {
+	ipAddress, ok := ctx.Value(ipAddressKey).(string)
+	if !ok {
+		return ""
+	}
+	return ipAddress
 }

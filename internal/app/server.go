@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/travisbale/heimdall/clog"
 	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/crypto/argon2"
 	"github.com/travisbale/heimdall/internal/api/grpc"
@@ -244,7 +245,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Environment:        config.Environment,
 		TrustedProxyMode:   config.TrustedProxyMode,
 		CORSAllowedOrigins: config.CORSAllowedOrigins,
-		Logger:             logger.With("module", "http_server"),
+		Logger:             clog.New("http"),
 	})
 
 	grpcServer := grpc.NewServer(&grpc.Config{

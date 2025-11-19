@@ -183,9 +183,9 @@ func TestGetJWTClaims_NoClaimsInContext(t *testing.T) {
 	}
 }
 
-// RequireScopes Tests
+// RequireScope Tests
 
-func TestRequireScopes_Success(t *testing.T) {
+func TestRequireScope_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -198,7 +198,7 @@ func TestRequireScopes_Success(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -211,7 +211,7 @@ func TestRequireScopes_Success(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_MissingScope(t *testing.T) {
+func TestRequireScope_MissingScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -224,7 +224,7 @@ func TestRequireScopes_MissingScope(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -237,7 +237,7 @@ func TestRequireScopes_MissingScope(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_NoPermissions(t *testing.T) {
+func TestRequireScope_NoPermissions(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -250,7 +250,7 @@ func TestRequireScopes_NoPermissions(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -263,7 +263,7 @@ func TestRequireScopes_NoPermissions(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_EmptyRequired(t *testing.T) {
+func TestRequireScope_EmptyRequired(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -276,7 +276,7 @@ func TestRequireScopes_EmptyRequired(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{})(testHandler()) // No scopes required
+	handler := jwtMiddleware.RequireScope()(testHandler()) // No scopes required
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -289,7 +289,7 @@ func TestRequireScopes_EmptyRequired(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_MissingAuthHeader(t *testing.T) {
+func TestRequireScope_MissingAuthHeader(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -302,7 +302,7 @@ func TestRequireScopes_MissingAuthHeader(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	// No Authorization header
@@ -315,13 +315,13 @@ func TestRequireScopes_MissingAuthHeader(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_InvalidToken(t *testing.T) {
+func TestRequireScope_InvalidToken(t *testing.T) {
 	validator := &mockValidator{
 		err: ErrInvalidToken,
 	}
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer invalid-token")
@@ -334,7 +334,7 @@ func TestRequireScopes_InvalidToken(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_SingleScope(t *testing.T) {
+func TestRequireScope_SingleScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -347,7 +347,7 @@ func TestRequireScopes_SingleScope(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.Scope("admin:all")})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.Scope("admin:all"))(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -389,7 +389,7 @@ func TestAuthenticateAlone_Success(t *testing.T) {
 	}
 }
 
-func TestRequireScopes_WithInvalidToken(t *testing.T) {
+func TestRequireScope_WithInvalidToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -401,9 +401,9 @@ func TestRequireScopes_WithInvalidToken(t *testing.T) {
 	}
 	validator.claims.Subject = userID.String()
 
-	// RequireScopes validates JWT and checks scopes in one step
+	// RequireScope validates JWT and checks scopes in one step
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -445,7 +445,7 @@ func TestHTTPMiddleware_Authenticate(t *testing.T) {
 	}
 }
 
-func TestHTTPMiddleware_RequireScopes_Success(t *testing.T) {
+func TestHTTPMiddleware_RequireScope_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -461,7 +461,7 @@ func TestHTTPMiddleware_RequireScopes_Success(t *testing.T) {
 	jwtMiddleware := NewHTTPMiddleware(validator)
 
 	// Use it for multiple endpoints
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -474,7 +474,7 @@ func TestHTTPMiddleware_RequireScopes_Success(t *testing.T) {
 	}
 }
 
-func TestHTTPMiddleware_RequireScopes_MissingScope(t *testing.T) {
+func TestHTTPMiddleware_RequireScope_MissingScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
@@ -487,7 +487,7 @@ func TestHTTPMiddleware_RequireScopes_MissingScope(t *testing.T) {
 	validator.claims.Subject = userID.String()
 
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate})(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
@@ -529,7 +529,7 @@ func TestHTTPMiddleware_MultipleEndpoints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := jwtMiddleware.RequireScopes(tc.scopes)(testHandler())
+			handler := jwtMiddleware.RequireScope(tc.scopes...)(testHandler())
 
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			req.Header.Set("Authorization", "Bearer valid-token")

@@ -190,7 +190,7 @@ type LoginAttempt struct {
 	ID          uuid.UUID  `json:"id"`
 	Email       string     `json:"email"`
 	UserID      *uuid.UUID `json:"user_id"`
-	IpAddress   *string    `json:"ip_address"`
+	IpAddress   string     `json:"ip_address"`
 	LockedUntil *time.Time `json:"locked_until"`
 	AttemptedAt time.Time  `json:"attempted_at"`
 	CreatedAt   time.Time  `json:"created_at"`

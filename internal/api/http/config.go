@@ -1,5 +1,13 @@
 package http
 
+import "context"
+
+type logger interface {
+	Info(ctx context.Context, msg string, args ...any)
+	Warn(ctx context.Context, msg string, args ...any)
+	Error(ctx context.Context, msg string, args ...any)
+}
+
 type Config struct {
 	Address            string
 	UserService        userService

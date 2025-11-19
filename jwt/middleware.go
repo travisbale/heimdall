@@ -72,8 +72,9 @@ func (m *HTTPMiddleware) Authenticate() func(http.Handler) http.Handler {
 	}
 }
 
-// RequireScopes returns middleware that authenticates users and verifies they have all required scopes
-func (m *HTTPMiddleware) RequireScopes(requiredScopes []sdk.Scope) func(http.Handler) http.Handler {
+// RequireScope returns middleware that authenticates users and verifies they have all required scopes
+// Accepts one or more scopes that the user must possess to access the endpoint
+func (m *HTTPMiddleware) RequireScope(scopes ...sdk.Scope) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// First authenticate to validate token and extract claims
 		authMiddleware := m.Authenticate()
@@ -93,7 +94,7 @@ func (m *HTTPMiddleware) RequireScopes(requiredScopes []sdk.Scope) func(http.Han
 
 			// Check if user has all required scopes
 			var missingScopes []sdk.Scope
-			for _, required := range requiredScopes {
+			for _, required := range scopes {
 				if !userScopes[required] {
 					missingScopes = append(missingScopes, required)
 				}
@@ -109,12 +110,6 @@ func (m *HTTPMiddleware) RequireScopes(requiredScopes []sdk.Scope) func(http.Han
 
 		return authMiddleware(checkScopes)
 	}
-}
-
-// RequireScope returns middleware that authenticates users and verifies they have the required scope
-// Convenience method for requiring a single scope
-func (m *HTTPMiddleware) RequireScope(requiredScope sdk.Scope) func(http.Handler) http.Handler {
-	return m.RequireScopes([]sdk.Scope{requiredScope})
 }
 
 // GetJWTClaims extracts the full JWT claims from the request context

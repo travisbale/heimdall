@@ -5,17 +5,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/travisbale/heimdall/http/middleware"
 	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
-
-type logger interface {
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Error(msg string, args ...any)
-}
 
 type Server struct {
 	*http.Server
@@ -37,9 +32,10 @@ func NewServer(config *Config) *Server {
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(middleware.ClientIP(config.TrustedProxyMode))
+	r.Use(middleware.Logger(config.Logger))
 
 	// CORS enabled only when origins specified (browser-based clients require this)
 	if len(config.CORSAllowedOrigins) > 0 {

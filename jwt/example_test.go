@@ -44,27 +44,27 @@ func Example_structBasedAPI() {
 		})
 
 		// Endpoint requiring read:users permission
-		r.With(jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead})).Get("/users", func(w http.ResponseWriter, r *http.Request) {
+		r.With(jwtMiddleware.RequireScope(sdk.ScopeUserRead)).Get("/users", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"users":[]}`))
 		})
 
 		// Endpoint requiring both read:users and write:users permissions
-		r.With(jwtMiddleware.RequireScopes([]sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate})).Post("/users", func(w http.ResponseWriter, r *http.Request) {
+		r.With(jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)).Post("/users", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusCreated)
 			w.Write([]byte(`{"id":"123"}`))
 		})
 
 		// Endpoint requiring admin permission
-		r.With(jwtMiddleware.RequireScopes([]sdk.Scope{sdk.Scope("admin:all")})).Delete("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+		r.With(jwtMiddleware.RequireScope(sdk.Scope("admin:all"))).Delete("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		})
 
 		// Endpoint with multiple scope requirements
-		r.With(jwtMiddleware.RequireScopes([]sdk.Scope{
+		r.With(jwtMiddleware.RequireScope(
 			sdk.ScopeUserRead,
 			sdk.Scope("read:permissions"),
 			sdk.Scope("write:permissions"),
-		})).Put("/users/{id}/permissions", func(w http.ResponseWriter, r *http.Request) {
+		)).Put("/users/{id}/permissions", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"success":true}`))
 		})
 	})
