@@ -281,40 +281,80 @@ func TestConfirmRegistration(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	f := newUserServiceTestFixture()
+	t.Run("non-SSO user gets temporary password", func(t *testing.T) {
+		f := newUserServiceTestFixture()
 
-	tenantID := uuid.New()
-	ctx := identity.WithTenant(context.Background(), tenantID)
+		tenantID := uuid.New()
+		ctx := identity.WithTenant(context.Background(), tenantID)
 
-	user, tempPassword, err := f.service.CreateUser(ctx, "admin@example.com", nil)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+		user, tempPassword, err := f.service.CreateUser(ctx, "admin@example.com", nil)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
-	if user.Email != "admin@example.com" {
-		t.Errorf("expected email 'admin@example.com', got %s", user.Email)
-	}
+		if user.Email != "admin@example.com" {
+			t.Errorf("expected email 'admin@example.com', got %s", user.Email)
+		}
 
-	if user.Status != UserStatusActive {
-		t.Errorf("expected status %s, got %s", UserStatusActive, user.Status)
-	}
+		if user.Status != UserStatusActive {
+			t.Errorf("expected status %s, got %s", UserStatusActive, user.Status)
+		}
 
-	if user.TenantID != tenantID {
-		t.Errorf("expected tenant ID %s, got %s", tenantID, user.TenantID)
-	}
+		if user.TenantID != tenantID {
+			t.Errorf("expected tenant ID %s, got %s", tenantID, user.TenantID)
+		}
 
-	if tempPassword == "" {
-		t.Error("expected temporary password to be generated")
-	}
+		if tempPassword == "" {
+			t.Error("expected temporary password to be generated")
+		}
 
-	if user.PasswordHash == "" {
-		t.Error("expected password hash to be set")
-	}
+		if user.PasswordHash == "" {
+			t.Error("expected password hash to be set")
+		}
 
-	// Verify user was created in DB
-	if len(f.userDB.users) != 1 {
-		t.Errorf("expected 1 user in DB, got %d", len(f.userDB.users))
-	}
+		// Verify user was created in DB
+		if len(f.userDB.users) != 1 {
+			t.Errorf("expected 1 user in DB, got %d", len(f.userDB.users))
+		}
+	})
+
+	t.Run("SSO user does not get password", func(t *testing.T) {
+		f := newUserServiceTestFixture()
+		f.oidcService.ssoRequired = true
+
+		tenantID := uuid.New()
+		ctx := identity.WithTenant(context.Background(), tenantID)
+
+		user, tempPassword, err := f.service.CreateUser(ctx, "sso@company.com", nil)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if user.Email != "sso@company.com" {
+			t.Errorf("expected email 'sso@company.com', got %s", user.Email)
+		}
+
+		if user.Status != UserStatusActive {
+			t.Errorf("expected status %s, got %s", UserStatusActive, user.Status)
+		}
+
+		if user.TenantID != tenantID {
+			t.Errorf("expected tenant ID %s, got %s", tenantID, user.TenantID)
+		}
+
+		if tempPassword != "" {
+			t.Errorf("expected no temporary password for SSO user, got %s", tempPassword)
+		}
+
+		if user.PasswordHash != "" {
+			t.Errorf("expected no password hash for SSO user, got %s", user.PasswordHash)
+		}
+
+		// Verify user was created in DB
+		if len(f.userDB.users) != 1 {
+			t.Errorf("expected 1 user in DB, got %d", len(f.userDB.users))
+		}
+	})
 }
 
 func TestLogin(t *testing.T) {

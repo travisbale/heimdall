@@ -215,21 +215,29 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, token string, pas
 	return user, nil
 }
 
-// CreateUser creates a new user with a temporary password and assigns specified roles
+// CreateUser creates a new user and assigns specified roles
 func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uuid.UUID) (*User, string, error) {
 	tenantID, err := identity.GetTenant(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get tenant from context: %w", err)
 	}
 
-	tempPassword, err := token.Generate(16)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to generate temporary password: %w", err)
-	}
+	var passwordHash string
+	var tempPassword string
 
-	passwordHash, err := s.hasher.HashPassword(tempPassword)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to hash password: %w", err)
+	// SSO users do not require a password
+	if ssoRequired, err := s.oidcService.IsSSORequired(ctx, email); err != nil {
+		return nil, "", fmt.Errorf("failed to check SSO requirement: %w", err)
+	} else if !ssoRequired {
+		tempPassword, err = token.Generate(16)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to generate temporary password: %w", err)
+		}
+
+		passwordHash, err = s.hasher.HashPassword(tempPassword)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to hash password: %w", err)
+		}
 	}
 
 	user := &User{
