@@ -32,15 +32,12 @@ func NewEmailService(mailmanAddress, baseURL string) (*EmailService, error) {
 }
 
 // SendVerificationEmail sends a verification email via mailman
-func (s *EmailService) SendVerificationEmail(ctx context.Context, email, token string) error {
-	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", s.publicURL, token)
-
+func (s *EmailService) SendVerificationEmail(ctx context.Context, emailAddress, token string) error {
 	req := sdk.SendEmailRequest{
 		TemplateID: verificationTemplateID,
-		To:         email,
+		To:         emailAddress,
 		Variables: map[string]string{
-			"email":            email,
-			"verification_url": verificationURL,
+			"verification_url": fmt.Sprintf("%s/verify-email?token=%s", s.publicURL, token),
 		},
 	}
 
@@ -53,15 +50,12 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, email, token s
 }
 
 // SendPasswordResetEmail sends a password reset email via mailman
-func (s *EmailService) SendPasswordResetEmail(ctx context.Context, email, token string) error {
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.publicURL, token)
-
+func (s *EmailService) SendPasswordResetEmail(ctx context.Context, emailAddress, token string) error {
 	req := sdk.SendEmailRequest{
 		TemplateID: passwordResetTemplateID,
-		To:         email,
+		To:         emailAddress,
 		Variables: map[string]string{
-			"email":     email,
-			"reset_url": resetURL,
+			"reset_url": fmt.Sprintf("%s/reset-password?token=%s", s.publicURL, token),
 		},
 	}
 

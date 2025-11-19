@@ -88,7 +88,7 @@ type CreateUserResponse struct {
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email             string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	TenantId          string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	TemporaryPassword string                 `protobuf:"bytes,4,opt,name=temporary_password,json=temporaryPassword,proto3" json:"temporary_password,omitempty"` // Temporary password for initial login
+	VerificationToken string                 `protobuf:"bytes,4,opt,name=verification_token,json=verificationToken,proto3" json:"verification_token,omitempty"` // Empty for SSO users, set for non-SSO users who need to verify email
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -144,9 +144,9 @@ func (x *CreateUserResponse) GetTenantId() string {
 	return ""
 }
 
-func (x *CreateUserResponse) GetTemporaryPassword() string {
+func (x *CreateUserResponse) GetVerificationToken() string {
 	if x != nil {
-		return x.TemporaryPassword
+		return x.VerificationToken
 	}
 	return ""
 }
@@ -165,7 +165,7 @@ const file_auth_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +
 	"\ttenant_id\x18\x03 \x01(\tR\btenantId\x12-\n" +
-	"\x12temporary_password\x18\x04 \x01(\tR\x11temporaryPassword2V\n" +
+	"\x12verification_token\x18\x04 \x01(\tR\x11verificationToken2V\n" +
 	"\vUserService\x12G\n" +
 	"\n" +
 	"CreateUser\x12\x1b.heimdall.CreateUserRequest\x1a\x1c.heimdall.CreateUserResponseB,Z*github.com/travisbale/heimdall/internal/pbb\x06proto3"

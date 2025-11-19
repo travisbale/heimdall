@@ -115,6 +115,6 @@ func (c *GRPCClient) CreateUser(ctx context.Context, req CreateUserRequest) (*Cr
 		UserID:            userID,
 		Email:             pbResp.Email,
 		TenantID:          tenantID,
-		TemporaryPassword: pbResp.TemporaryPassword,
+		VerificationToken: pbResp.VerificationToken,
 	}, nil
 }

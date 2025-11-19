@@ -22,5 +22,5 @@ message CreateUserResponse {
   string user_id = 1;
   string email = 2;
   string tenant_id = 3;
-  string temporary_password = 4; // Temporary password for initial login
+  string verification_token = 4; // Empty for SSO users, set for non-SSO users who need to verify email
 }

@@ -136,7 +136,7 @@ type CreateUserResponse struct {
 	UserID            uuid.UUID `json:"user_id"`
 	Email             string    `json:"email"`
 	TenantID          uuid.UUID `json:"tenant_id"`
-	TemporaryPassword string    `json:"temporary_password"`
+	VerificationToken string    `json:"verification_token"` // Empty for SSO users, set for non-SSO users
 }
 
 // RegisterRequest represents the registration request body

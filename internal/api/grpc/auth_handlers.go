@@ -51,7 +51,7 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 		roleIDs = append(roleIDs, roleID)
 	}
 
-	user, tempPassword, err := h.authService.CreateUser(ctx, req.Email, roleIDs)
+	user, verificationToken, err := h.authService.CreateUser(ctx, req.Email, roleIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -60,6 +60,6 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 		UserId:            user.ID.String(),
 		Email:             user.Email,
 		TenantId:          user.TenantID.String(),
-		TemporaryPassword: tempPassword,
+		VerificationToken: verificationToken,
 	}, nil
 }
