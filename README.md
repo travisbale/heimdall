@@ -16,7 +16,10 @@ Authentication and authorization service written in Go. Handles user accounts, p
 - **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
 - **OAuth/OIDC Login** - Support for Google, Microsoft, GitHub, and custom OIDC providers
 - **Corporate SSO** - Enterprise SSO with auto-provisioning and domain restrictions
+- **RBAC** - Role-based access control with permissions, roles, and user assignments
 - **Multi-tenancy** - Row-Level Security (RLS) for tenant isolation
+- **Structured Logging** - Event constants for audit trails and observability
+- **Health Checks** - Database connectivity monitoring (200 OK / 503 Service Unavailable)
 - **Dual APIs** - HTTP REST API and gRPC for service-to-service communication
 - **Type-safe Database** - sqlc-generated queries with PostgreSQL + pgx
 
@@ -116,13 +119,15 @@ docker run -p 8080:8080 -p 9090:9090 \
 
 ### HTTP (Port 8080)
 
-- `GET /healthz` - Health check (no auth)
+**Public Endpoints:**
+
+- `HEAD /healthz` - Health check (returns 200 OK if healthy, 503 if database unavailable)
+- `GET /v1/oauth/supported-types` - List supported OAuth provider types
 
 **Authentication:**
 
 - `POST /v1/register` - Register new user (sends verification email)
 - `POST /v1/verify-email` - Verify email address
-- `POST /v1/resend-verification` - Resend verification email
 - `POST /v1/login` - Authenticate user, returns JWT
 - `POST /v1/logout` - Logout (invalidates refresh token)
 - `POST /v1/refresh` - Refresh access token using refresh token cookie
@@ -138,18 +143,34 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `POST /v1/oauth/sso` - Start corporate SSO login by email domain
 - `GET /v1/oauth/callback` - OAuth callback endpoint (handles both flows)
 
-**OIDC Provider Management:** (requires authentication)
+**OIDC Provider Management** (requires authentication):
 
 - `POST /v1/oauth/providers` - Create OIDC provider with dynamic registration
 - `GET /v1/oauth/providers` - List all OIDC providers for tenant
-- `GET /v1/oauth/providers/{providerID}` - Get OIDC provider details
-- `PUT /v1/oauth/providers/{providerID}` - Update OIDC provider configuration
-- `DELETE /v1/oauth/providers/{providerID}` - Delete OIDC provider
+- `GET /v1/oauth/providers/{id}` - Get OIDC provider details
+- `PUT /v1/oauth/providers/{id}` - Update OIDC provider configuration
+- `DELETE /v1/oauth/providers/{id}` - Delete OIDC provider
+
+**RBAC** (requires authentication):
+
+- `GET /v1/permissions` - List all system permissions
+- `POST /v1/roles` - Create role
+- `GET /v1/roles` - List roles for tenant
+- `GET /v1/roles/{id}` - Get role details
+- `PUT /v1/roles/{id}` - Update role
+- `DELETE /v1/roles/{id}` - Delete role
+- `GET /v1/roles/{id}/permissions` - Get role permissions
+- `PUT /v1/roles/{id}/permissions` - Set role permissions
+- `GET /v1/users/{id}/roles` - Get user roles
+- `PUT /v1/users/{id}/roles` - Set user roles
+- `GET /v1/users/{id}/permissions` - Get user direct permissions
+- `PUT /v1/users/{id}/permissions` - Set user direct permissions
 
 ### gRPC (Port 9090)
 
-- `CreateUser(email, tenant_id)` - Create user with temporary password
-  - Returns: user_id, email, tenant_id, temporary_password
+- `CreateUser(email, tenant_id, role_ids)` - Create user in tenant with roles
+  - Returns: user_id, email, tenant_id, verification_token
+- `GetUserByID(user_id)` - Retrieve user by ID (used by other services)
 
 ## CI/CD Pipeline
 
@@ -194,11 +215,11 @@ heimdall/
 ├── identity/              # Tenant context utilities
 ├── internal/
 │   ├── api/              # HTTP and gRPC handlers
-│   │   ├── http/         # HTTP REST API handlers
+│   │   ├── http/         # HTTP REST API handlers (auth, OIDC, RBAC)
 │   │   └── grpc/         # gRPC service implementation
 │   ├── app/              # Server setup and lifecycle
-│   ├── auth/             # Authentication service layer and domain models
-│   ├── audit/            # Audit event definitions
+│   ├── auth/             # Authentication/authorization service layer and domain models
+│   ├── events/           # Event constants for structured logging and audit trails
 │   ├── db/postgres/      # Database layer with RLS
 │   │   ├── migrations/   # SQL schema migrations
 │   │   ├── queries/      # SQL queries (input to sqlc)
