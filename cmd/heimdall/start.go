@@ -42,6 +42,7 @@ var startCmd = &cli.Command{
 		GitHubAuthURLFlag,
 		GitHubTokenURLFlag,
 		GitHubAPIBaseFlag,
+		TOTPPeriodFlag,
 	},
 	Action: func(c *cli.Context) error {
 		appConfig := config.ToAppConfig()

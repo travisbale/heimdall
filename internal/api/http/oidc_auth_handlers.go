@@ -11,18 +11,14 @@ import (
 
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
-	oidcService   oidcService
-	rbacService   rbacService
-	jwtService    jwtService
-	secureCookies bool
+	oidcService  oidcService
+	tokenService tokenService
 }
 
 func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
 	return &OIDCAuthHandler{
-		oidcService:   config.OIDCService,
-		rbacService:   config.RBACService,
-		jwtService:    config.JWTService,
-		secureCookies: config.SecureCookies(),
+		oidcService:  config.OIDCService,
+		tokenService: config.TokenService,
 	}
 }
 
@@ -124,6 +120,10 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Issue JWT tokens to complete login
-	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
+	// Issue JWT tokens to complete login (MFA not required for OAuth)
+	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
+		UserID:      user.ID,
+		TenantID:    user.TenantID,
+		MFARequired: false,
+	})
 }

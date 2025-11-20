@@ -39,8 +39,8 @@ func TestRegister(t *testing.T) {
 		}
 
 		// Verify verification email was sent
-		if len(f.emailService.verificationEmails) != 1 {
-			t.Errorf("expected 1 verification email sent, got %d", len(f.emailService.verificationEmails))
+		if len(f.emailClient.verificationEmails) != 1 {
+			t.Errorf("expected 1 verification email sent, got %d", len(f.emailClient.verificationEmails))
 		}
 	})
 
@@ -74,8 +74,8 @@ func TestRegister(t *testing.T) {
 		}
 
 		// Verify verification email was sent
-		if len(f.emailService.verificationEmails) != 1 {
-			t.Errorf("expected 1 verification email sent, got %d", len(f.emailService.verificationEmails))
+		if len(f.emailClient.verificationEmails) != 1 {
+			t.Errorf("expected 1 verification email sent, got %d", len(f.emailClient.verificationEmails))
 		}
 	})
 

@@ -23,6 +23,10 @@ const (
 	ScopeOIDCRead   Scope = "oidc:read"   // View OIDC/SSO provider configurations
 	ScopeOIDCUpdate Scope = "oidc:update" // Update OIDC/SSO provider settings
 	ScopeOIDCDelete Scope = "oidc:delete" // Delete OIDC/SSO provider configurations
+
+	// Authentication state scopes
+	ScopeAuthenticated Scope = "authenticated" // User has completed full authentication (not pending MFA)
+	ScopeMFALogin      Scope = "mfa:login"     // Temporary scope for MFA verification (partial auth)
 )
 
 // String returns the scope as a string

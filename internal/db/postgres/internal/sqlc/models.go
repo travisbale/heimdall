@@ -196,6 +196,26 @@ type LoginAttempt struct {
 	CreatedAt   time.Time  `json:"created_at"`
 }
 
+type MfaBackupCode struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	TenantID  uuid.UUID  `json:"tenant_id"`
+	CodeHash  string     `json:"code_hash"`
+	Used      bool       `json:"used"`
+	UsedAt    *time.Time `json:"used_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type MfaSetting struct {
+	UserID         uuid.UUID  `json:"user_id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
+	TotpSecret     string     `json:"totp_secret"`
+	LastUsedWindow *int64     `json:"last_used_window"`
+	CreatedAt      time.Time  `json:"created_at"`
+	VerifiedAt     *time.Time `json:"verified_at"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+}
+
 type OidcLink struct {
 	ID               uuid.UUID  `json:"id"`
 	UserID           uuid.UUID  `json:"user_id"`

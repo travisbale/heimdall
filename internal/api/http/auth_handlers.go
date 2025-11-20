@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
@@ -14,19 +13,17 @@ const refreshTokenCookie = "refresh_token"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	userService   userService
-	rbacService   rbacService
-	jwtService    jwtService
-	secureCookies bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
+	userService  userService
+	mfaService   mfaService
+	tokenService tokenService
 }
 
 // NewAuthHandler creates a new AuthHandler
 func NewAuthHandler(config *Config) *AuthHandler {
 	return &AuthHandler{
-		userService:   config.UserService,
-		rbacService:   config.RBACService,
-		jwtService:    config.JWTService,
-		secureCookies: config.SecureCookies(),
+		userService:  config.UserService,
+		mfaService:   config.MFAService,
+		tokenService: config.TokenService,
 	}
 }
 
@@ -55,51 +52,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
+	// Add tenant context for MFA status check (RLS requirement)
+	ctx := identity.WithTenant(r.Context(), user.TenantID)
+	mfaStatus, err := h.mfaService.GetStatus(ctx, user.ID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get MFA status"})
+		return
+	}
+
+	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
+		UserID:      user.ID,
+		TenantID:    user.TenantID,
+		MFARequired: mfaStatus.VerifiedAt != nil,
+	})
 }
 
-// Logout handles user logout by clearing the refresh token cookie
+// Logout handles user logout by revoking tokens
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Construct cookie path using X-Forwarded-Prefix if available
-	prefix := r.Header.Get("X-Forwarded-Prefix")
-	cookiePath := prefix + sdk.RouteV1Refresh
-
-	// Clear the refresh token cookie by setting MaxAge to -1
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenCookie,
-		Value:    "",
-		Path:     cookiePath,
-		MaxAge:   -1, // Deletes the cookie
-		HttpOnly: true,
-		Secure:   h.secureCookies,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	respondJSON(w, http.StatusOK, sdk.LogoutResponse{
-		Message: "Logged out successfully",
-	})
+	h.tokenService.RevokeTokens(w, r)
 }
 
 // RefreshToken handles token refresh using the refresh token from HTTP-only cookie
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	// Read refresh token from HTTP-only cookie
-	cookie, err := r.Cookie(refreshTokenCookie)
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
-		return
-	}
-
-	claims, err := h.jwtService.ValidateToken(cookie.Value)
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
-		return
-	}
-
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to parse user ID"})
-		return
-	}
-
-	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, userID, claims.TenantID, h.secureCookies)
+	h.tokenService.RefreshToken(r.Context(), w, r)
 }

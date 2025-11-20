@@ -214,4 +214,12 @@ var (
 		EnvVars:     []string{"GITHUB_API_BASE"},
 		Destination: &config.GitHubAPIBase,
 	}
+
+	TOTPPeriodFlag = &cli.UintFlag{
+		Name:        "totp-period",
+		Usage:       "TOTP time window in seconds (default 30, use smaller value for testing)",
+		EnvVars:     []string{"TOTP_PERIOD"},
+		Value:       30,
+		Destination: &config.TOTPPeriod,
+	}
 )

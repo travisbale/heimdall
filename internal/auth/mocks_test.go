@@ -573,14 +573,14 @@ func (m *mockHasher) VerifyPassword(password, encodedHash string) error {
 	return ErrInvalidCredentials
 }
 
-type mockEmailService struct {
+type mockEmailClient struct {
 	verificationEmailError  error
 	passwordResetEmailError error
 	verificationEmails      []string
 	passwordResetEmails     []string
 }
 
-func (m *mockEmailService) SendVerificationEmail(ctx context.Context, email, token string) error {
+func (m *mockEmailClient) SendVerificationEmail(ctx context.Context, email, token string) error {
 	if m.verificationEmailError != nil {
 		return m.verificationEmailError
 	}
@@ -588,7 +588,7 @@ func (m *mockEmailService) SendVerificationEmail(ctx context.Context, email, tok
 	return nil
 }
 
-func (m *mockEmailService) SendPasswordResetEmail(ctx context.Context, email, token string) error {
+func (m *mockEmailClient) SendPasswordResetEmail(ctx context.Context, email, token string) error {
 	if m.passwordResetEmailError != nil {
 		return m.passwordResetEmailError
 	}

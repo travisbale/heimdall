@@ -12,27 +12,27 @@ const (
 	passwordResetTemplateID = "password-reset"
 )
 
-// EmailService sends emails via the mailman gRPC API
-type EmailService struct {
+// Client sends emails via the mailman gRPC API
+type Client struct {
 	client    *sdk.GRPCClient
 	publicURL string
 }
 
-// NewEmailService creates a new mailman email service
-func NewEmailService(mailmanAddress, baseURL string) (*EmailService, error) {
+// NewClient creates a new mailman email service
+func NewClient(mailmanAddress, baseURL string) (*Client, error) {
 	client, err := sdk.NewGRPCClient(mailmanAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to mailman at %s: %w", mailmanAddress, err)
 	}
 
-	return &EmailService{
+	return &Client{
 		client:    client,
 		publicURL: baseURL,
 	}, nil
 }
 
 // SendVerificationEmail sends a verification email via mailman
-func (s *EmailService) SendVerificationEmail(ctx context.Context, emailAddress, token string) error {
+func (s *Client) SendVerificationEmail(ctx context.Context, emailAddress, token string) error {
 	req := sdk.SendEmailRequest{
 		TemplateID: verificationTemplateID,
 		To:         emailAddress,
@@ -50,7 +50,7 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, emailAddress, 
 }
 
 // SendPasswordResetEmail sends a password reset email via mailman
-func (s *EmailService) SendPasswordResetEmail(ctx context.Context, emailAddress, token string) error {
+func (s *Client) SendPasswordResetEmail(ctx context.Context, emailAddress, token string) error {
 	req := sdk.SendEmailRequest{
 		TemplateID: passwordResetTemplateID,
 		To:         emailAddress,
@@ -68,6 +68,6 @@ func (s *EmailService) SendPasswordResetEmail(ctx context.Context, emailAddress,
 }
 
 // Close closes the gRPC connection to mailman
-func (s *EmailService) Close() {
+func (s *Client) Close() {
 	_ = s.client.Close()
 }

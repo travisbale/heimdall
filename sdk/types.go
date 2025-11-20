@@ -581,3 +581,87 @@ func (r *GetDirectPermissionsRequest) Validate(ctx context.Context) error {
 type DirectPermissionsResponse struct {
 	Permissions []EffectivePermission `json:"permissions"`
 }
+
+// ========================================
+// MFA Types
+// ========================================
+
+// MFASetupResponse contains secret, QR code, and backup codes for MFA setup
+type MFASetupResponse struct {
+	Secret      string   `json:"secret"`
+	QRCode      string   `json:"qr_code"`
+	BackupCodes []string `json:"backup_codes"`
+}
+
+// EnableMFARequest verifies TOTP code during setup
+type EnableMFARequest struct {
+	Code string `json:"code"`
+}
+
+// Validate validates the enable MFA request
+func (r *EnableMFARequest) Validate(ctx context.Context) error {
+	if r.Code == "" {
+		return fmt.Errorf("code is required")
+	}
+	if len(r.Code) != 6 {
+		return fmt.Errorf("code must be 6 digits")
+	}
+	return nil
+}
+
+// DisableMFARequest disables MFA
+type DisableMFARequest struct {
+	Password string `json:"password"`
+	Code     string `json:"code"` // TOTP code or backup code
+}
+
+// Validate validates the disable MFA request
+func (r *DisableMFARequest) Validate(ctx context.Context) error {
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if r.Code == "" {
+		return fmt.Errorf("code is required")
+	}
+	return nil
+}
+
+// MFAStatus represents current MFA state
+type MFAStatus struct {
+	VerifiedAt           *time.Time `json:"verified_at,omitempty"`
+	BackupCodesRemaining int        `json:"backup_codes_remaining"`
+}
+
+// RegenerateBackupCodesRequest regenerates backup codes
+type RegenerateBackupCodesRequest struct {
+	Password string `json:"password"`
+}
+
+// Validate validates the regenerate backup codes request
+func (r *RegenerateBackupCodesRequest) Validate(ctx context.Context) error {
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	return nil
+}
+
+// BackupCodesResponse contains new backup codes
+type BackupCodesResponse struct {
+	BackupCodes []string `json:"backup_codes"`
+}
+
+// VerifyMFALoginRequest verifies MFA during login
+type VerifyMFALoginRequest struct {
+	Code string `json:"code"` // TOTP code (6 digits) or backup code (8 digits)
+}
+
+// Validate validates the verify MFA login request
+func (r *VerifyMFALoginRequest) Validate(ctx context.Context) error {
+	if r.Code == "" {
+		return fmt.Errorf("code is required")
+	}
+	if len(r.Code) != 6 && len(r.Code) != 8 {
+		return fmt.Errorf("code must be 6 digits (TOTP) or 8 digits (backup code)")
+	}
+	return nil
+}

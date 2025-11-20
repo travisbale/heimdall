@@ -50,8 +50,6 @@ func (u *UsersDB) CreateUser(ctx context.Context, user *auth.User) (*auth.User, 
 	return result, err
 }
 
-// GetUser retrieves a user by ID without tenant isolation
-// Used for pre-authentication operations (email verification, SSO login)
 func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*auth.User, error) {
 	var result *auth.User
 
@@ -114,9 +112,9 @@ func (u *UsersDB) UpdateUser(ctx context.Context, params *auth.UpdateUserParams)
 	return result, err
 }
 
-// UpdateLastLogin updates a user's last login timestamp with tenant isolation
+// UpdateLastLogin updates a user's last login timestamp
 func (u *UsersDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
-	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		return q.UpdateLastLogin(ctx, id)
 	})
 }

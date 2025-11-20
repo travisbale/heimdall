@@ -49,6 +49,8 @@ type Config struct {
 	GitHubAuthURL      string // Optional: override for testing
 	GitHubTokenURL     string // Optional: override for testing
 	GitHubAPIBase      string // Optional: override for testing (defaults to https://api.github.com)
+
+	TOTPPeriod uint // TOTP time window in seconds (default 30, use smaller value for testing)
 }
 
 var config = &Config{}
@@ -81,5 +83,6 @@ func (c *Config) ToAppConfig() *app.Config {
 		GitHubAuthURL:         c.GitHubAuthURL,
 		GitHubTokenURL:        c.GitHubTokenURL,
 		GitHubAPIBase:         c.GitHubAPIBase,
+		TOTPPeriod:            c.TOTPPeriod,
 	}
 }

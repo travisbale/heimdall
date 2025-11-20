@@ -10,19 +10,15 @@ import (
 
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
-	userService   userService
-	rbacService   rbacService
-	jwtService    jwtService
-	secureCookies bool // Secure flag prevents cookies from being sent over HTTP (only HTTPS)
+	userService  userService
+	tokenService tokenService
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
 func NewRegistrationHandler(config *Config) *RegistrationHandler {
 	return &RegistrationHandler{
-		userService:   config.UserService,
-		rbacService:   config.RBACService,
-		jwtService:    config.JWTService,
-		secureCookies: config.SecureCookies(),
+		userService:  config.UserService,
+		tokenService: config.TokenService,
 	}
 }
 
@@ -77,6 +73,10 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Auto-login after successful verification for better UX
-	issueTokens(r.Context(), w, r, h.rbacService, h.jwtService, user.ID, user.TenantID, h.secureCookies)
+	// Auto-login after successful verification for better UX (MFA not required for new users)
+	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
+		UserID:      user.ID,
+		TenantID:    user.TenantID,
+		MFARequired: false,
+	})
 }

@@ -1,12 +1,10 @@
 package auth
 
-// Test Helpers
-
 type userServiceTestFixture struct {
 	service              *UserService
 	userDB               *mockUserDB
 	hasher               *mockHasher
-	emailService         *mockEmailService
+	emailClient          *mockEmailClient
 	verificationTokenDB  *mockTokenDB
 	passwordResetTokenDB *mockTokenDB
 	loginAttempts        *mockLoginAttemptsService
@@ -16,7 +14,7 @@ type userServiceTestFixture struct {
 func newUserServiceTestFixture() *userServiceTestFixture {
 	userDB := newMockUserDB()
 	hasher := &mockHasher{}
-	emailService := &mockEmailService{}
+	emailClient := &mockEmailClient{}
 	verificationTokenDB := newMockTokenDB()
 	passwordResetTokenDB := newMockTokenDB()
 	loginAttempts := &mockLoginAttemptsService{}
@@ -27,7 +25,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 		UserDB:               userDB,
 		TenantsDB:            newMockTenantsDB(),
 		Hasher:               hasher,
-		EmailService:         emailService,
+		EmailClient:          emailClient,
 		VerificationTokenDB:  verificationTokenDB,
 		PasswordResetTokenDB: passwordResetTokenDB,
 		LoginAttemptsService: loginAttempts,
@@ -40,7 +38,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 		service:              service,
 		userDB:               userDB,
 		hasher:               hasher,
-		emailService:         emailService,
+		emailClient:          emailClient,
 		verificationTokenDB:  verificationTokenDB,
 		passwordResetTokenDB: passwordResetTokenDB,
 		loginAttempts:        loginAttempts,

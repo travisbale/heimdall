@@ -39,3 +39,11 @@ var ErrEmailConflict = errors.New("email address conflicts with existing account
 // RBAC errors
 var ErrRoleNotFound = errors.New("role not found")
 var ErrPermissionNotFound = errors.New("permission not found")
+
+// MFA errors
+var ErrMFANotEnabled = errors.New("MFA is not enabled for this user")
+var ErrMFAAlreadyEnabled = errors.New("MFA is already enabled for this user")
+var ErrInvalidMFACode = errors.New("invalid MFA code")
+var ErrMFACodeAlreadyUsed = errors.New("MFA code has already been used")
+var ErrInvalidBackupCode = errors.New("invalid backup code")
+var ErrBackupCodeAlreadyUsed = errors.New("backup code has already been used")

@@ -146,8 +146,8 @@ func TestInitiatePasswordReset(t *testing.T) {
 		}
 
 		// Verify password reset email was sent
-		if len(f.emailService.passwordResetEmails) != 1 {
-			t.Errorf("expected 1 password reset email sent, got %d", len(f.emailService.passwordResetEmails))
+		if len(f.emailClient.passwordResetEmails) != 1 {
+			t.Errorf("expected 1 password reset email sent, got %d", len(f.emailClient.passwordResetEmails))
 		}
 	})
 

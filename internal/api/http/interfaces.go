@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,4 +63,20 @@ type rbacService interface {
 
 	SetDirectPermissions(ctx context.Context, userID uuid.UUID, permissions []auth.DirectPermission) error
 	GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*auth.EffectivePermission, error)
+}
+
+// mfaService defines the interface for MFA operations
+type mfaService interface {
+	SetupMFA(ctx context.Context, userID uuid.UUID) (*auth.MFAEnrollment, error)
+	EnableMFA(ctx context.Context, userID uuid.UUID, code string) error
+	DisableMFA(ctx context.Context, userID uuid.UUID, password, code string) error
+	GetStatus(ctx context.Context, userID uuid.UUID) (*auth.MFAStatus, error)
+	RegenerateBackupCodes(ctx context.Context, userID uuid.UUID, password string) ([]string, error)
+	VerifyMFA(ctx context.Context, userID uuid.UUID, code string) error
+}
+
+type tokenService interface {
+	IssueTokens(cxt context.Context, w http.ResponseWriter, r *http.Request, subject *Subject)
+	RefreshToken(cxt context.Context, w http.ResponseWriter, r *http.Request)
+	RevokeTokens(w http.ResponseWriter, r *http.Request)
 }

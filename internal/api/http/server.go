@@ -17,6 +17,8 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
+	config.TokenService = NewTokenService(config.RBACService, config.JWTService, config.SecureCookies())
+
 	// Create domain handlers
 	healthHandler := NewHealthHandler(config)
 	authHandler := NewAuthHandler(config)
@@ -25,6 +27,7 @@ func NewServer(config *Config) *Server {
 	oidcAuthHandler := NewOIDCAuthHandler(config)
 	oidcProvidersHandler := NewOIDCProvidersHandler(config)
 	rbacHandler := NewRBACHandler(config)
+	mfaHandler := NewMFAHandler(config)
 
 	// Create JWT middleware
 	jwtMiddleware := jwt.NewHTTPMiddleware(config.JWTService)
@@ -80,6 +83,9 @@ func NewServer(config *Config) *Server {
 		r.Post(sdk.RouteV1OAuthLogin, oidcAuthHandler.Login)
 		r.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)
 		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
+
+		// MFA login verification (requires temporary MFA token)
+		r.With(require(sdk.ScopeMFALogin)).Post(sdk.RouteV1TOTPLogin, mfaHandler.Login)
 	})
 
 	// OIDC provider management
@@ -110,6 +116,13 @@ func NewServer(config *Config) *Server {
 	// RBAC - User direct permissions
 	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserPermissions, rbacHandler.GetDirectPermissions)
 	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
+
+	// TOTP MFA management endpoints (requires full authentication, not just mfa:login temp token)
+	r.With(require(sdk.ScopeAuthenticated)).Post(sdk.RouteV1TOTPSetup, mfaHandler.Setup)
+	r.With(require(sdk.ScopeAuthenticated)).Post(sdk.RouteV1TOTPEnable, mfaHandler.Enable)
+	r.With(require(sdk.ScopeAuthenticated)).Delete(sdk.RouteV1TOTPDisable, mfaHandler.Disable)
+	r.With(require(sdk.ScopeAuthenticated)).Get(sdk.RouteV1TOTPStatus, mfaHandler.Status)
+	r.With(require(sdk.ScopeAuthenticated)).Post(sdk.RouteV1TOTPRegenerateCodes, mfaHandler.RegenerateCodes)
 
 	return &Server{
 		&http.Server{

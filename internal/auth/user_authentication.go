@@ -51,7 +51,6 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 		s.logger.Error(ctx, "failed to record successful login", "email", email, "error", err)
 	}
 
-	// Update last login timestamp
 	if err = s.userDB.UpdateLastLogin(ctx, user.ID); err != nil {
 		s.logger.Error(ctx, "failed to update last login", "user_id", user.ID, "error", err)
 	}
@@ -83,7 +82,7 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
 
-	if err := s.emailService.SendPasswordResetEmail(ctx, email, resetToken); err != nil {
+	if err := s.emailClient.SendPasswordResetEmail(ctx, email, resetToken); err != nil {
 		return fmt.Errorf("failed to send password reset email: %w", err)
 	}
 

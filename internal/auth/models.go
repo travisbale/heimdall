@@ -215,3 +215,38 @@ type DirectPermission struct {
 	PermissionID uuid.UUID
 	Effect       sdk.PermissionEffect
 }
+
+// MFASettings represents user's MFA configuration
+type MFASettings struct {
+	UserID         uuid.UUID
+	TenantID       uuid.UUID
+	TOTPSecret     string
+	LastUsedWindow *int64
+	CreatedAt      time.Time
+	VerifiedAt     *time.Time
+	LastUsedAt     *time.Time
+}
+
+// MFABackupCode represents a one-time recovery code
+type MFABackupCode struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	TenantID  uuid.UUID
+	CodeHash  string
+	Used      bool
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
+// MFAEnrollment contains TOTP enrollment data
+type MFAEnrollment struct {
+	Secret      string   // Base32 encoded secret
+	QRCode      string   // data:image/png;base64,...
+	BackupCodes []string // Plain text (shown once)
+}
+
+// MFAStatus represents current MFA state for a user
+type MFAStatus struct {
+	VerifiedAt           *time.Time
+	BackupCodesRemaining int
+}

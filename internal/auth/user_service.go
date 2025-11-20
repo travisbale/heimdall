@@ -33,7 +33,7 @@ type oidcService interface {
 	IsSSORequired(ctx context.Context, email string) (bool, error)
 }
 
-type emailService interface {
+type emailClient interface {
 	SendVerificationEmail(ctx context.Context, email, token string) error
 	SendPasswordResetEmail(ctx context.Context, email, token string) error
 }
@@ -61,7 +61,7 @@ type UserServiceConfig struct {
 	UserDB               userDB
 	TenantsDB            tenantsDB
 	Hasher               hasher
-	EmailService         emailService
+	EmailClient          emailClient
 	VerificationTokenDB  tokenDB
 	PasswordResetTokenDB tokenDB
 	LoginAttemptsService loginAttemptsService
@@ -75,7 +75,7 @@ type UserService struct {
 	userDB               userDB
 	tenantsDB            tenantsDB
 	hasher               hasher
-	emailService         emailService
+	emailClient          emailClient
 	verificationTokenDB  tokenDB
 	passwordResetTokenDB tokenDB
 	loginAttemptsService loginAttemptsService
@@ -89,7 +89,7 @@ func NewUserService(config *UserServiceConfig) *UserService {
 		userDB:               config.UserDB,
 		tenantsDB:            config.TenantsDB,
 		hasher:               config.Hasher,
-		emailService:         config.EmailService,
+		emailClient:          config.EmailClient,
 		verificationTokenDB:  config.VerificationTokenDB,
 		passwordResetTokenDB: config.PasswordResetTokenDB,
 		oidcService:          config.OIDCService,

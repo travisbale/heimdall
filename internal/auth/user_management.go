@@ -132,7 +132,7 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 		return nil, fmt.Errorf("failed to create verification token: %w", err)
 	}
 
-	if err := s.emailService.SendVerificationEmail(ctx, email, verificationToken); err != nil {
+	if err := s.emailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
 		return nil, fmt.Errorf("failed to send verification email: %w", err)
 	}
 

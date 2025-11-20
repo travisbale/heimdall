@@ -44,3 +44,14 @@ const (
 	OIDCProviderDeleted      = "oidc_provider_deleted"
 	OIDCProviderUnregistered = "oidc_provider_unregistered"
 )
+
+// MFA Events
+const (
+	MFASetupStarted        = "mfa_setup_started"
+	MFAEnabled             = "mfa_enabled"
+	MFADisabled            = "mfa_disabled"
+	MFAVerificationSuccess = "mfa_verification_success"
+	MFAVerificationFailed  = "mfa_verification_failed"
+	BackupCodeUsed         = "backup_code_used"
+	BackupCodesRegenerated = "backup_codes_regenerated"
+)

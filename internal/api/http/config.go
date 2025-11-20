@@ -16,9 +16,11 @@ type Config struct {
 	Address            string
 	Database           database
 	UserService        userService
+	MFAService         mfaService
 	OIDCService        oidcService
 	RBACService        rbacService
 	JWTService         jwtService
+	TokenService       tokenService
 	Environment        string
 	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
 	CORSAllowedOrigins []string
