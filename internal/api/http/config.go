@@ -8,8 +8,13 @@ type logger interface {
 	Error(ctx context.Context, msg string, args ...any)
 }
 
+type database interface {
+	Health(ctx context.Context) error
+}
+
 type Config struct {
 	Address            string
+	Database           database
 	UserService        userService
 	OIDCService        oidcService
 	RBACService        rbacService

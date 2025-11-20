@@ -18,6 +18,7 @@ type Server struct {
 
 func NewServer(config *Config) *Server {
 	// Create domain handlers
+	healthHandler := NewHealthHandler(config)
 	authHandler := NewAuthHandler(config)
 	registrationHandler := NewRegistrationHandler(config)
 	passwordResetHandler := NewPasswordResetHandler(config)
@@ -50,7 +51,7 @@ func NewServer(config *Config) *Server {
 	}
 
 	// Health check endpoint (nginx internal, no auth required, no rate limit)
-	r.Head(sdk.RouteHealth, HandleHealth)
+	r.Head(sdk.RouteHealth, healthHandler.HandleHealth)
 
 	// Supported OAuth provider types (public, no auth required, no rate limit)
 	r.Get(sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)

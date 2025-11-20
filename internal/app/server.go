@@ -231,6 +231,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	httpServer := http.NewServer(&http.Config{
 		Address:            config.HTTPAddress,
+		Database:           db,
 		UserService:        authService,
 		OIDCService:        oidcService,
 		RBACService:        rbacService,
