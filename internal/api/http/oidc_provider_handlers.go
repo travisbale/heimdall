@@ -71,16 +71,16 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCDiscoveryFailed):
-			respondError(w, http.StatusBadRequest, "Unable to discover OIDC provider. Check the issuer URL.", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Unable to discover OIDC provider. Check the issuer URL."})
 
 		case errors.Is(err, auth.ErrOIDCIssuerMismatch):
-			respondError(w, http.StatusBadRequest, "OIDC provider issuer validation failed", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "OIDC provider issuer validation failed"})
 
 		case errors.Is(err, auth.ErrOIDCRegistrationFailed):
-			respondError(w, http.StatusBadRequest, "Dynamic client registration failed", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Dynamic client registration failed"})
 
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to create OAuth provider", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to create OAuth provider"})
 		}
 		return
 	}
@@ -95,7 +95,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := req.Validate(r.Context()); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -103,9 +103,9 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCProviderNotFound):
-			respondError(w, http.StatusNotFound, "OAuth provider not found", err)
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to get OAuth provider", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get OAuth provider"})
 		}
 		return
 	}
@@ -117,7 +117,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.oidcService.ListOIDCProviders(r.Context())
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to list OAuth providers", err)
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to list OAuth providers"})
 		return
 	}
 
@@ -135,14 +135,14 @@ func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.
 func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	var req sdk.UpdateOIDCProviderRequest
 	if err := decodeJSON(r, &req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
 	req.ProviderID = parseUUID(chi.URLParam(r, "providerID"))
 
 	if err := req.Validate(r.Context()); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -161,9 +161,9 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCProviderNotFound):
-			respondError(w, http.StatusNotFound, "OAuth provider not found", err)
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to update OAuth provider", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to update OAuth provider"})
 		}
 		return
 	}
@@ -178,7 +178,7 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 	}
 
 	if err := req.Validate(r.Context()); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -186,9 +186,9 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCProviderNotFound):
-			respondError(w, http.StatusNotFound, "OAuth provider not found", err)
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to delete OAuth provider", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to delete OAuth provider"})
 		}
 		return
 	}

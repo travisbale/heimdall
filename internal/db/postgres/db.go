@@ -12,19 +12,13 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
-type logger interface {
-	Info(msg string, args ...any)
-	Error(msg string, args ...any)
-}
-
 // DB wraps the pgx connection pool
 type DB struct {
-	pool   *pgxpool.Pool
-	logger logger
+	pool *pgxpool.Pool
 }
 
 // NewDB creates a new database connection pool
-func NewDB(ctx context.Context, databaseURL string, logger logger) (*DB, error) {
+func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database URL: %w", err)
@@ -56,8 +50,7 @@ func NewDB(ctx context.Context, databaseURL string, logger logger) (*DB, error) 
 	}
 
 	return &DB{
-		pool:   pool,
-		logger: logger,
+		pool: pool,
 	}, nil
 }
 

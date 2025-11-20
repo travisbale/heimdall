@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/identity"
+	"github.com/travisbale/heimdall/internal/events"
 )
 
 // CreateUser creates a new user and assigns specified roles
@@ -62,6 +63,8 @@ func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uu
 			return nil, "", fmt.Errorf("failed to assign roles to user: %w", err)
 		}
 	}
+
+	s.logger.Info(ctx, events.UserCreated, "user_id", user.ID, "email", email, "status", status)
 
 	return user, verificationToken, nil
 }
@@ -133,6 +136,8 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 		return nil, fmt.Errorf("failed to send verification email: %w", err)
 	}
 
+	s.logger.Info(ctx, events.UserRegistered, "user_id", user.ID, "email", email, "tenant_id", user.TenantID)
+
 	return user, nil
 }
 
@@ -172,8 +177,10 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, tokenStr string, 
 	}
 
 	if err := s.verificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
-		s.logger.Error("failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
+		s.logger.Error(ctx, "failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
 	}
+
+	s.logger.Info(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
 	return user, nil
 }

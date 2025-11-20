@@ -5,58 +5,42 @@ package events
 
 // Authentication Events
 const (
-	LoginSuccess           = "login_success"
-	LoginFailure           = "login_failure"
-	Logout                 = "logout"
+	LoginSucceeded         = "login_succeeded"
 	PasswordResetRequested = "password_reset_requested"
 	PasswordResetCompleted = "password_reset_completed"
 	EmailVerified          = "email_verified"
 	AccountLocked          = "account_locked"
-	AccountUnlocked        = "account_unlocked"
 )
 
 // User Management Events
 const (
-	UserRegistered    = "user_registered"
-	UserCreated       = "user_created"
-	UserUpdated       = "user_updated"
-	UserStatusChanged = "user_status_changed"
-	UserDeleted       = "user_deleted"
+	UserRegistered = "user_registered"
+	UserCreated    = "user_created"
+	TenantCreated  = "tenant_created"
 )
 
 // OAuth/OIDC Events
 const (
-	OAuthFlowStarted   = "oauth_flow_started"
-	OAuthFlowCompleted = "oauth_flow_completed"
-	OAuthFlowFailed    = "oauth_flow_failed"
-	SSOLoginSuccess    = "sso_login_success"
-	SSOLoginFailure    = "sso_login_failure"
+	OAuthLoginSucceeded = "oauth_login_succeeded"
+	OAuthLoginFailed    = "oauth_login_failed"
+	SSOLoginSucceeded   = "sso_login_succeeded"
+	SSOLoginFailed      = "sso_login_failed"
 )
 
 // RBAC Events
 const (
-	RoleCreated        = "role_created"
-	RoleUpdated        = "role_updated"
-	RoleDeleted        = "role_deleted"
-	UserRolesChanged   = "user_roles_changed"
-	PermissionAssigned = "permission_assigned"
-	PermissionRevoked  = "permission_revoked"
+	RoleCreated            = "role_created"
+	RoleUpdated            = "role_updated"
+	RoleDeleted            = "role_deleted"
+	RolePermissionsUpdated = "role_permissions_updated"
+	UserRolesUpdated       = "user_roles_updated"
+	UserPermissionsUpdated = "user_permissions_updated"
 )
 
 // OIDC Provider Events
 const (
-	OIDCProviderCreated  = "oidc_provider_created"
-	OIDCProviderUpdated  = "oidc_provider_updated"
-	OIDCProviderDeleted  = "oidc_provider_deleted"
-	OIDCProviderEnabled  = "oidc_provider_enabled"
-	OIDCProviderDisabled = "oidc_provider_disabled"
-)
-
-// Operational Events
-const (
-	RequestStarted       = "request_started"
-	RequestCompleted     = "request_completed"
-	RequestFailed        = "request_failed"
-	DatabaseError        = "database_error"
-	ExternalServiceError = "external_service_error"
+	OIDCProviderCreated      = "oidc_provider_created"
+	OIDCProviderUpdated      = "oidc_provider_updated"
+	OIDCProviderDeleted      = "oidc_provider_deleted"
+	OIDCProviderUnregistered = "oidc_provider_unregistered"
 )

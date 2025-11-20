@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -34,13 +35,18 @@ func (s *OIDCService) createManualOIDCProvider(ctx context.Context, provider *OI
 
 	provider.RegistrationMethod = sdk.OIDCRegistrationMethodManual
 
-	return s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
+	provider, err = s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.Info(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "manual")
+
+	return provider, nil
 }
 
 // createDynamicOIDCProvider handles dynamic OIDC provider registration (RFC 7591)
 func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
-	s.logger.Info("performing OIDC discovery for dynamic registration", "issuer_url", provider.IssuerURL)
-
 	// Perform OIDC discovery
 	metadata, err := s.registrationClient.Discover(ctx, provider.IssuerURL)
 	if err != nil {
@@ -79,7 +85,14 @@ func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *O
 		provider.ClientSecretExpiresAt = &expiresAt
 	}
 
-	return s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
+	provider, err = s.oidcProviderDB.CreateOIDCProvider(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.Info(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "dynamic")
+
+	return provider, nil
 }
 
 // GetOIDCProvider retrieves an OIDC provider by ID
@@ -94,7 +107,14 @@ func (s *OIDCService) ListOIDCProviders(ctx context.Context) ([]*OIDCProviderCon
 
 // UpdateOIDCProvider updates an OIDC provider configuration
 func (s *OIDCService) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDCProviderParams) (*OIDCProviderConfig, error) {
-	return s.oidcProviderDB.UpdateOIDCProvider(ctx, params)
+	provider, err := s.oidcProviderDB.UpdateOIDCProvider(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.Info(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
+
+	return provider, nil
 }
 
 // DeleteOIDCProvider deletes an OIDC provider (admin operation)
@@ -109,13 +129,19 @@ func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UU
 	// Manually registered clients must be cleaned up by the admin at the IdP
 	if provider.RegistrationMethod == sdk.OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
 		if err := s.registrationClient.Unregister(ctx, provider.RegistrationClientURI, provider.RegistrationAccessToken); err != nil {
-			s.logger.Error("failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
+			s.logger.Error(ctx, "failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
 		} else {
-			s.logger.Info("OAuth client unregistered successfully", "client_id", provider.ClientID)
+			s.logger.Info(ctx, events.OIDCProviderUnregistered, "client_id", provider.ClientID)
 		}
 	}
 
-	return s.oidcProviderDB.DeleteOIDCProviderByID(ctx, providerID)
+	if err := s.oidcProviderDB.DeleteOIDCProviderByID(ctx, providerID); err != nil {
+		return err
+	}
+
+	s.logger.Info(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
+
+	return nil
 }
 
 // IsSSORequired verifies if SSO login is required for the email domain

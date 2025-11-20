@@ -2,7 +2,25 @@ package clog
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
+	"os"
+)
+
+// Type aliases for slog types
+type (
+	Handler        = slog.Handler
+	HandlerOptions = slog.HandlerOptions
+	Level          = slog.Level
+)
+
+// Log levels
+const (
+	LevelDebug = slog.LevelDebug
+	LevelInfo  = slog.LevelInfo
+	LevelWarn  = slog.LevelWarn
+	LevelError = slog.LevelError
 )
 
 // Logger wraps slog.Logger with automatic context enrichment
@@ -10,11 +28,56 @@ type Logger struct {
 	base *slog.Logger
 }
 
+// NewJSONHandler creates a handler that writes JSON logs to w
+func NewJSONHandler(w io.Writer, opts *HandlerOptions) Handler {
+	return slog.NewJSONHandler(w, opts)
+}
+
+// NewTextHandler creates a handler that writes text logs to w
+func NewTextHandler(w io.Writer, opts *HandlerOptions) Handler {
+	return slog.NewTextHandler(w, opts)
+}
+
+// SetDefault sets the default logger (used by New)
+func SetDefault(h Handler) {
+	slog.SetDefault(slog.New(h))
+}
+
+// InitDefault initializes the default logger to stderr (convenience method)
+// format: "json" or "text"
+// debug: if true, sets log level to Debug; otherwise Info
+func InitDefault(format string, debug bool) error {
+	var level Level
+	if debug {
+		level = LevelDebug
+	} else {
+		level = LevelInfo
+	}
+
+	var handler Handler
+	switch format {
+	case "json":
+		handler = NewJSONHandler(os.Stderr, &HandlerOptions{Level: level})
+	case "text":
+		handler = NewTextHandler(os.Stderr, &HandlerOptions{Level: level})
+	default:
+		return fmt.Errorf("invalid log format %q: must be 'json' or 'text'", format)
+	}
+
+	SetDefault(handler)
+	return nil
+}
+
 // New creates a new Logger with a module name using the default slog logger
 func New(module string) *Logger {
 	return &Logger{
 		base: slog.Default().With(FieldModule, module),
 	}
+}
+
+// Error logs an error using the default logger (convenience for rare infrastructure errors)
+func Error(ctx context.Context, msg string, args ...any) {
+	slog.Default().Error(msg, args...)
 }
 
 // Info logs at Info level with structured key-value pairs, automatically enriched with context

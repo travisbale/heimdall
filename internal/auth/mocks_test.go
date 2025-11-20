@@ -369,10 +369,10 @@ func (m *mockProviderFactory) NewProvider(ctx context.Context, issuerURL, client
 
 type mockLogger struct{}
 
-func (m *mockLogger) Info(msg string, args ...any)  {}
-func (m *mockLogger) Warn(msg string, args ...any)  {}
-func (m *mockLogger) Error(msg string, args ...any) {}
-func (m *mockLogger) With(args ...any) logger       { return m }
+func (m *mockLogger) Info(ctx context.Context, msg string, args ...any)  {}
+func (m *mockLogger) Warn(ctx context.Context, msg string, args ...any)  {}
+func (m *mockLogger) Error(ctx context.Context, msg string, args ...any) {}
+func (m *mockLogger) Debug(ctx context.Context, msg string, args ...any) {}
 
 // RBAC Mock implementations
 

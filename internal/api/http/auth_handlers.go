@@ -41,16 +41,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			respondError(w, http.StatusUnauthorized, "Authentication failed", err)
+			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Authentication failed"})
 
 		case errors.Is(err, auth.ErrEmailNotVerified):
-			respondError(w, http.StatusForbidden, "Please verify your email address before logging in", err)
+			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Please verify your email address before logging in"})
 
 		case errors.Is(err, auth.ErrAccountLocked):
-			respondError(w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
+			respondJSON(w, http.StatusTooManyRequests, sdk.ErrorResponse{Error: "Too many failed login attempts. Please try again later."})
 
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to authenticate user", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to authenticate user"})
 		}
 		return
 	}
@@ -85,19 +85,19 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Read refresh token from HTTP-only cookie
 	cookie, err := r.Cookie(refreshTokenCookie)
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "Missing refresh token", err)
+		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
 		return
 	}
 
 	claims, err := h.jwtService.ValidateToken(cookie.Value)
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or expired refresh token", err)
+		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
 		return
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to parse user ID", err)
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to parse user ID"})
 		return
 	}
 

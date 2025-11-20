@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/identity"
+	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -134,17 +135,24 @@ func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string
 	// Clean up the OIDC session after callback completes
 	defer func() {
 		if err := s.oidcSessionDB.DeleteOIDCSession(ctx, session.ID); err != nil {
-			s.logger.Error("failed to delete OIDC session", "error", err)
+			s.logger.Error(ctx, "failed to delete OIDC session", "error", err)
 		}
 	}()
 
 	// Route to appropriate handler based on session type
 	if session.OIDCProviderID != nil {
-		return s.handleSSOCallback(ctx, session, code)
+		user, link, err := s.handleSSOCallback(ctx, session, code)
+		if err != nil {
+			s.logger.Info(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
+		}
+		return user, link, err
 	}
 
 	if session.ProviderType != nil {
 		user, err := s.handleIndividualOAuthCallback(ctx, session, code)
+		if err != nil {
+			s.logger.Info(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
+		}
 		return user, nil, err
 	}
 
@@ -203,7 +211,7 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 // handleExistingSSOUser processes login for users with existing SSO links
 func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
 	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
-		s.logger.Error("failed to update OIDC link last used", "error", err)
+		s.logger.Error(ctx, "failed to update OIDC link last used", "error", err)
 	}
 
 	// Get user by link's UserID to support email changes at provider
@@ -211,6 +219,8 @@ func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user: %w", err)
 	}
+
+	s.logger.Info(ctx, events.SSOLoginSucceeded, "user_id", user.ID, "email", user.Email, "provider_id", link.OIDCProviderID)
 
 	return user, link, nil
 }
@@ -240,7 +250,7 @@ func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *
 	if existingUser != nil {
 		// Email exists but provider sub is different → likely email reassignment
 		// Require admin to manually deactivate old account before new employee can login
-		s.logger.Error("SSO login blocked: email exists with different provider sub",
+		s.logger.Error(ctx, "SSO login blocked: email exists with different provider sub",
 			"email", userInfo.Email,
 			"existing_user_id", existingUser.ID,
 			"existing_status", existingUser.Status,
@@ -307,6 +317,7 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 
 	// Handle existing user login
 	if existingUser != nil {
+		s.logger.Info(ctx, events.OAuthLoginSucceeded, "user_id", existingUser.ID, "email", existingUser.Email, "provider_type", *session.ProviderType)
 		return existingUser, nil
 	}
 
@@ -340,7 +351,7 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 		return nil, fmt.Errorf("failed to setup System Admin role: %w", err)
 	}
 
-	s.logger.Info("created new tenant for individual OIDC user", "user_id", user.ID, "tenant_id", tenantID, "email", userInfo.Email)
+	s.logger.Info(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenantID, "email", userInfo.Email)
 
 	return user, nil
 }

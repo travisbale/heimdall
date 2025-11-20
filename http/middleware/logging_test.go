@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,8 +17,8 @@ import (
 // setupTestLogger initializes a JSON logger for testing and returns the buffer and logger
 func setupTestLogger() (*bytes.Buffer, logger) {
 	var buf bytes.Buffer
-	handler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{})
-	slog.SetDefault(slog.New(handler))
+	handler := clog.NewJSONHandler(&buf, &clog.HandlerOptions{})
+	clog.SetDefault(handler)
 	logger := clog.New("http")
 	return &buf, logger
 }

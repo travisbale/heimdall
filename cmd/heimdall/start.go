@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -61,14 +61,14 @@ var startCmd = &cli.Command{
 		group, ctx := errgroup.WithContext(ctx)
 
 		group.Go(func() error {
-			slog.Info("Listening for connections", "http_address", httpAddr, "grpc_address", grpcAddr)
+			fmt.Printf("Listening for connections (http=%s, grpc=%s)\n", httpAddr, grpcAddr)
 			return server.Start()
 		})
 
 		// Wait for signal, then gracefully shutdown with 10s timeout
 		group.Go(func() error {
 			<-ctx.Done()
-			slog.Info("Shutting down gracefully")
+			fmt.Println("Shutting down gracefully...")
 
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()

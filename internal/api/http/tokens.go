@@ -17,19 +17,19 @@ func issueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, rb
 
 	scopes, err := rbacService.GetUserScopes(ctx, userID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to retrieve scopes for user", err)
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to retrieve scopes for user"})
 		return
 	}
 
 	accessToken, err := jwtService.IssueAccessToken(userID, tenantID, scopes)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate access token", err)
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate access token"})
 		return
 	}
 
 	refreshToken, err := jwtService.IssueRefreshToken(userID, tenantID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate refresh token", err)
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate refresh token"})
 		return
 	}
 

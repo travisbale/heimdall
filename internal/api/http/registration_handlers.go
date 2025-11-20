@@ -37,13 +37,13 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrDuplicateEmail):
-			respondError(w, http.StatusConflict, "Email address is already registered", err)
+			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "Email address is already registered"})
 
 		case errors.Is(err, auth.ErrSSORequired):
-			respondError(w, http.StatusBadRequest, "This email domain requires SSO login", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "This email domain requires SSO login"})
 
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to register user", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to register user"})
 		}
 		return
 	}
@@ -66,13 +66,13 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrVerificationTokenNotFound):
-			respondError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired verification token"})
 
 		case errors.Is(err, auth.ErrAccountAlreadyVerified):
-			respondError(w, http.StatusBadRequest, "Account has already been verified", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Account has already been verified"})
 
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to verify email", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to verify email"})
 		}
 		return
 	}

@@ -113,6 +113,11 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 // CreateUserRequest represents the request to create a user
 type CreateUserRequest struct {
 	Email    string      `json:"email"`

@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/clog"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // respondJSON sends JSON response with given status code
@@ -15,17 +16,8 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("Failed to encode JSON response", "error", err)
+		clog.Error(context.Background(), "Failed to encode JSON response", "error", err)
 	}
-}
-
-// respondError logs error and returns sanitized message to client (prevents information leakage)
-func respondError(w http.ResponseWriter, status int, message string, err error) {
-	slog.Error(message, "error", err)
-
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
 }
 
 // decodeJSON decodes JSON from request body, rejects unknown fields
@@ -33,11 +25,7 @@ func decodeJSON(r *http.Request, v any) error {
 	if r.Body == nil {
 		return fmt.Errorf("request body is empty")
 	}
-	defer func() {
-		if err := r.Body.Close(); err != nil {
-			slog.Error("failed to close request body")
-		}
-	}()
+	defer r.Body.Close() //nolint:errcheck
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields() // Catch typos in client requests
@@ -57,12 +45,12 @@ type validator interface {
 // decodeAndValidateJSON decodes and validates JSON, returns false if error response was sent
 func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator) bool {
 	if err := decodeJSON(r, req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid request body"})
 		return false
 	}
 
 	if err := req.Validate(r.Context()); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: err.Error()})
 		return false
 	}
 

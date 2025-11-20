@@ -45,9 +45,9 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrPasswordResetTokenNotFound):
-			respondError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired reset token"})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to reset password", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to reset password"})
 		}
 		return
 	}

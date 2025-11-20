@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/travisbale/heimdall/clog"
@@ -68,14 +67,11 @@ type Server struct {
 	grpcServer   *grpc.Server
 	db           *postgres.DB
 	emailService interface{ Close() }
-	logger       *slog.Logger
 }
 
 // NewServer creates a new server instance with all dependencies
 func NewServer(ctx context.Context, config *Config) (*Server, error) {
-	logger := slog.Default()
-
-	db, err := postgres.NewDB(ctx, config.DatabaseURL, logger.With("module", "postgres"))
+	db, err := postgres.NewDB(ctx, config.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -142,7 +138,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	userRolesDB := postgres.NewUserRolesDB(db)
 	userPermissionsDB := postgres.NewUserPermissionsDB(db)
 
-	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, logger.With("module", "login_attempts_service"))
+	loginAttemptsService := auth.NewLoginAttemptsService(loginAttemptsDB, clog.New("login_attempts_service"))
 
 	rbacService := auth.NewRBACService(&auth.RBACServiceConfig{
 		RolesDB:           rolesDB,
@@ -150,7 +146,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		RolePermissionsDB: rolePermissionsDB,
 		UserRolesDB:       userRolesDB,
 		UserPermissionsDB: userPermissionsDB,
-		Logger:            logger.With("module", "rbac_service"),
+		Logger:            clog.New("rbac_service"),
 	})
 
 	// System-wide providers enable "Login with Google/GitHub" before user authentication
@@ -174,7 +170,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 			return nil, fmt.Errorf("failed to create Google OAuth provider: %w", err)
 		}
 		systemProviders[sdk.OIDCProviderTypeGoogle] = googleProvider
-		logger.Info("Google OAuth provider configured")
 	}
 
 	// Configure Microsoft OAuth provider if credentials are provided
@@ -192,7 +187,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 			return nil, fmt.Errorf("failed to create Microsoft OAuth provider: %w", err)
 		}
 		systemProviders[sdk.OIDCProviderTypeMicrosoft] = microsoftProvider
-		logger.Info("Microsoft OAuth provider configured")
 	}
 
 	// Configure GitHub OAuth provider if credentials are provided
@@ -206,7 +200,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 			APIBase:      config.GitHubAPIBase,
 		})
 		systemProviders[sdk.OIDCProviderTypeGitHub] = githubProvider
-		logger.Info("GitHub OAuth provider configured")
 	}
 
 	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
@@ -220,7 +213,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
-		Logger:             logger.With("module", "oidc_service"),
+		Logger:             clog.New("oidc_service"),
 	})
 
 	authService := auth.NewUserService(&auth.UserServiceConfig{
@@ -233,7 +226,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		LoginAttemptsService: loginAttemptsService,
 		OIDCService:          oidcService,
 		RBACService:          rbacService,
-		Logger:               logger.With("module", "user_service"),
+		Logger:               clog.New("user_service"),
 	})
 
 	httpServer := http.NewServer(&http.Config{
@@ -251,7 +244,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	grpcServer := grpc.NewServer(&grpc.Config{
 		Addr:        config.GRPCAddress,
 		AuthService: authService,
-		Logger:      logger.With("module", "grpc_server"),
+		Logger:      clog.New("grpc_server"),
 	})
 
 	return &Server{
@@ -259,7 +252,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		grpcServer:   grpcServer,
 		db:           db,
 		emailService: emailService,
-		logger:       logger,
 	}, nil
 }
 
@@ -267,9 +259,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 func (s *Server) Start() error {
 	// Run gRPC in background, HTTP blocks main thread for simple shutdown handling
 	go func() {
-		if err := s.grpcServer.ListenAndServe(); err != nil {
-			s.logger.Error("gRPC server error", "error", err)
-		}
+		// Error already logged by grpcServer
+		_ = s.grpcServer.ListenAndServe()
 	}()
 
 	return s.httpServer.ListenAndServe()

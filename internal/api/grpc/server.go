@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -9,8 +10,10 @@ import (
 )
 
 type logger interface {
-	Info(msg string, args ...any)
-	Error(msg string, args ...any)
+	Info(ctx context.Context, msg string, args ...any)
+	Warn(ctx context.Context, msg string, args ...any)
+	Error(ctx context.Context, msg string, args ...any)
+	Debug(ctx context.Context, msg string, args ...any)
 }
 
 type Config struct {
@@ -47,7 +50,7 @@ func (s *Server) ListenAndServe() error {
 	}
 
 	if err := s.Serve(listener); err != nil {
-		s.logger.Error("gRPC server error", "error", err)
+		s.logger.Error(context.Background(), "gRPC server error", "error", err)
 	}
 
 	return nil

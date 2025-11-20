@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/travisbale/heimdall/crypto/token"
+	"github.com/travisbale/heimdall/internal/events"
 )
 
 // Login authenticates a user and returns the active user account
@@ -22,7 +23,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 		switch {
 		case errors.Is(err, ErrUserNotFound):
 			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, nil, ipAddress, nil); err != nil {
-				s.logger.Error("failed to record login attempt for non-existent user", "email", email, "error", err)
+				s.logger.Error(ctx, "failed to record login attempt for non-existent user", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
 		default:
@@ -36,7 +37,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
 			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, ipAddress, user.LastLoginAt); err != nil {
-				s.logger.Error("failed to record login attempt", "email", email, "error", err)
+				s.logger.Error(ctx, "failed to record login attempt", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
 
@@ -47,17 +48,19 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 
 	// Record successful login
 	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID, ipAddress); err != nil {
-		s.logger.Error("failed to record successful login", "email", email, "error", err)
+		s.logger.Error(ctx, "failed to record successful login", "email", email, "error", err)
 	}
 
 	// Update last login timestamp
 	if err = s.userDB.UpdateLastLogin(ctx, user.ID); err != nil {
-		s.logger.Error("failed to update last login", "user_id", user.ID, "error", err)
+		s.logger.Error(ctx, "failed to update last login", "user_id", user.ID, "error", err)
 	}
 
 	if user.Status == UserStatusUnverified {
 		return nil, ErrEmailNotVerified
 	}
+
+	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email, "ip_address", ipAddress)
 
 	return user, nil
 }
@@ -83,6 +86,8 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 	if err := s.emailService.SendPasswordResetEmail(ctx, email, resetToken); err != nil {
 		return fmt.Errorf("failed to send password reset email: %w", err)
 	}
+
+	s.logger.Info(ctx, events.PasswordResetRequested, "user_id", user.ID, "email", email)
 
 	return nil
 }
@@ -117,8 +122,10 @@ func (s *UserService) ResetPassword(ctx context.Context, tokenStr, newPassword s
 	// Delete the reset token
 	if err := s.passwordResetTokenDB.DeleteToken(ctx, resetToken.UserID); err != nil {
 		// Log but don't fail - the password is already updated
-		s.logger.Error("failed to delete reset token", "error", err, "user_id", resetToken.UserID)
+		s.logger.Error(ctx, "failed to delete reset token", "error", err, "user_id", resetToken.UserID)
 	}
+
+	s.logger.Info(ctx, events.PasswordResetCompleted, "user_id", resetToken.UserID)
 
 	return nil
 }

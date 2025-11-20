@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/internal/events"
 )
 
 const (
@@ -88,6 +89,11 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 		lockedUntil = nil // Not a threshold - no lockout
 	}
 
+	// Log account lockout events
+	if lockedUntil != nil {
+		s.logger.Info(ctx, events.AccountLocked, "email", email, "failed_count", failedCount, "locked_until", lockedUntil)
+	}
+
 	return s.db.RecordAttempt(ctx, email, userID, ipAddress, lockedUntil)
 }
 
@@ -98,7 +104,7 @@ func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email 
 	// Delete login attempts older than the retention period
 	err := s.db.DeleteOldLoginAttempts(ctx, cutoffTime)
 	if err != nil {
-		s.logger.Error("failed to cleanup old login attempts", "error", err)
+		s.logger.Error(ctx, "failed to cleanup old login attempts", "error", err)
 	}
 
 	return nil

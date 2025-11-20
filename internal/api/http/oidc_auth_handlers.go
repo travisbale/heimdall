@@ -38,9 +38,9 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCProviderNotConfigured):
-			respondError(w, http.StatusNotFound, fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType), err)
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType)})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to start OAuth login", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to start OAuth login"})
 		}
 		return
 	}
@@ -62,9 +62,9 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrSSONotConfigured):
-			respondError(w, http.StatusNotFound, "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login.", err)
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login."})
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to start SSO login", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to start SSO login"})
 		}
 		return
 	}
@@ -85,17 +85,17 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Handle authorization denial or provider errors
 	if errorCode != "" {
-		respondError(w, http.StatusBadRequest, errorDescription, fmt.Errorf("oauth error: %s", errorCode))
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: errorDescription})
 		return
 	}
 
 	// Validate required parameters for success case
 	if state == "" {
-		respondError(w, http.StatusBadRequest, "Missing state parameter", fmt.Errorf("state is required"))
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Missing state parameter"})
 		return
 	}
 	if code == "" {
-		respondError(w, http.StatusBadRequest, "Missing code parameter", fmt.Errorf("code is required"))
+		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Missing code parameter"})
 		return
 	}
 
@@ -104,22 +104,22 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCSessionNotFound):
-			respondError(w, http.StatusBadRequest, "Invalid or expired OAuth session", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired OAuth session"})
 
 		case errors.Is(err, auth.ErrOIDCProviderNotFound), errors.Is(err, auth.ErrOIDCProviderNotConfigured):
-			respondError(w, http.StatusBadRequest, "OAuth provider not configured", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "OAuth provider not configured"})
 
 		case errors.Is(err, auth.ErrAutoProvisioningDisabled):
-			respondError(w, http.StatusForbidden, "Account not found and auto-provisioning is disabled", err)
+			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Account not found and auto-provisioning is disabled"})
 
 		case errors.Is(err, auth.ErrProviderEmailNotVerified):
-			respondError(w, http.StatusBadRequest, "Email must be verified by your OAuth provider", err)
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Email must be verified by your OAuth provider"})
 
 		case errors.Is(err, auth.ErrEmailConflict):
-			respondError(w, http.StatusConflict, "This email address is associated with an existing account. Please contact your administrator.", err)
+			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "This email address is associated with an existing account. Please contact your administrator."})
 
 		default:
-			respondError(w, http.StatusInternalServerError, "Failed to process OAuth callback", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to process OAuth callback"})
 		}
 		return
 	}
