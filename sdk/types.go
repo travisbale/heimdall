@@ -15,12 +15,6 @@ import (
 // Matches standard email format: localpart@domain
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-type logger interface {
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Error(msg string, args ...any)
-}
-
 // OIDCProviderType represents an OIDC provider type
 type OIDCProviderType string
 

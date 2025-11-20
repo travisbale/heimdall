@@ -21,7 +21,6 @@ type validatable interface {
 type HTTPClient struct {
 	baseURL     string
 	httpClient  *http.Client
-	logger      logger
 	accessToken string
 }
 
@@ -52,7 +51,7 @@ func WithInsecureSkipVerify() Option {
 
 // NewHTTPClient creates a new heimdall API client
 // The client automatically handles cookies for refresh token management
-func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, error) {
+func NewHTTPClient(baseURL string, opts ...Option) (*HTTPClient, error) {
 	// Create a cookie jar to automatically handle refresh token cookies
 	jar, err := cookiejar.New(nil)
 	if err != nil {
@@ -68,7 +67,6 @@ func NewHTTPClient(baseURL string, logger logger, opts ...Option) (*HTTPClient, 
 				TLSClientConfig: &tls.Config{},
 			},
 		},
-		logger: logger,
 	}
 
 	// Apply options
@@ -396,9 +394,7 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 	defer func() {
 		// Drain and close to allow connection reuse
 		_, _ = io.Copy(io.Discard, resp.Body)
-		if err := resp.Body.Close(); err != nil {
-			c.logger.Error("failed to close response body", "error", err)
-		}
+		_ = resp.Body.Close()
 	}()
 
 	// Check for error responses
