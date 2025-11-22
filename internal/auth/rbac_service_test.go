@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -199,15 +198,20 @@ func TestRoleCRUD(t *testing.T) {
 	t.Run("Create", func(t *testing.T) {
 		f := newRBACTestFixture()
 
-		role, err := f.service.CreateRole(context.Background(), "admin", "Administrator role")
+		role := &Role{
+			Name:        "admin",
+			Description: "Administrator role",
+			MFARequired: false,
+		}
+		createdRole, err := f.service.CreateRole(context.Background(), role)
 		if err != nil {
 			t.Fatalf("CreateRole failed: %v", err)
 		}
-		if role.Name != "admin" {
-			t.Errorf("Expected role name 'admin', got '%s'", role.Name)
+		if createdRole.Name != "admin" {
+			t.Errorf("Expected role name 'admin', got '%s'", createdRole.Name)
 		}
-		if role.Description != "Administrator role" {
-			t.Errorf("Expected description 'Administrator role', got '%s'", role.Description)
+		if createdRole.Description != "Administrator role" {
+			t.Errorf("Expected description 'Administrator role', got '%s'", createdRole.Description)
 		}
 	})
 
@@ -216,11 +220,9 @@ func TestRoleCRUD(t *testing.T) {
 		roleID := uuid.New()
 		f.roleRepo.roles[roleID] = &Role{
 			ID:          roleID,
-			TenantID:    uuid.New(),
 			Name:        "viewer",
 			Description: "Read-only role",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			MFARequired: false,
 		}
 
 		role, err := f.service.GetRole(context.Background(), roleID)
@@ -245,19 +247,15 @@ func TestRoleCRUD(t *testing.T) {
 		f := newRBACTestFixture()
 		f.roleRepo.roles[uuid.New()] = &Role{
 			ID:          uuid.New(),
-			TenantID:    uuid.New(),
 			Name:        "admin",
 			Description: "Admin role",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			MFARequired: true,
 		}
 		f.roleRepo.roles[uuid.New()] = &Role{
 			ID:          uuid.New(),
-			TenantID:    uuid.New(),
 			Name:        "viewer",
 			Description: "Viewer role",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			MFARequired: false,
 		}
 
 		roles, err := f.service.ListRoles(context.Background())
@@ -274,14 +272,19 @@ func TestRoleCRUD(t *testing.T) {
 		roleID := uuid.New()
 		f.roleRepo.roles[roleID] = &Role{
 			ID:          roleID,
-			TenantID:    uuid.New(),
 			Name:        "editor",
 			Description: "Editor role",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			MFARequired: false,
 		}
 
-		role, err := f.service.UpdateRole(context.Background(), roleID, "contributor", "Contributor role")
+		newName := "contributor"
+		newDescription := "Contributor role"
+		params := UpdateRoleParams{
+			ID:          roleID,
+			Name:        &newName,
+			Description: &newDescription,
+		}
+		role, err := f.service.UpdateRole(context.Background(), params)
 		if err != nil {
 			t.Fatalf("UpdateRole failed: %v", err)
 		}
@@ -298,11 +301,9 @@ func TestRoleCRUD(t *testing.T) {
 		roleID := uuid.New()
 		f.roleRepo.roles[roleID] = &Role{
 			ID:          roleID,
-			TenantID:    uuid.New(),
 			Name:        "temp",
 			Description: "Temporary role",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			MFARequired: false,
 		}
 
 		err := f.service.DeleteRole(context.Background(), roleID)

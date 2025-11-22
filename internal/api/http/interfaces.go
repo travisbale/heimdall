@@ -49,10 +49,10 @@ type rbacService interface {
 	ListPermissions(ctx context.Context) ([]*auth.Permission, error)
 	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
 
-	CreateRole(ctx context.Context, name, description string) (*auth.Role, error)
+	CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, error)
 	GetRole(ctx context.Context, roleID uuid.UUID) (*auth.Role, error)
 	ListRoles(ctx context.Context) ([]*auth.Role, error)
-	UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*auth.Role, error)
+	UpdateRole(ctx context.Context, params auth.UpdateRoleParams) (*auth.Role, error)
 	DeleteRole(ctx context.Context, roleID uuid.UUID) error
 
 	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*auth.Permission, error)

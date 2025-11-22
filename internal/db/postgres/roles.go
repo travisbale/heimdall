@@ -21,8 +21,8 @@ func NewRolesDB(db *DB) *RolesDB {
 }
 
 // CreateRole creates a new role
-func (r *RolesDB) CreateRole(ctx context.Context, name, description string) (*auth.Role, error) {
-	var role *auth.Role
+func (r *RolesDB) CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, error) {
+	var createdRole *auth.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
@@ -31,25 +31,24 @@ func (r *RolesDB) CreateRole(ctx context.Context, name, description string) (*au
 
 		result, err := q.CreateRole(ctx, sqlc.CreateRoleParams{
 			TenantID:    tenantID,
-			Name:        name,
-			Description: description,
+			Name:        role.Name,
+			Description: role.Description,
+			MfaRequired: role.MFARequired,
 		})
 		if err != nil {
 			return err
 		}
 
-		role = &auth.Role{
+		createdRole = &auth.Role{
 			ID:          result.ID,
-			TenantID:    result.TenantID,
 			Name:        result.Name,
 			Description: result.Description,
-			CreatedAt:   result.CreatedAt,
-			UpdatedAt:   result.UpdatedAt,
+			MFARequired: result.MfaRequired,
 		}
 		return nil
 	})
 
-	return role, err
+	return createdRole, err
 }
 
 // GetRoleByID retrieves a role by ID
@@ -63,42 +62,9 @@ func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*auth.Role
 
 		role = &auth.Role{
 			ID:          result.ID,
-			TenantID:    result.TenantID,
 			Name:        result.Name,
 			Description: result.Description,
-			CreatedAt:   result.CreatedAt,
-			UpdatedAt:   result.UpdatedAt,
-		}
-		return nil
-	})
-
-	return role, err
-}
-
-// GetRoleByName retrieves a role by name
-func (r *RolesDB) GetRoleByName(ctx context.Context, name string) (*auth.Role, error) {
-	var role *auth.Role
-	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
-		}
-
-		result, err := q.GetRoleByName(ctx, sqlc.GetRoleByNameParams{
-			TenantID: tenantID,
-			Name:     name,
-		})
-		if err != nil {
-			return err
-		}
-
-		role = &auth.Role{
-			ID:          result.ID,
-			TenantID:    result.TenantID,
-			Name:        result.Name,
-			Description: result.Description,
-			CreatedAt:   result.CreatedAt,
-			UpdatedAt:   result.UpdatedAt,
+			MFARequired: result.MfaRequired,
 		}
 		return nil
 	})
@@ -119,11 +85,9 @@ func (r *RolesDB) ListRoles(ctx context.Context) ([]*auth.Role, error) {
 		for i, result := range results {
 			roles[i] = &auth.Role{
 				ID:          result.ID,
-				TenantID:    result.TenantID,
 				Name:        result.Name,
 				Description: result.Description,
-				CreatedAt:   result.CreatedAt,
-				UpdatedAt:   result.UpdatedAt,
+				MFARequired: result.MfaRequired,
 			}
 		}
 		return nil
@@ -133,13 +97,14 @@ func (r *RolesDB) ListRoles(ctx context.Context) ([]*auth.Role, error) {
 }
 
 // UpdateRole updates a role
-func (r *RolesDB) UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*auth.Role, error) {
+func (r *RolesDB) UpdateRole(ctx context.Context, params auth.UpdateRoleParams) (*auth.Role, error) {
 	var role *auth.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		result, err := q.UpdateRole(ctx, sqlc.UpdateRoleParams{
-			ID:          roleID,
-			Name:        name,
-			Description: description,
+			ID:          params.ID,
+			Name:        params.Name,
+			Description: params.Description,
+			MfaRequired: params.MFARequired,
 		})
 		if err != nil {
 			return err
@@ -147,11 +112,9 @@ func (r *RolesDB) UpdateRole(ctx context.Context, roleID uuid.UUID, name, descri
 
 		role = &auth.Role{
 			ID:          result.ID,
-			TenantID:    result.TenantID,
 			Name:        result.Name,
 			Description: result.Description,
-			CreatedAt:   result.CreatedAt,
-			UpdatedAt:   result.UpdatedAt,
+			MFARequired: result.MfaRequired,
 		}
 		return nil
 	})

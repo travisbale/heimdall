@@ -46,29 +46,34 @@ func (q *Queries) GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]GetRole
 }
 
 const getUserRoles = `-- name: GetUserRoles :many
-SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at
+SELECT r.id, r.name, r.description, r.mfa_required
 FROM roles r
 JOIN user_roles ur ON ur.role_id = r.id
 WHERE ur.user_id = $1
 ORDER BY r.name
 `
 
-func (q *Queries) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]Role, error) {
+type GetUserRolesRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
+}
+
+func (q *Queries) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]GetUserRolesRow, error) {
 	rows, err := q.db.Query(ctx, getUserRoles, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Role{}
+	items := []GetUserRolesRow{}
 	for rows.Next() {
-		var i Role
+		var i GetUserRolesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.TenantID,
 			&i.Name,
 			&i.Description,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.MfaRequired,
 		); err != nil {
 			return nil, err
 		}

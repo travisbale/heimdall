@@ -12,27 +12,38 @@ import (
 )
 
 const createRole = `-- name: CreateRole :one
-INSERT INTO roles (tenant_id, name, description)
-VALUES ($1, $2, $3)
-RETURNING id, tenant_id, name, description, created_at, updated_at
+INSERT INTO roles (tenant_id, name, description, mfa_required)
+VALUES ($1, $2, $3, $4)
+RETURNING id, name, description, mfa_required
 `
 
 type CreateRoleParams struct {
 	TenantID    uuid.UUID `json:"tenant_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
 }
 
-func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error) {
-	row := q.db.QueryRow(ctx, createRole, arg.TenantID, arg.Name, arg.Description)
-	var i Role
+type CreateRoleRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
+}
+
+func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (CreateRoleRow, error) {
+	row := q.db.QueryRow(ctx, createRole,
+		arg.TenantID,
+		arg.Name,
+		arg.Description,
+		arg.MfaRequired,
+	)
+	var i CreateRoleRow
 	err := row.Scan(
 		&i.ID,
-		&i.TenantID,
 		&i.Name,
 		&i.Description,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.MfaRequired,
 	)
 	return i, err
 }
@@ -48,72 +59,57 @@ func (q *Queries) DeleteRole(ctx context.Context, id uuid.UUID) error {
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, tenant_id, name, description, created_at, updated_at
+SELECT id, name, description, mfa_required
 FROM roles
 WHERE id = $1
 `
 
-func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
+type GetRoleByIDRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
+}
+
+func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (GetRoleByIDRow, error) {
 	row := q.db.QueryRow(ctx, getRoleByID, id)
-	var i Role
+	var i GetRoleByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.TenantID,
 		&i.Name,
 		&i.Description,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, tenant_id, name, description, created_at, updated_at
-FROM roles
-WHERE tenant_id = $1 AND name = $2
-`
-
-type GetRoleByNameParams struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-}
-
-func (q *Queries) GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (Role, error) {
-	row := q.db.QueryRow(ctx, getRoleByName, arg.TenantID, arg.Name)
-	var i Role
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.Description,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.MfaRequired,
 	)
 	return i, err
 }
 
 const listRoles = `-- name: ListRoles :many
-SELECT id, tenant_id, name, description, created_at, updated_at
+SELECT id, name, description, mfa_required
 FROM roles
 ORDER BY name
 `
 
-func (q *Queries) ListRoles(ctx context.Context) ([]Role, error) {
+type ListRolesRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
+}
+
+func (q *Queries) ListRoles(ctx context.Context) ([]ListRolesRow, error) {
 	rows, err := q.db.Query(ctx, listRoles)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Role{}
+	items := []ListRolesRow{}
 	for rows.Next() {
-		var i Role
+		var i ListRolesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.TenantID,
 			&i.Name,
 			&i.Description,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.MfaRequired,
 		); err != nil {
 			return nil, err
 		}
@@ -127,27 +123,41 @@ func (q *Queries) ListRoles(ctx context.Context) ([]Role, error) {
 
 const updateRole = `-- name: UpdateRole :one
 UPDATE roles
-SET name = $2, description = $3, updated_at = NOW()
-WHERE id = $1
-RETURNING id, tenant_id, name, description, created_at, updated_at
+SET name = COALESCE($1, name),
+    description = COALESCE($2, description),
+    mfa_required = COALESCE($3, mfa_required),
+    updated_at = NOW()
+WHERE id = $4
+RETURNING id, name, description, mfa_required
 `
 
 type UpdateRoleParams struct {
+	Name        *string   `json:"name"`
+	Description *string   `json:"description"`
+	MfaRequired *bool     `json:"mfa_required"`
+	ID          uuid.UUID `json:"id"`
+}
+
+type UpdateRoleRow struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
+	MfaRequired bool      `json:"mfa_required"`
 }
 
-func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error) {
-	row := q.db.QueryRow(ctx, updateRole, arg.ID, arg.Name, arg.Description)
-	var i Role
+func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (UpdateRoleRow, error) {
+	row := q.db.QueryRow(ctx, updateRole,
+		arg.Name,
+		arg.Description,
+		arg.MfaRequired,
+		arg.ID,
+	)
+	var i UpdateRoleRow
 	err := row.Scan(
 		&i.ID,
-		&i.TenantID,
 		&i.Name,
 		&i.Description,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.MfaRequired,
 	)
 	return i, err
 }

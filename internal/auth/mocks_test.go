@@ -391,20 +391,18 @@ func newMockRoleRepository() *mockRoleRepository {
 	}
 }
 
-func (m *mockRoleRepository) CreateRole(ctx context.Context, name, description string) (*Role, error) {
+func (m *mockRoleRepository) CreateRole(ctx context.Context, role *Role) (*Role, error) {
 	if m.createError != nil {
 		return nil, m.createError
 	}
-	role := &Role{
+	createdRole := &Role{
 		ID:          uuid.New(),
-		TenantID:    uuid.New(),
-		Name:        name,
-		Description: description,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		Name:        role.Name,
+		Description: role.Description,
+		MFARequired: role.MFARequired,
 	}
-	m.roles[role.ID] = role
-	return role, nil
+	m.roles[createdRole.ID] = createdRole
+	return createdRole, nil
 }
 
 func (m *mockRoleRepository) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*Role, error) {
@@ -418,18 +416,6 @@ func (m *mockRoleRepository) GetRoleByID(ctx context.Context, roleID uuid.UUID) 
 	return role, nil
 }
 
-func (m *mockRoleRepository) GetRoleByName(ctx context.Context, name string) (*Role, error) {
-	if m.getError != nil {
-		return nil, m.getError
-	}
-	for _, role := range m.roles {
-		if role.Name == name {
-			return role, nil
-		}
-	}
-	return nil, ErrRoleNotFound
-}
-
 func (m *mockRoleRepository) ListRoles(ctx context.Context) ([]*Role, error) {
 	if m.listError != nil {
 		return nil, m.listError
@@ -441,17 +427,23 @@ func (m *mockRoleRepository) ListRoles(ctx context.Context) ([]*Role, error) {
 	return roles, nil
 }
 
-func (m *mockRoleRepository) UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*Role, error) {
+func (m *mockRoleRepository) UpdateRole(ctx context.Context, params UpdateRoleParams) (*Role, error) {
 	if m.updateError != nil {
 		return nil, m.updateError
 	}
-	role, ok := m.roles[roleID]
+	role, ok := m.roles[params.ID]
 	if !ok {
 		return nil, ErrRoleNotFound
 	}
-	role.Name = name
-	role.Description = description
-	role.UpdatedAt = time.Now()
+	if params.Name != nil {
+		role.Name = *params.Name
+	}
+	if params.Description != nil {
+		role.Description = *params.Description
+	}
+	if params.MFARequired != nil {
+		role.MFARequired = *params.MFARequired
+	}
 	return role, nil
 }
 

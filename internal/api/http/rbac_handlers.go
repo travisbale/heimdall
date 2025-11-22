@@ -46,7 +46,13 @@ func (h *RBACHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.rbacService.CreateRole(r.Context(), req.Name, req.Description)
+	role := &auth.Role{
+		Name:        req.Name,
+		Description: req.Description,
+		MFARequired: req.MFARequired,
+	}
+
+	role, err := h.rbacService.CreateRole(r.Context(), role)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to create role"})
 		return
@@ -112,7 +118,15 @@ func (h *RBACHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.rbacService.UpdateRole(r.Context(), req.RoleID, req.Name, req.Description)
+	// Support partial updates using pointer fields
+	params := auth.UpdateRoleParams{
+		ID:          req.RoleID,
+		Name:        req.Name,
+		Description: req.Description,
+		MFARequired: req.MFARequired,
+	}
+
+	role, err := h.rbacService.UpdateRole(r.Context(), params)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrRoleNotFound):
@@ -315,6 +329,7 @@ func toSDKRole(role *auth.Role) sdk.Role {
 		ID:          role.ID,
 		Name:        role.Name,
 		Description: role.Description,
+		MFARequired: role.MFARequired,
 	}
 }
 

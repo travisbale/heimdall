@@ -197,11 +197,17 @@ type Permission struct {
 // Role represents a tenant-specific role
 type Role struct {
 	ID          uuid.UUID
-	TenantID    uuid.UUID
 	Name        string
 	Description string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	MFARequired bool
+}
+
+// UpdateRoleParams supports partial updates using optional pointer fields
+type UpdateRoleParams struct {
+	ID          uuid.UUID
+	Name        *string
+	Description *string
+	MFARequired *bool
 }
 
 // EffectivePermission represents a user permission assignment

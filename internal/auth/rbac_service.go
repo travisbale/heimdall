@@ -12,11 +12,10 @@ import (
 // RBACService handles role and permission management
 // roleDB defines database operations for roles
 type roleDB interface {
-	CreateRole(ctx context.Context, name, description string) (*Role, error)
+	CreateRole(ctx context.Context, role *Role) (*Role, error)
 	GetRoleByID(ctx context.Context, roleID uuid.UUID) (*Role, error)
-	GetRoleByName(ctx context.Context, name string) (*Role, error)
 	ListRoles(ctx context.Context) ([]*Role, error)
-	UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*Role, error)
+	UpdateRole(ctx context.Context, params UpdateRoleParams) (*Role, error)
 	DeleteRole(ctx context.Context, roleID uuid.UUID) error
 }
 
@@ -107,12 +106,12 @@ func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sd
 }
 
 // CreateRole creates a new role
-func (s *RBACService) CreateRole(ctx context.Context, name, description string) (*Role, error) {
-	role, err := s.rolesDB.CreateRole(ctx, name, description)
+func (s *RBACService) CreateRole(ctx context.Context, role *Role) (*Role, error) {
+	role, err := s.rolesDB.CreateRole(ctx, role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role: %w", err)
 	}
-	s.logger.Info(ctx, events.RoleCreated, "role_id", role.ID, "name", name)
+	s.logger.Info(ctx, events.RoleCreated, "role_id", role.ID, "name", role.Name)
 	return role, nil
 }
 
@@ -127,12 +126,12 @@ func (s *RBACService) ListRoles(ctx context.Context) ([]*Role, error) {
 }
 
 // UpdateRole updates a role
-func (s *RBACService) UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string) (*Role, error) {
-	role, err := s.rolesDB.UpdateRole(ctx, roleID, name, description)
+func (s *RBACService) UpdateRole(ctx context.Context, params UpdateRoleParams) (*Role, error) {
+	role, err := s.rolesDB.UpdateRole(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update role: %w", err)
 	}
-	s.logger.Info(ctx, events.RoleUpdated, "role_id", roleID)
+	s.logger.Info(ctx, events.RoleUpdated, "role_id", params.ID)
 	return role, nil
 }
 
@@ -195,7 +194,14 @@ func (s *RBACService) ListPermissions(ctx context.Context) ([]*Permission, error
 // SetupSystemAdminRole creates a System Admin role for a new tenant and assigns it to the user
 // This role has all available permissions and should be assigned to the first user in a tenant
 func (s *RBACService) SetupSystemAdminRole(ctx context.Context, userID uuid.UUID) error {
-	role, err := s.rolesDB.CreateRole(ctx, "System Admin", "Full system administrator with all permissions")
+	// MFA is not required by default - users can enable it later
+	role := &Role{
+		Name:        "System Admin",
+		Description: "Full system administrator with all permissions",
+		MFARequired: false,
+	}
+
+	role, err := s.rolesDB.CreateRole(ctx, role)
 	if err != nil {
 		return fmt.Errorf("failed to create System Admin role: %w", err)
 	}

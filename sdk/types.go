@@ -408,12 +408,14 @@ type Role struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
+	MFARequired bool      `json:"mfa_required"`
 }
 
 // CreateRoleRequest represents the request to create a new role
 type CreateRoleRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	MFARequired bool   `json:"mfa_required"`
 }
 
 // Validate validates the create role request
@@ -427,11 +429,12 @@ func (r *CreateRoleRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// UpdateRoleRequest represents the request to update a role
+// UpdateRoleRequest represents the request to update a role (supports partial updates)
 type UpdateRoleRequest struct {
 	RoleID      uuid.UUID `json:"-"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
+	Name        *string   `json:"name,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	MFARequired *bool     `json:"mfa_required,omitempty"`
 }
 
 // Validate validates the update role request
@@ -439,11 +442,11 @@ func (r *UpdateRoleRequest) Validate(ctx context.Context) error {
 	if r.RoleID == uuid.Nil {
 		return fmt.Errorf("role_id is required")
 	}
-	if strings.TrimSpace(r.Name) == "" {
-		return fmt.Errorf("name is required")
+	if r.Name != nil && strings.TrimSpace(*r.Name) == "" {
+		return fmt.Errorf("name cannot be empty")
 	}
-	if strings.TrimSpace(r.Description) == "" {
-		return fmt.Errorf("description is required")
+	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
+		return fmt.Errorf("description cannot be empty")
 	}
 	return nil
 }

@@ -59,11 +59,9 @@ func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*au
 		for i, result := range results {
 			roles[i] = &auth.Role{
 				ID:          result.ID,
-				TenantID:    result.TenantID,
 				Name:        result.Name,
 				Description: result.Description,
-				CreatedAt:   result.CreatedAt,
-				UpdatedAt:   result.UpdatedAt,
+				MFARequired: result.MfaRequired,
 			}
 		}
 		return nil

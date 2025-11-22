@@ -12,7 +12,7 @@ SELECT @user_id::uuid, unnest(@role_ids::uuid[]), @tenant_id::uuid
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- name: GetUserRoles :many
-SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at
+SELECT r.id, r.name, r.description, r.mfa_required
 FROM roles r
 JOIN user_roles ur ON ur.role_id = r.id
 WHERE ur.user_id = $1
