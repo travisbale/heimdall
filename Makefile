@@ -18,7 +18,7 @@ dev: fmt
 # Run all tests
 test:
 	@echo "Running tests..."
-	@go test -v -race -coverprofile=coverage.out -covermode=atomic \
+	@go test -race -coverprofile=coverage.out -covermode=atomic \
 		$$(go list ./... | grep -v -e '/internal/api' -e '/internal/db' -e '/internal/pb' -e '/cmd/' -e '/internal/email')
 	@echo "Unit test coverage: $$(go tool cover -func=coverage.out | grep total | awk '{print $$3}')"
 
