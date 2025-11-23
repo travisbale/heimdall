@@ -242,12 +242,35 @@ heimdall/
 
 ## Security Considerations
 
+### Authentication & Cryptography
 - **Argon2id** - Memory-hard password hashing (64MB, 2 iterations, 4 threads)
 - **JWT RSA signatures** - Asymmetric keys for token signing/verification
-- **Row-Level Security** - Database-enforced tenant isolation
-- **Non-root container** - Docker runs as `heimdall:heimdall` (uid 1000)
 - **Constant-time comparison** - Prevents timing attacks on passwords
 - **HTTPS recommended** - For production deployments
+
+### Multi-Tenant Isolation
+- **Row-Level Security (RLS)** - Database-enforced tenant isolation at the PostgreSQL layer
+- **JOIN-based RLS policies** - Junction tables use EXISTS subqueries to validate entity relationships:
+
+```sql
+-- Example: user_roles table RLS policy
+CREATE POLICY tenant_isolation_policy ON user_roles
+    FOR ALL TO PUBLIC
+    USING (EXISTS (
+        SELECT 1 FROM users WHERE users.id = user_roles.user_id
+    ) AND EXISTS (
+        SELECT 1 FROM roles WHERE roles.id = user_roles.role_id
+    ));
+```
+
+This approach provides:
+- **Normalized schema** - No redundant `tenant_id` in junction tables
+- **Referential integrity** - Prevents cross-tenant associations (e.g., assigning Tenant A's role to Tenant B's user)
+- **Defense in depth** - Database blocks invalid operations even if application code has bugs
+- **Security by design** - RLS filtering happens automatically on parent tables
+
+### Container Security
+- **Non-root container** - Docker runs as `heimdall:heimdall` (uid 1000)
 
 ## Configuration
 
