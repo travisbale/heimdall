@@ -12,6 +12,19 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteAllRolePermissions = `-- name: DeleteAllRolePermissions :exec
+DELETE FROM role_permissions
+WHERE role_id = $1
+`
+
+// Replace all permissions for a role (used for bulk updates)
+// First delete all existing permissions, then insert new ones
+// Note: This should be called in a transaction with InsertRolePermissions
+func (q *Queries) DeleteAllRolePermissions(ctx context.Context, roleID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllRolePermissions, roleID)
+	return err
+}
+
 const getRolePermissions = `-- name: GetRolePermissions :many
 SELECT p.id, p.name, p.description, rp.created_at as assigned_at
 FROM permissions p
@@ -53,10 +66,8 @@ func (q *Queries) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]G
 }
 
 const insertRolePermissions = `-- name: InsertRolePermissions :exec
-INSERT INTO role_permissions (role_id, permission_id, tenant_id)
-SELECT $1::uuid, unnest($2::uuid[]), r.tenant_id
-FROM roles r
-WHERE r.id = $1::uuid
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT $1::uuid, unnest($2::uuid[])
 ON CONFLICT (role_id, permission_id) DO NOTHING
 `
 
@@ -68,18 +79,5 @@ type InsertRolePermissionsParams struct {
 // Insert multiple permissions for a role (called after SetRolePermissions in transaction)
 func (q *Queries) InsertRolePermissions(ctx context.Context, arg InsertRolePermissionsParams) error {
 	_, err := q.db.Exec(ctx, insertRolePermissions, arg.Column1, arg.Column2)
-	return err
-}
-
-const setRolePermissions = `-- name: SetRolePermissions :exec
-DELETE FROM role_permissions
-WHERE role_id = $1
-`
-
-// Replace all permissions for a role (used for bulk updates)
-// First delete all existing permissions, then insert new ones
-// Note: This should be called in a transaction with InsertRolePermissions
-func (q *Queries) SetRolePermissions(ctx context.Context, roleID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setRolePermissions, roleID)
 	return err
 }

@@ -8,33 +8,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
 )
 
 // CreateUser creates a new user and assigns specified roles
-func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uuid.UUID) (*User, string, error) {
-	ssoRequired, err := s.oidcService.IsSSORequired(ctx, email)
+func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid.UUID) (*User, string, error) {
+	ssoRequired, err := s.oidcService.IsSSORequired(ctx, user.Email)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to check SSO requirement: %w", err)
 	}
 
-	tenantID, err := identity.GetTenant(ctx)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get tenant from context: %w", err)
-	}
-
-	var status UserStatus
+	// Set status based on SSO requirement
 	if ssoRequired {
-		status = UserStatusActive
+		user.Status = UserStatusActive
 	} else {
-		status = UserStatusUnverified
-	}
-
-	user := &User{
-		TenantID: tenantID,
-		Email:    email,
-		Status:   status,
+		user.Status = UserStatusUnverified
 	}
 
 	user, err = s.userDB.CreateUser(ctx, user)
@@ -45,15 +33,9 @@ func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uu
 	var verificationToken string
 	if !ssoRequired {
 		var err error
-		verificationToken, err = token.Generate(32)
+		verificationToken, err = s.createVerificationToken(ctx, user.ID)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to generate verification token: %w", err)
-		}
-
-		expiresAt := time.Now().Add(registrationTokenExpiration)
-		_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to create verification token: %w", err)
+			return nil, "", err
 		}
 	}
 
@@ -64,7 +46,7 @@ func (s *UserService) CreateUser(ctx context.Context, email string, roleIDs []uu
 		}
 	}
 
-	s.logger.Info(ctx, events.UserCreated, "user_id", user.ID, "email", email, "status", status)
+	s.logger.Info(ctx, events.UserCreated, "user_id", user.ID, "email", user.Email, "status", user.Status)
 
 	return user, verificationToken, nil
 }
@@ -84,33 +66,22 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			// Create a new tenant for the user
-			tenantID := uuid.New()
-			_, err := s.tenantsDB.CreateTenant(ctx, tenantID)
+			// Bootstrap new tenant with user and System Admin role
+			_, user, err = s.tenantsDB.BootstrapTenant(ctx, email, UserStatusUnverified)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create tenant: %w", err)
+				return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 			}
 
-			// Create the user under the new tenant
-			user = &User{
-				TenantID:     tenantID,
-				Email:        email,
-				PasswordHash: "", // Empty until email is verified and password is set
-				Status:       UserStatusUnverified,
+			verificationToken, err := s.createVerificationToken(ctx, user.ID)
+			if err != nil {
+				return nil, err
 			}
 
-			user, err = s.userDB.CreateUser(ctx, user)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create user: %w", err)
+			if err := s.emailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
+				return nil, fmt.Errorf("failed to send verification email: %w", err)
 			}
 
-			// Setup System Admin role for the first user in the tenant
-			// Set tenant context for RBAC operations which require tenant isolation
-			ctxWithTenant := identity.WithUser(ctx, user.ID, tenantID)
-			err = s.rbacService.SetupSystemAdminRole(ctxWithTenant, user.ID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to setup System Admin role: %w", err)
-			}
+			return user, nil
 
 		default:
 			return nil, fmt.Errorf("failed to check existing user: %w", err)
@@ -183,4 +154,19 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, tokenStr string, 
 	s.logger.Info(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
 	return user, nil
+}
+
+func (s *UserService) createVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	verificationToken, err := token.Generate(32)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate verification token: %w", err)
+	}
+
+	expiresAt := time.Now().Add(registrationTokenExpiration)
+	_, err = s.verificationTokenDB.CreateToken(ctx, userID, verificationToken, expiresAt)
+	if err != nil {
+		return "", fmt.Errorf("failed to create verification token: %w", err)
+	}
+
+	return verificationToken, nil
 }

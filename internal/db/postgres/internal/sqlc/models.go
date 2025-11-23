@@ -287,7 +287,6 @@ type Role struct {
 type RolePermission struct {
 	RoleID       uuid.UUID `json:"role_id"`
 	PermissionID uuid.UUID `json:"permission_id"`
-	TenantID     uuid.UUID `json:"tenant_id"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -311,14 +310,12 @@ type User struct {
 type UserPermission struct {
 	UserID       uuid.UUID            `json:"user_id"`
 	PermissionID uuid.UUID            `json:"permission_id"`
-	TenantID     uuid.UUID            `json:"tenant_id"`
 	Effect       sdk.PermissionEffect `json:"effect"`
 }
 
 type UserRole struct {
-	UserID   uuid.UUID `json:"user_id"`
-	RoleID   uuid.UUID `json:"role_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
+	UserID uuid.UUID `json:"user_id"`
+	RoleID uuid.UUID `json:"role_id"`
 }
 
 type VerificationToken struct {

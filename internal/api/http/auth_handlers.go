@@ -54,6 +54,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Add tenant context for MFA status check (RLS requirement)
 	ctx := identity.WithTenant(r.Context(), user.TenantID)
+
 	mfaStatus, err := h.mfaService.GetStatus(ctx, user.ID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get MFA status"})

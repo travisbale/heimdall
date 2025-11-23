@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
@@ -26,7 +25,7 @@ func (r *RolesDB) CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, 
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
+			return err
 		}
 
 		result, err := q.CreateRole(ctx, sqlc.CreateRoleParams{

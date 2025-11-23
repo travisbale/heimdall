@@ -1,4 +1,4 @@
--- name: SetUserRoles :exec
+-- name: DeleteAllUserRoles :exec
 -- Replace all roles for a user (used for bulk updates)
 -- Note: This should be called in a transaction with InsertUserRoles
 DELETE FROM user_roles
@@ -6,9 +6,9 @@ WHERE user_id = $1;
 
 -- name: InsertUserRoles :exec
 -- Insert multiple roles for a user (called after SetUserRoles in transaction)
--- Parameters: user_id, role_ids array, tenant_id
-INSERT INTO user_roles (user_id, role_id, tenant_id)
-SELECT @user_id::uuid, unnest(@role_ids::uuid[]), @tenant_id::uuid
+-- Parameters: user_id, role_ids array
+INSERT INTO user_roles (user_id, role_id)
+SELECT @user_id::uuid, unnest(@role_ids::uuid[])
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- name: GetUserRoles :many

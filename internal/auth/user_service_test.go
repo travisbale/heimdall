@@ -20,10 +20,14 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 	loginAttempts := &mockLoginAttemptsService{}
 	oidcService := &mockOIDCServiceForUser{}
 	rbacService := newMockRBACService()
+	tenantsDB := newMockTenantsDB()
+
+	// Wire up dependencies so BootstrapTenant can properly update shared mocks
+	tenantsDB.setDependencies(userDB)
 
 	service := NewUserService(&UserServiceConfig{
 		UserDB:               userDB,
-		TenantsDB:            newMockTenantsDB(),
+		TenantsDB:            tenantsDB,
 		Hasher:               hasher,
 		EmailClient:          emailClient,
 		VerificationTokenDB:  verificationTokenDB,

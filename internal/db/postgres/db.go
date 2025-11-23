@@ -86,7 +86,7 @@ func (d *DB) WithTransaction(ctx context.Context, fn func(*sqlc.Queries) error) 
 func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error) error {
 	tenantID, err := identity.GetTenant(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get tenant from context: %w", err)
+		return err
 	}
 
 	return d.withTenantTransaction(ctx, tenantID.String(), fn)

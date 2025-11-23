@@ -19,17 +19,9 @@ func NewUserPermissionsDB(db *DB) *UserPermissionsDB {
 }
 
 // SetDirectPermissions sets all direct permissions for a user (replaces existing direct permissions)
-// Tenant-scoped operation - only affects users within the caller's tenant
 func (u *UserPermissionsDB) SetDirectPermissions(ctx context.Context, userID uuid.UUID, permissions []auth.DirectPermission) error {
 	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		// Get user to retrieve tenant_id (RLS ensures same-tenant access)
-		user, err := q.GetUser(ctx, userID)
-		if err != nil {
-			return err
-		}
-
-		// Delete all existing permissions
-		if err := q.SetDirectPermissions(ctx, userID); err != nil {
+		if err := q.DeleteAllDirectPermissions(ctx, userID); err != nil {
 			return err
 		}
 
@@ -45,7 +37,6 @@ func (u *UserPermissionsDB) SetDirectPermissions(ctx context.Context, userID uui
 			return q.InsertDirectPermissions(ctx, sqlc.InsertDirectPermissionsParams{
 				UserID:        userID,
 				PermissionIds: permissionIDs,
-				TenantID:      user.TenantID,
 				Effects:       effects,
 			})
 		}
@@ -54,7 +45,6 @@ func (u *UserPermissionsDB) SetDirectPermissions(ctx context.Context, userID uui
 }
 
 // GetDirectPermissions retrieves direct permissions assigned to a user
-// Tenant-scoped operation - only returns permissions for users within the caller's tenant
 func (u *UserPermissionsDB) GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*auth.EffectivePermission, error) {
 	var assignments []*auth.EffectivePermission
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {

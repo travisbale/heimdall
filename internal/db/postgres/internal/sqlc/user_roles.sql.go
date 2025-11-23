@@ -11,6 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteAllUserRoles = `-- name: DeleteAllUserRoles :exec
+DELETE FROM user_roles
+WHERE user_id = $1
+`
+
+// Replace all roles for a user (used for bulk updates)
+// Note: This should be called in a transaction with InsertUserRoles
+func (q *Queries) DeleteAllUserRoles(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllUserRoles, userID)
+	return err
+}
+
 const getRoleUsers = `-- name: GetRoleUsers :many
 SELECT u.id, u.email
 FROM users u
@@ -86,32 +98,19 @@ func (q *Queries) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]GetUser
 }
 
 const insertUserRoles = `-- name: InsertUserRoles :exec
-INSERT INTO user_roles (user_id, role_id, tenant_id)
-SELECT $1::uuid, unnest($2::uuid[]), $3::uuid
+INSERT INTO user_roles (user_id, role_id)
+SELECT $1::uuid, unnest($2::uuid[])
 ON CONFLICT (user_id, role_id) DO NOTHING
 `
 
 type InsertUserRolesParams struct {
-	UserID   uuid.UUID   `json:"user_id"`
-	RoleIds  []uuid.UUID `json:"role_ids"`
-	TenantID uuid.UUID   `json:"tenant_id"`
+	UserID  uuid.UUID   `json:"user_id"`
+	RoleIds []uuid.UUID `json:"role_ids"`
 }
 
 // Insert multiple roles for a user (called after SetUserRoles in transaction)
-// Parameters: user_id, role_ids array, tenant_id
+// Parameters: user_id, role_ids array
 func (q *Queries) InsertUserRoles(ctx context.Context, arg InsertUserRolesParams) error {
-	_, err := q.db.Exec(ctx, insertUserRoles, arg.UserID, arg.RoleIds, arg.TenantID)
-	return err
-}
-
-const setUserRoles = `-- name: SetUserRoles :exec
-DELETE FROM user_roles
-WHERE user_id = $1
-`
-
-// Replace all roles for a user (used for bulk updates)
-// Note: This should be called in a transaction with InsertUserRoles
-func (q *Queries) SetUserRoles(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setUserRoles, userID)
+	_, err := q.db.Exec(ctx, insertUserRoles, arg.UserID, arg.RoleIds)
 	return err
 }

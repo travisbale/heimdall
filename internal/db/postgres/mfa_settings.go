@@ -29,7 +29,7 @@ func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedS
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
+			return err
 		}
 
 		row, err := q.CreateMFASettings(ctx, sqlc.CreateMFASettingsParams{

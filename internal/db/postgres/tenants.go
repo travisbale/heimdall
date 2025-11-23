@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -19,21 +20,82 @@ func NewTenantsDB(db *DB) *TenantsDB {
 	return &TenantsDB{db: db}
 }
 
-// CreateTenant creates a new tenant in the database
-func (t *TenantsDB) CreateTenant(ctx context.Context, tenantID uuid.UUID) (*auth.Tenant, error) {
-	var result *auth.Tenant
+// BootstrapTenant creates a new tenant with initial user and System Admin role
+func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status auth.UserStatus) (*auth.Tenant, *auth.User, error) {
+	var tenant *auth.Tenant
+	var user *auth.User
 
-	err := t.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+	tenantID := uuid.New()
+	ctx = identity.WithTenant(ctx, tenantID)
+
+	err := t.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+		// Create tenant
 		dbTenant, err := q.CreateTenant(ctx, tenantID)
 		if err != nil {
 			return fmt.Errorf("failed to create tenant: %w", err)
 		}
 
-		result = &auth.Tenant{
-			ID: dbTenant.ID,
+		tenant = &auth.Tenant{ID: dbTenant.ID}
+
+		// Create user with empty password
+		dbUser, err := q.CreateUser(ctx, sqlc.CreateUserParams{
+			TenantID:     tenantID,
+			Email:        email,
+			PasswordHash: "",
+			Status:       status,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
 		}
+
+		user, err = convertUserToDomain(dbUser)
+		if err != nil {
+			return err
+		}
+
+		// Create System Admin role
+		role, err := q.CreateRole(ctx, sqlc.CreateRoleParams{
+			TenantID:    tenantID,
+			Name:        "System Admin",
+			Description: "Full system administrator with all permissions",
+			MfaRequired: false,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create System Admin role: %w", err)
+		}
+
+		// Assign all permissions to System Admin role
+		permissions, err := q.ListPermissions(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list permissions: %w", err)
+		}
+
+		permissionIDs := make([]uuid.UUID, len(permissions))
+		for i, perm := range permissions {
+			permissionIDs[i] = perm.ID
+		}
+
+		if len(permissionIDs) > 0 {
+			err = q.InsertRolePermissions(ctx, sqlc.InsertRolePermissionsParams{
+				Column1: role.ID,
+				Column2: permissionIDs,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to assign permissions to System Admin role: %w", err)
+			}
+		}
+
+		// Assign System Admin role to user
+		err = q.InsertUserRoles(ctx, sqlc.InsertUserRolesParams{
+			UserID:  user.ID,
+			RoleIds: []uuid.UUID{role.ID},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to assign System Admin role to user: %w", err)
+		}
+
 		return nil
 	})
 
-	return result, err
+	return tenant, user, err
 }

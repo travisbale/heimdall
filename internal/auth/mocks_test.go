@@ -272,6 +272,7 @@ func (m *mockUserDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 type mockTenantsDB struct {
 	tenants map[uuid.UUID]*Tenant
+	userDB  *mockUserDB
 }
 
 func newMockTenantsDB() *mockTenantsDB {
@@ -280,12 +281,31 @@ func newMockTenantsDB() *mockTenantsDB {
 	}
 }
 
-func (m *mockTenantsDB) CreateTenant(ctx context.Context, tenantID uuid.UUID) (*Tenant, error) {
+func (m *mockTenantsDB) setDependencies(userDB *mockUserDB) {
+	m.userDB = userDB
+}
+
+func (m *mockTenantsDB) BootstrapTenant(ctx context.Context, email string, status UserStatus) (*Tenant, *User, error) {
 	tenant := &Tenant{
-		ID: tenantID,
+		ID: uuid.New(),
 	}
-	m.tenants[tenantID] = tenant
-	return tenant, nil
+	m.tenants[tenant.ID] = tenant
+
+	user := &User{
+		ID:           uuid.New(),
+		TenantID:     tenant.ID,
+		Email:        email,
+		Status:       status,
+		PasswordHash: "",
+	}
+
+	// Store user in user DB if dependencies are set
+	if m.userDB != nil {
+		m.userDB.users[user.ID] = user
+		m.userDB.emails[user.Email] = user
+	}
+
+	return tenant, user, nil
 }
 
 func (m *mockTenantsDB) GetTenant(ctx context.Context, tenantID uuid.UUID) (*Tenant, error) {
@@ -675,9 +695,8 @@ func (m *mockOIDCServiceForUser) IsSSORequired(ctx context.Context, email string
 }
 
 type mockRBACService struct {
-	setupSystemAdminRoleError error
-	setUserRolesError         error
-	userScopes                map[uuid.UUID][]sdk.Scope
+	setUserRolesError error
+	userScopes        map[uuid.UUID][]sdk.Scope
 }
 
 func newMockRBACService() *mockRBACService {
@@ -692,29 +711,6 @@ func (m *mockRBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) (
 		return []sdk.Scope{}, nil
 	}
 	return scopes, nil
-}
-
-func (m *mockRBACService) SetupSystemAdminRole(ctx context.Context, userID uuid.UUID) error {
-	if m.setupSystemAdminRoleError != nil {
-		return m.setupSystemAdminRoleError
-	}
-	// Simulate successful setup by granting all scopes to the user
-	m.userScopes[userID] = []sdk.Scope{
-		sdk.ScopeUserCreate,
-		sdk.ScopeUserRead,
-		sdk.ScopeUserUpdate,
-		sdk.ScopeUserDelete,
-		sdk.ScopeUserAssign,
-		sdk.ScopeRoleCreate,
-		sdk.ScopeRoleRead,
-		sdk.ScopeRoleUpdate,
-		sdk.ScopeRoleDelete,
-		sdk.ScopeOIDCCreate,
-		sdk.ScopeOIDCRead,
-		sdk.ScopeOIDCUpdate,
-		sdk.ScopeOIDCDelete,
-	}
-	return nil
 }
 
 func (m *mockRBACService) SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {

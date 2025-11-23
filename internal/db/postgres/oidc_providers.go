@@ -33,7 +33,7 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
+			return err
 		}
 
 		// Encrypt client secret at rest to protect OAuth credentials
@@ -70,17 +70,24 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth
 	return result, err
 }
 
-// GetOIDCProviderByID retrieves provider by ID with tenant isolation
+// GetOIDCProviderByID retrieves provider by ID with optional tenant validation
 func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*auth.OIDCProviderConfig, error) {
 	var result *auth.OIDCProviderConfig
 
-	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbProvider, err := q.GetOIDCProvider(ctx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return auth.ErrOIDCProviderNotFound
 			}
 			return fmt.Errorf("failed to get oauth provider by id: %w", err)
+		}
+
+		// Tenant validation if context has tenant
+		if tenantID, err := identity.GetTenant(ctx); err == nil {
+			if dbProvider.TenantID != tenantID {
+				return auth.ErrOIDCProviderNotFound
+			}
 		}
 
 		result, err = o.convertOIDCProviderToDomain(dbProvider)
@@ -95,10 +102,9 @@ func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*auth.OIDCPr
 	var result []*auth.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		// Retrieve tenant ID from context
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
+			return err
 		}
 
 		dbProviders, err := q.ListOIDCProviders(ctx, tenantID)

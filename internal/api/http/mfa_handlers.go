@@ -175,13 +175,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
-		return
-	}
-
-	tenantID, err := identity.GetTenant(r.Context())
+	userID, tenantID, err := identity.GetUserAndTenant(r.Context())
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
 		return

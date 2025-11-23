@@ -12,6 +12,18 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
+const deleteAllDirectPermissions = `-- name: DeleteAllDirectPermissions :exec
+DELETE FROM user_permissions
+WHERE user_id = $1
+`
+
+// Replace all direct permissions for a user (used for bulk updates)
+// Note: This should be called in a transaction with InsertDirectPermissions
+func (q *Queries) DeleteAllDirectPermissions(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllDirectPermissions, userID)
+	return err
+}
+
 const getDirectPermissions = `-- name: GetDirectPermissions :many
 SELECT p.id, p.name, p.description, up.effect
 FROM permissions p
@@ -54,37 +66,19 @@ func (q *Queries) GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([
 }
 
 const insertDirectPermissions = `-- name: InsertDirectPermissions :exec
-INSERT INTO user_permissions (user_id, permission_id, tenant_id, effect)
-SELECT $1::uuid, unnest($2::uuid[]), $3::uuid, unnest($4::varchar[])::permission_effect
+INSERT INTO user_permissions (user_id, permission_id, effect)
+SELECT $1::uuid, unnest($2::uuid[]), unnest($3::varchar[])::permission_effect
 `
 
 type InsertDirectPermissionsParams struct {
 	UserID        uuid.UUID   `json:"user_id"`
 	PermissionIds []uuid.UUID `json:"permission_ids"`
-	TenantID      uuid.UUID   `json:"tenant_id"`
 	Effects       []string    `json:"effects"`
 }
 
 // Insert multiple direct permissions for a user (called after SetDirectPermissions in transaction)
-// Parameters: user_id, permission_ids array, effects array (strings cast to permission_effect), tenant_id
+// Parameters: user_id, permission_ids array, effects array (strings cast to permission_effect)
 func (q *Queries) InsertDirectPermissions(ctx context.Context, arg InsertDirectPermissionsParams) error {
-	_, err := q.db.Exec(ctx, insertDirectPermissions,
-		arg.UserID,
-		arg.PermissionIds,
-		arg.TenantID,
-		arg.Effects,
-	)
-	return err
-}
-
-const setDirectPermissions = `-- name: SetDirectPermissions :exec
-DELETE FROM user_permissions
-WHERE user_id = $1
-`
-
-// Replace all direct permissions for a user (used for bulk updates)
-// Note: This should be called in a transaction with InsertDirectPermissions
-func (q *Queries) SetDirectPermissions(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setDirectPermissions, userID)
+	_, err := q.db.Exec(ctx, insertDirectPermissions, arg.UserID, arg.PermissionIds, arg.Effects)
 	return err
 }

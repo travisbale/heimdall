@@ -21,7 +21,7 @@ type userDB interface {
 }
 
 type tenantsDB interface {
-	CreateTenant(ctx context.Context, tenantID uuid.UUID) (*Tenant, error)
+	BootstrapTenant(ctx context.Context, email string, status UserStatus) (*Tenant, *User, error)
 }
 
 type hasher interface {
@@ -52,7 +52,6 @@ type loginAttemptsService interface {
 
 type rbacService interface {
 	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
-	SetupSystemAdminRole(ctx context.Context, userID uuid.UUID) error
 	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 }
 

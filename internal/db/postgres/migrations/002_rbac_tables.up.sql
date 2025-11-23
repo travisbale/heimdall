@@ -39,7 +39,6 @@ CREATE POLICY tenant_isolation_policy ON roles
 CREATE TABLE role_permissions (
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (role_id, permission_id)
 );
@@ -50,18 +49,22 @@ ALTER TABLE role_permissions ENABLE ROW LEVEL SECURITY;
 -- Force RLS even for table owner
 ALTER TABLE role_permissions FORCE ROW LEVEL SECURITY;
 
--- RLS policy for tenant isolation (strict - no cross-tenant access)
+-- RLS policy for tenant isolation using join to roles table
+-- NOTE: The EXISTS subquery sees an RLS-filtered view of roles table
 CREATE POLICY tenant_isolation_policy ON role_permissions
     FOR ALL
     TO PUBLIC
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (EXISTS (
+        SELECT 1 FROM roles WHERE roles.id = role_permissions.role_id
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM roles WHERE roles.id = role_permissions.role_id
+    ));
 
 -- User roles (which roles does this user have?)
 CREATE TABLE user_roles (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, role_id)
 );
 
@@ -71,18 +74,27 @@ ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 -- Force RLS even for table owner
 ALTER TABLE user_roles FORCE ROW LEVEL SECURITY;
 
--- RLS policy for tenant isolation (strict - no cross-tenant access)
+-- RLS policy for tenant isolation using join to users and roles tables
+-- NOTE: The EXISTS subqueries will see RLS-filtered views of users/roles tables,
+-- which automatically enforces tenant isolation. We just need to verify the records exist.
 CREATE POLICY tenant_isolation_policy ON user_roles
     FOR ALL
     TO PUBLIC
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (EXISTS (
+        SELECT 1 FROM users WHERE users.id = user_roles.user_id
+    ) AND EXISTS (
+        SELECT 1 FROM roles WHERE roles.id = user_roles.role_id
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM users WHERE users.id = user_roles.user_id
+    ) AND EXISTS (
+        SELECT 1 FROM roles WHERE roles.id = user_roles.role_id
+    ));
 
 -- Direct user permissions (allow/deny overrides)
 CREATE TABLE user_permissions (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     effect permission_effect NOT NULL,
     PRIMARY KEY (user_id, permission_id)
 );
@@ -93,12 +105,17 @@ ALTER TABLE user_permissions ENABLE ROW LEVEL SECURITY;
 -- Force RLS even for table owner
 ALTER TABLE user_permissions FORCE ROW LEVEL SECURITY;
 
--- RLS policy for tenant isolation (strict - no cross-tenant access)
+-- RLS policy for tenant isolation using join to users table
+-- NOTE: The EXISTS subquery sees an RLS-filtered view of users table
 CREATE POLICY tenant_isolation_policy ON user_permissions
     FOR ALL
     TO PUBLIC
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (EXISTS (
+        SELECT 1 FROM users WHERE users.id = user_permissions.user_id
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM users WHERE users.id = user_permissions.user_id
+    ));
 
 -- Indexes for performance
 CREATE INDEX idx_roles_tenant_id ON roles(tenant_id);

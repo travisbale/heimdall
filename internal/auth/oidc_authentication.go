@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
 )
@@ -161,9 +159,6 @@ func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string
 
 // handleSSOCallback processes corporate SSO callbacks
 func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
-	// Add tenant context from session for database queries (pre-authentication flow)
-	ctx = identity.WithTenant(ctx, *session.TenantID)
-
 	// Get tenant-specific provider configuration
 	providerConfig, err := s.oidcProviderDB.GetOIDCProviderByID(ctx, *session.OIDCProviderID)
 	if err != nil {
@@ -227,21 +222,16 @@ func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink)
 
 // autoProvisionSSOUser creates or links a user account during SSO login
 func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *OIDCProviderConfig, oidcProvider OIDCProvider, idToken string, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
-	// Check if auto-provisioning is enabled
 	if !providerConfig.AutoCreateUsers {
 		return nil, nil, ErrAutoProvisioningDisabled
 	}
 
-	// Check if email verification is required for this provider
 	if providerConfig.RequireEmailVerification {
 		if err := s.verifyEmailVerified(ctx, oidcProvider, idToken, userInfo); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	// Check if user with this email already exists
-	// Since we're here, provider sub is NEW (no existing link found), so if email exists:
-	// - Email was reassigned to new employee (requires admin intervention)
 	existingUser, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
 		return nil, nil, fmt.Errorf("failed to check existing user: %w", err)
@@ -260,7 +250,6 @@ func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *
 		return nil, nil, ErrEmailConflict
 	}
 
-	// Create new user account
 	user := &User{
 		TenantID: providerConfig.TenantID,
 		Email:    userInfo.Email,
@@ -272,7 +261,6 @@ func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *
 		return nil, nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Create OIDC link for the user (whether existing or newly created)
 	link := &OIDCLink{
 		UserID:           user.ID,
 		OIDCProviderID:   providerConfig.ID,
@@ -326,32 +314,13 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 		return nil, err
 	}
 
-	// Create new tenant for individual OAuth user
-	tenantID := uuid.New()
-	_, err = s.tenantsDB.CreateTenant(ctx, tenantID)
+	// Bootstrap new tenant with user and System Admin role
+	tenant, user, err := s.tenantsDB.BootstrapTenant(ctx, userInfo.Email, UserStatusActive)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tenant: %w", err)
+		return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 	}
 
-	// Create user in new tenant
-	user := &User{
-		TenantID: tenantID,
-		Email:    userInfo.Email,
-		Status:   UserStatusActive,
-	}
-
-	user, err = s.userDB.CreateUser(ctx, user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	ctxWithTenant := identity.WithUser(ctx, user.ID, tenantID)
-	err = s.rbacService.SetupSystemAdminRole(ctxWithTenant, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup System Admin role: %w", err)
-	}
-
-	s.logger.Info(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenantID, "email", userInfo.Email)
+	s.logger.Info(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenant.ID, "email", userInfo.Email)
 
 	return user, nil
 }

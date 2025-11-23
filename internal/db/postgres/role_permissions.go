@@ -44,12 +44,10 @@ func (r *RolePermissionsDB) GetRolePermissions(ctx context.Context, roleID uuid.
 // SetRolePermissions replaces all permissions for a role (bulk update)
 func (r *RolePermissionsDB) SetRolePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		// Delete all existing permissions
-		if err := q.SetRolePermissions(ctx, roleID); err != nil {
+		if err := q.DeleteAllRolePermissions(ctx, roleID); err != nil {
 			return err
 		}
 
-		// Insert new permissions if any provided
 		if len(permissionIDs) > 0 {
 			return q.InsertRolePermissions(ctx, sqlc.InsertRolePermissionsParams{
 				Column1: roleID,

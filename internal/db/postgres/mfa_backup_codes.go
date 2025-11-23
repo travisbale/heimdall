@@ -24,7 +24,7 @@ func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, co
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get tenant from context: %w", err)
+			return err
 		}
 
 		params := make([]sqlc.CreateBackupCodesParams, len(codeHashes))

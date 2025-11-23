@@ -231,7 +231,10 @@ func TestCreateUser(t *testing.T) {
 		tenantID := uuid.New()
 		ctx := identity.WithTenant(context.Background(), tenantID)
 
-		user, verificationToken, err := f.service.CreateUser(ctx, "admin@example.com", nil)
+		user, verificationToken, err := f.service.CreateUser(ctx, &User{
+			TenantID: tenantID,
+			Email:    "admin@example.com",
+		}, nil)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -275,7 +278,10 @@ func TestCreateUser(t *testing.T) {
 		tenantID := uuid.New()
 		ctx := identity.WithTenant(context.Background(), tenantID)
 
-		user, verificationToken, err := f.service.CreateUser(ctx, "sso@company.com", nil)
+		user, verificationToken, err := f.service.CreateUser(ctx, &User{
+			TenantID: tenantID,
+			Email:    "sso@company.com",
+		}, nil)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}

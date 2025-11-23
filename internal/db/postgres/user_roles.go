@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -20,25 +19,16 @@ func NewUserRolesDB(db *DB) *UserRolesDB {
 }
 
 // SetUserRoles sets all roles for a user (replaces existing roles)
-// Roles are strictly tenant-scoped and tenant context is required
 func (u *UserRolesDB) SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
 	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		// Delete all existing roles
-		if err := q.SetUserRoles(ctx, userID); err != nil {
+		if err := q.DeleteAllUserRoles(ctx, userID); err != nil {
 			return err
 		}
 
-		// Insert new roles (only if there are any)
 		if len(roleIDs) > 0 {
-			tenantID, err := identity.GetTenant(ctx)
-			if err != nil {
-				return err
-			}
-
 			return q.InsertUserRoles(ctx, sqlc.InsertUserRolesParams{
-				UserID:   userID,
-				RoleIds:  roleIDs,
-				TenantID: tenantID,
+				UserID:  userID,
+				RoleIds: roleIDs,
 			})
 		}
 		return nil
@@ -46,7 +36,6 @@ func (u *UserRolesDB) SetUserRoles(ctx context.Context, userID uuid.UUID, roleID
 }
 
 // GetUserRoles retrieves all roles for a user
-// Roles are strictly tenant-scoped and tenant context is required
 func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*auth.Role, error) {
 	var roles []*auth.Role
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
