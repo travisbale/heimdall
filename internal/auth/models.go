@@ -20,9 +20,7 @@ const (
 
 // Tenant represents a tenant in the system
 type Tenant struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID uuid.UUID
 }
 
 // User represents a user in the system
@@ -32,8 +30,6 @@ type User struct {
 	Email        string
 	PasswordHash string
 	Status       UserStatus
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
 	LastLoginAt  *time.Time
 }
 
@@ -49,7 +45,6 @@ type UserToken struct {
 	UserID    uuid.UUID
 	Token     string
 	ExpiresAt time.Time
-	CreatedAt time.Time
 }
 
 // OIDCProviderConfig represents tenant-specific OIDC provider for corporate SSO
@@ -78,9 +73,6 @@ type OIDCProviderConfig struct {
 	ClientSecretExpiresAt   *time.Time
 
 	RegistrationMethod sdk.OIDCRegistrationMethod
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 // UpdateOIDCProviderParams supports partial updates using optional pointer fields
@@ -116,7 +108,6 @@ type OIDCSession struct {
 	ProviderType   *sdk.OIDCProviderType // System-wide provider for individual OAuth
 	RedirectURI    string
 	TenantID       *uuid.UUID
-	CreatedAt      time.Time
 	ExpiresAt      time.Time
 }
 
@@ -225,23 +216,19 @@ type DirectPermission struct {
 // MFASettings represents user's MFA configuration
 type MFASettings struct {
 	UserID         uuid.UUID
-	TenantID       uuid.UUID
 	TOTPSecret     string
 	LastUsedWindow *int64
-	CreatedAt      time.Time
 	VerifiedAt     *time.Time
 	LastUsedAt     *time.Time
 }
 
 // MFABackupCode represents a one-time recovery code
 type MFABackupCode struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	TenantID  uuid.UUID
-	CodeHash  string
-	Used      bool
-	UsedAt    *time.Time
-	CreatedAt time.Time
+	ID       uuid.UUID
+	UserID   uuid.UUID
+	CodeHash string
+	Used     bool
+	UsedAt   *time.Time
 }
 
 // MFAEnrollment contains TOTP enrollment data

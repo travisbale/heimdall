@@ -273,8 +273,6 @@ type OIDCProvider struct {
 	RegistrationMethod       OIDCRegistrationMethod `json:"registration_method"`
 	ClientIDIssuedAt         *time.Time             `json:"client_id_issued_at,omitempty"`
 	ClientSecretExpiresAt    *time.Time             `json:"client_secret_expires_at,omitempty"`
-	CreatedAt                time.Time              `json:"created_at"`
-	UpdatedAt                time.Time              `json:"updated_at"`
 }
 
 // CreateOIDCProviderRequest represents the request to create an OIDC provider

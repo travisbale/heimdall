@@ -43,10 +43,8 @@ func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedS
 
 		result = &auth.MFASettings{
 			UserID:         row.UserID,
-			TenantID:       row.TenantID,
 			TOTPSecret:     row.TotpSecret,
 			LastUsedWindow: row.LastUsedWindow,
-			CreatedAt:      row.CreatedAt,
 			VerifiedAt:     row.VerifiedAt,
 			LastUsedAt:     row.LastUsedAt,
 		}
@@ -71,10 +69,8 @@ func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*aut
 
 		result = &auth.MFASettings{
 			UserID:         row.UserID,
-			TenantID:       row.TenantID,
 			TOTPSecret:     row.TotpSecret,
 			LastUsedWindow: row.LastUsedWindow,
-			CreatedAt:      row.CreatedAt,
 			VerifiedAt:     row.VerifiedAt,
 			LastUsedAt:     row.LastUsedAt,
 		}

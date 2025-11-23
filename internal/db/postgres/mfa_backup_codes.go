@@ -57,13 +57,11 @@ func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UU
 		result = make([]*auth.MFABackupCode, len(rows))
 		for i, row := range rows {
 			result[i] = &auth.MFABackupCode{
-				ID:        row.ID,
-				UserID:    row.UserID,
-				TenantID:  row.TenantID,
-				CodeHash:  row.CodeHash,
-				Used:      row.Used,
-				UsedAt:    row.UsedAt,
-				CreatedAt: row.CreatedAt,
+				ID:       row.ID,
+				UserID:   row.UserID,
+				CodeHash: row.CodeHash,
+				Used:     row.Used,
+				UsedAt:   row.UsedAt,
 			}
 		}
 		return nil

@@ -9,10 +9,10 @@ INSERT INTO verification_tokens (
 SET token = EXCLUDED.token,
     expires_at = EXCLUDED.expires_at,
     created_at = now()
-RETURNING user_id, token, expires_at, created_at;
+RETURNING *;
 
 -- name: GetVerificationToken :one
-SELECT user_id, token, expires_at, created_at
+SELECT *
 FROM verification_tokens
 WHERE token = $1;
 

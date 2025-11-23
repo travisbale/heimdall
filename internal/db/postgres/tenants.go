@@ -30,9 +30,7 @@ func (t *TenantsDB) CreateTenant(ctx context.Context, tenantID uuid.UUID) (*auth
 		}
 
 		result = &auth.Tenant{
-			ID:        dbTenant.ID,
-			CreatedAt: dbTenant.CreatedAt,
-			UpdatedAt: dbTenant.UpdatedAt,
+			ID: dbTenant.ID,
 		}
 		return nil
 	})

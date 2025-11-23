@@ -39,7 +39,6 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
-			CreatedAt: row.CreatedAt,
 		}
 		return nil
 	})
@@ -64,7 +63,6 @@ func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*aut
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
-			CreatedAt: row.CreatedAt,
 		}
 		return nil
 	})

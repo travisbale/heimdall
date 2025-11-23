@@ -23,7 +23,6 @@ func NewUsersDB(db *DB) *UsersDB {
 }
 
 // CreateUser creates a new user
-// Uses WithTransaction (not WithTenantContext) because registration happens pre-authentication
 func (u *UsersDB) CreateUser(ctx context.Context, user *auth.User) (*auth.User, error) {
 	var result *auth.User
 
@@ -145,8 +144,6 @@ func convertUserToDomain(dbUser sqlc.User) (*auth.User, error) {
 		Email:        dbUser.Email,
 		PasswordHash: dbUser.PasswordHash,
 		Status:       dbUser.Status,
-		CreatedAt:    dbUser.CreatedAt,
-		UpdatedAt:    dbUser.UpdatedAt,
 		LastLoginAt:  dbUser.LastLoginAt,
 	}, nil
 }

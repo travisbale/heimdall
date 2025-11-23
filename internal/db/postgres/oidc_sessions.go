@@ -97,7 +97,6 @@ func convertOIDCSessionToDomain(dbSession sqlc.OidcSession) *auth.OIDCSession {
 		ProviderType:   dbSession.ProviderType,
 		RedirectURI:    dbSession.RedirectUri,
 		TenantID:       dbSession.TenantID,
-		CreatedAt:      dbSession.CreatedAt,
 		ExpiresAt:      dbSession.ExpiresAt,
 	}
 }

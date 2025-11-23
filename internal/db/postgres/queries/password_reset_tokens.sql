@@ -9,10 +9,10 @@ INSERT INTO password_reset_tokens (
 SET token = EXCLUDED.token,
     expires_at = EXCLUDED.expires_at,
     created_at = now()
-RETURNING user_id, token, expires_at, created_at;
+RETURNING *;
 
 -- name: GetPasswordResetToken :one
-SELECT user_id, token, expires_at, created_at
+SELECT *
 FROM password_reset_tokens
 WHERE token = $1;
 

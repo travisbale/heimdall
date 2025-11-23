@@ -39,7 +39,6 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
-			CreatedAt: row.CreatedAt,
 		}
 		return nil
 	})
@@ -64,7 +63,6 @@ func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*au
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
-			CreatedAt: row.CreatedAt,
 		}
 		return nil
 	})

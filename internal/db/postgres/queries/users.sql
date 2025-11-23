@@ -6,15 +6,15 @@ INSERT INTO users (
     status
 ) VALUES (
     $1, $2, $3, $4
-) RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at;
+) RETURNING *;
 
 -- name: GetUser :one
-SELECT id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+SELECT *
 FROM users
 WHERE id = $1;
 
 -- name: GetUserByEmail :one
-SELECT id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+SELECT *
 FROM users
 WHERE email = $1 AND status != 'inactive';
 
@@ -24,7 +24,7 @@ SET password_hash = COALESCE(sqlc.narg('password_hash'), password_hash),
     status = COALESCE(sqlc.narg('status'), status),
     updated_at = now()
 WHERE id = sqlc.arg('id')
-RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at;
+RETURNING *;
 
 -- name: UpdateLastLogin :exec
 UPDATE users

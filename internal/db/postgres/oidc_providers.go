@@ -225,7 +225,5 @@ func (o *OIDCProvidersDB) convertOIDCProviderToDomain(dbProvider sqlc.OidcProvid
 		ClientIDIssuedAt:         dbProvider.ClientIDIssuedAt,
 		ClientSecretExpiresAt:    dbProvider.ClientSecretExpiresAt,
 		RegistrationMethod:       dbProvider.RegistrationMethod,
-		CreatedAt:                dbProvider.CreatedAt,
-		UpdatedAt:                dbProvider.UpdatedAt,
 	}, nil
 }

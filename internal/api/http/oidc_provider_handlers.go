@@ -211,7 +211,5 @@ func convertProviderToSDK(provider *auth.OIDCProviderConfig) sdk.OIDCProvider {
 		RegistrationMethod:       provider.RegistrationMethod,
 		ClientIDIssuedAt:         provider.ClientIDIssuedAt,
 		ClientSecretExpiresAt:    provider.ClientSecretExpiresAt,
-		CreatedAt:                provider.CreatedAt,
-		UpdatedAt:                provider.UpdatedAt,
 	}
 }

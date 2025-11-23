@@ -28,8 +28,6 @@ func newMockOIDCProviderDB() *mockOIDCProviderDB {
 
 func (m *mockOIDCProviderDB) CreateOIDCProvider(ctx context.Context, provider *OIDCProviderConfig) (*OIDCProviderConfig, error) {
 	provider.ID = uuid.New()
-	provider.CreatedAt = time.Now()
-	provider.UpdatedAt = time.Now()
 	m.providers[provider.ID] = provider
 	for _, domain := range provider.AllowedDomains {
 		m.domains[domain] = append(m.domains[domain], provider)
@@ -72,7 +70,6 @@ func (m *mockOIDCProviderDB) UpdateOIDCProvider(ctx context.Context, params *Upd
 	if params.Enabled != nil {
 		provider.Enabled = *params.Enabled
 	}
-	provider.UpdatedAt = time.Now()
 	return provider, nil
 }
 
@@ -163,7 +160,6 @@ func newMockOIDCSessionDB() *mockOIDCSessionDB {
 
 func (m *mockOIDCSessionDB) CreateOIDCSession(ctx context.Context, session *OIDCSession) (*OIDCSession, error) {
 	session.ID = uuid.New()
-	session.CreatedAt = time.Now()
 	m.sessions[session.State] = session
 	return session, nil
 }
@@ -215,8 +211,6 @@ func newMockUserDB() *mockUserDB {
 
 func (m *mockUserDB) CreateUser(ctx context.Context, user *User) (*User, error) {
 	user.ID = uuid.New()
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
 	m.users[user.ID] = user
 	m.emails[user.Email] = user
 	return user, nil
@@ -253,7 +247,6 @@ func (m *mockUserDB) UpdateUser(ctx context.Context, params *UpdateUserParams) (
 	if params.Status != nil {
 		user.Status = *params.Status
 	}
-	user.UpdatedAt = time.Now()
 	return user, nil
 }
 
@@ -289,9 +282,7 @@ func newMockTenantsDB() *mockTenantsDB {
 
 func (m *mockTenantsDB) CreateTenant(ctx context.Context, tenantID uuid.UUID) (*Tenant, error) {
 	tenant := &Tenant{
-		ID:        tenantID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID: tenantID,
 	}
 	m.tenants[tenantID] = tenant
 	return tenant, nil
