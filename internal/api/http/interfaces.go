@@ -78,7 +78,7 @@ type mfaService interface {
 	DisableMFA(ctx context.Context, userID uuid.UUID, password, code string) error
 	GetStatus(ctx context.Context, userID uuid.UUID) (*auth.MFAStatus, error)
 	RegenerateBackupCodes(ctx context.Context, userID uuid.UUID, password string) ([]string, error)
-	VerifyMFALogin(ctx context.Context, challengeToken, code string) (userID, tenantID uuid.UUID, err error)
+	VerifyMFACode(ctx context.Context, challengeToken, code string) (userID, tenantID uuid.UUID, err error)
 }
 
 // sessionService defines the interface for session token generation

@@ -404,10 +404,10 @@ func (c *HTTPClient) RegenerateBackupCodes(ctx context.Context, req RegenerateBa
 	return &resp, nil
 }
 
-// VerifyMFALogin verifies MFA code during login and completes authentication
+// VerifyMFACode verifies MFA code during login and completes authentication
 // The access token is automatically set on the client for subsequent authenticated requests
 // This should be called after Login when MFA is required
-func (c *HTTPClient) VerifyMFALogin(ctx context.Context, req VerifyMFALoginRequest) (*LoginResponse, error) {
+func (c *HTTPClient) VerifyMFACode(ctx context.Context, req VerifyMFACodeRequest) (*LoginResponse, error) {
 	// Automatically include the challenge token from the initial login
 	if req.ChallengeToken == "" && c.challengeToken != "" {
 		req.ChallengeToken = c.challengeToken

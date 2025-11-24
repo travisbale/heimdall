@@ -120,6 +120,6 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Issue JWT tokens to complete login, check if user requires MFA
-	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, true)
+	// Issue JWT tokens to complete login, MFA is handled by IDP
+	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, false)
 }

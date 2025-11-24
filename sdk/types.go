@@ -652,14 +652,14 @@ type BackupCodesResponse struct {
 	BackupCodes []string `json:"backup_codes"`
 }
 
-// VerifyMFALoginRequest verifies MFA during login
-type VerifyMFALoginRequest struct {
+// VerifyMFACodeRequest verifies MFA code
+type VerifyMFACodeRequest struct {
 	ChallengeToken string `json:"challenge_token"` // Challenge token from initial login
 	Code           string `json:"code"`            // TOTP code (6 digits) or backup code (8 digits)
 }
 
-// Validate validates the verify MFA login request
-func (r *VerifyMFALoginRequest) Validate(ctx context.Context) error {
+// Validate validates the verify MFA code request
+func (r *VerifyMFACodeRequest) Validate(ctx context.Context) error {
 	if r.ChallengeToken == "" {
 		return fmt.Errorf("challenge_token is required")
 	}

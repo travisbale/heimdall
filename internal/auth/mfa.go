@@ -222,8 +222,8 @@ func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatu
 	}, nil
 }
 
-// VerifyMFALogin validates MFA challenge token and verifies MFA code during login
-func (s *MFAService) VerifyMFALogin(ctx context.Context, challengeToken, code string) (uuid.UUID, uuid.UUID, error) {
+// VerifyMFACode validates MFA challenge token and verifies MFA code
+func (s *MFAService) VerifyMFACode(ctx context.Context, challengeToken, code string) (uuid.UUID, uuid.UUID, error) {
 	claims, err := s.challengeValidator.ValidateMFAChallengeToken(challengeToken)
 	if err != nil {
 		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)

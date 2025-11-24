@@ -172,12 +172,12 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 
 // Login verifies MFA code during login and issues full access tokens
 func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req sdk.VerifyMFALoginRequest
+	var req sdk.VerifyMFACodeRequest
 	if !decodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
-	userID, tenantID, err := h.mfaService.VerifyMFALogin(r.Context(), req.ChallengeToken, req.Code)
+	userID, tenantID, err := h.mfaService.VerifyMFACode(r.Context(), req.ChallengeToken, req.Code)
 	if err != nil {
 		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "user_id", userID, "error", err.Error())
 		switch {
