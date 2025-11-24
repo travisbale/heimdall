@@ -62,7 +62,7 @@ func (v *Validator) validateToken(audience, tokenString string) (*Claims, error)
 		return nil, ErrInvalidAudience
 	}
 
-	if claims.Subject == "" || claims.TenantID == uuid.Nil {
+	if claims.Subject == "" || claims.UserID == uuid.Nil || claims.TenantID == uuid.Nil {
 		return nil, ErrMissingClaims
 	}
 

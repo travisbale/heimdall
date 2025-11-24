@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/sdk"
 )
@@ -23,7 +24,42 @@ func (m *mockValidator) ValidateToken(token string) (*Claims, error) {
 	return m.claims, nil
 }
 
-// Helper to create a test handler that returns 200 OK
+// Test helpers
+
+// newValidClaims creates a Claims struct with valid UserID, TenantID, and optional scopes
+func newValidClaims(userID, tenantID uuid.UUID, scopes ...sdk.Scope) *Claims {
+	return &Claims{
+		UserID:   userID,
+		TenantID: tenantID,
+		Scopes:   scopes,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: userID.String(),
+		},
+	}
+}
+
+// newMockValidator creates a mock validator with the given claims
+func newMockValidator(claims *Claims) *mockValidator {
+	return &mockValidator{claims: claims}
+}
+
+// newMockValidatorWithError creates a mock validator that returns an error
+func newMockValidatorWithError(err error) *mockValidator {
+	return &mockValidator{err: err}
+}
+
+// testRequest executes a request through the middleware and returns the response recorder
+func testRequest(handler http.Handler, authToken string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	if authToken != "" {
+		req.Header.Set("Authorization", authToken)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+// testHandler creates a simple handler that returns 200 OK
 func testHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -37,22 +73,12 @@ func TestMiddleware_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -60,14 +86,11 @@ func TestMiddleware_Success(t *testing.T) {
 }
 
 func TestMiddleware_MissingAuthorizationHeader(t *testing.T) {
-	validator := &mockValidator{}
+	validator := newMockValidator(nil)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "")
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rec.Code)
@@ -75,7 +98,7 @@ func TestMiddleware_MissingAuthorizationHeader(t *testing.T) {
 }
 
 func TestMiddleware_InvalidAuthorizationFormat(t *testing.T) {
-	validator := &mockValidator{}
+	validator := newMockValidator(nil)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
@@ -87,11 +110,7 @@ func TestMiddleware_InvalidAuthorizationFormat(t *testing.T) {
 	}
 
 	for _, authHeader := range testCases {
-		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("Authorization", authHeader)
-		rec := httptest.NewRecorder()
-
-		handler.ServeHTTP(rec, req)
+		rec := testRequest(handler, authHeader)
 
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("auth header '%s': expected status 401, got %d", authHeader, rec.Code)
@@ -100,18 +119,11 @@ func TestMiddleware_InvalidAuthorizationFormat(t *testing.T) {
 }
 
 func TestMiddleware_InvalidToken(t *testing.T) {
-	validator := &mockValidator{
-		err: ErrInvalidToken,
-	}
-
+	validator := newMockValidatorWithError(ErrInvalidToken)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer invalid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer invalid-token")
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rec.Code)
@@ -119,21 +131,12 @@ func TestMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestMiddleware_InvalidUserID(t *testing.T) {
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: uuid.New(),
-		},
-	}
-	validator.claims.Subject = "not-a-uuid"
-
+	// Mock validator returns error for invalid UserID (real validator would catch this)
+	validator := newMockValidatorWithError(ErrMissingClaims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rec.Code)
@@ -143,13 +146,7 @@ func TestMiddleware_InvalidUserID(t *testing.T) {
 func TestGetJWTClaims_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
-	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate}
-
-	claims := &Claims{
-		TenantID: tenantID,
-		Scopes:   scopes,
-	}
-	claims.Subject = userID.String()
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead, sdk.ScopeUserUpdate)
 
 	// Create request with claims in context
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -189,22 +186,12 @@ func TestRequireScope_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("delete:users")},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("delete:users"))
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -215,22 +202,12 @@ func TestRequireScope_MissingScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead}, // Missing write:users
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead) // Missing write:users
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", rec.Code)
@@ -241,22 +218,12 @@ func TestRequireScope_NoPermissions(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{}, // No permissions
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID) // No permissions
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", rec.Code)
@@ -267,22 +234,12 @@ func TestRequireScope_EmptyRequired(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID)
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope()(testHandler()) // No scopes required
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -293,22 +250,12 @@ func TestRequireScope_MissingAuthHeader(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	// No Authorization header
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "") // No Authorization header
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rec.Code)
@@ -316,18 +263,11 @@ func TestRequireScope_MissingAuthHeader(t *testing.T) {
 }
 
 func TestRequireScope_InvalidToken(t *testing.T) {
-	validator := &mockValidator{
-		err: ErrInvalidToken,
-	}
-
+	validator := newMockValidatorWithError(ErrInvalidToken)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer invalid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer invalid-token")
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rec.Code)
@@ -338,22 +278,12 @@ func TestRequireScope_SingleScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.Scope("admin:all")},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.Scope("admin:all"))
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.Scope("admin:all"))(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -366,23 +296,12 @@ func TestAuthenticateAlone_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
-	// Use Authenticate alone for endpoints that don't need scope checking
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate()(testHandler()) // Use Authenticate alone for endpoints that don't need scope checking
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -393,23 +312,12 @@ func TestRequireScope_WithInvalidToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead}, // Missing write:users
-		},
-	}
-	validator.claims.Subject = userID.String()
-
-	// RequireScope validates JWT and checks scopes in one step
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead) // Missing write:users
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler()) // RequireScope validates JWT and checks scopes in one step
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", rec.Code)
@@ -422,23 +330,12 @@ func TestHTTPMiddleware_Authenticate(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
-	// Create middleware instance
-	jwtMiddleware := NewHTTPMiddleware(validator)
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
+	validator := newMockValidator(claims)
+	jwtMiddleware := NewHTTPMiddleware(validator) // Create middleware instance
 	handler := jwtMiddleware.Authenticate()(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -449,25 +346,12 @@ func TestHTTPMiddleware_RequireScope_Success(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate},
-		},
-	}
-	validator.claims.Subject = userID.String()
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead, sdk.ScopeUserUpdate)
+	validator := newMockValidator(claims)
+	jwtMiddleware := NewHTTPMiddleware(validator)                           // Create middleware instance once
+	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler()) // Use it for multiple endpoints
 
-	// Create middleware instance once
-	jwtMiddleware := NewHTTPMiddleware(validator)
-
-	// Use it for multiple endpoints
-	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead)(testHandler())
-
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", rec.Code)
@@ -478,22 +362,12 @@ func TestHTTPMiddleware_RequireScope_MissingScope(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
+	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
 	handler := jwtMiddleware.RequireScope(sdk.ScopeUserRead, sdk.ScopeUserUpdate)(testHandler())
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
+	rec := testRequest(handler, "Bearer valid-token")
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", rec.Code)
@@ -504,16 +378,9 @@ func TestHTTPMiddleware_MultipleEndpoints(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	validator := &mockValidator{
-		claims: &Claims{
-			TenantID: tenantID,
-			Scopes:   []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("admin:all")},
-		},
-	}
-	validator.claims.Subject = userID.String()
-
-	// Create middleware once
-	jwtMiddleware := NewHTTPMiddleware(validator)
+	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("admin:all"))
+	validator := newMockValidator(claims)
+	jwtMiddleware := NewHTTPMiddleware(validator) // Create middleware once
 
 	// Simulate different endpoints with different scope requirements
 	testCases := []struct {
