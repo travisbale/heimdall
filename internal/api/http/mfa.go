@@ -201,9 +201,6 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info(r.Context(), events.MFAVerificationSuccess, "user_id", userID)
 
-	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
-		TenantID:    tenantID,
-		UserID:      userID,
-		MFARequired: false,
-	})
+	// User has already completed MFA verification - skip MFA check
+	h.tokenService.IssueTokens(r.Context(), w, r, tenantID, userID, false)
 }

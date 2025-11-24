@@ -9,68 +9,43 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// Subject represents the identity for which tokens are issued
-type Subject struct {
-	UserID      uuid.UUID
-	TenantID    uuid.UUID
-	MFARequired bool
-}
-
-// TokenService handles JWT token issuance and HTTP response
+// TokenService encodes session tokens into HTTP responses
 type TokenService struct {
-	rbacService   rbacService
-	jwtService    jwtService
-	secureCookies bool
+	sessionService sessionService
+	secureCookies  bool
 }
 
 // NewTokenService creates a new TokenService
-func NewTokenService(rbacService rbacService, jwtService jwtService, secureCookies bool) *TokenService {
+func NewTokenService(sessionService sessionService, secureCookies bool) *TokenService {
 	return &TokenService{
-		rbacService:   rbacService,
-		jwtService:    jwtService,
-		secureCookies: secureCookies,
+		sessionService: sessionService,
+		secureCookies:  secureCookies,
 	}
 }
 
-// IssueTokens creates JWT token pair and stores refresh token in HTTP-only cookie
-func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, subject *Subject) {
-	if subject.MFARequired {
-		challengeToken, err := s.jwtService.IssueMFAChallengeToken(subject.UserID, subject.TenantID)
-		if err != nil {
-			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate MFA challenge token"})
-			return
-		}
+// IssueTokens creates session tokens and encodes them into HTTP response
+func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, tenantID, userID uuid.UUID, checkMFA bool) {
+	ctx = identity.WithTenant(ctx, tenantID)
 
-		// User must complete MFA to get full access
+	// Generate session tokens via auth layer
+	tokens, err := s.sessionService.CreateSession(ctx, tenantID, userID, checkMFA)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to create session"})
+		return
+	}
+
+	// User requires MFA - return challenge token
+	if tokens.RequiresMFA {
 		respondJSON(w, http.StatusOK, sdk.LoginResponse{
-			MFAChallengeToken: challengeToken,
-			ExpiresIn:         int(s.jwtService.GetMFAChallengeTokenExpiration().Seconds()),
+			MFAChallengeToken: tokens.MFAChallengeToken,
+			ExpiresIn:         int(tokens.MFAChallengeExpiration.Seconds()),
 		})
 		return
 	}
 
-	// User is fully authenticated - issue regular access/refresh token pair
-	ctx = identity.WithUser(ctx, subject.UserID, subject.TenantID)
-	scopes, err := s.rbacService.GetUserScopes(ctx, subject.UserID)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to retrieve scopes for user"})
-		return
-	}
-
-	accessToken, err := s.jwtService.IssueAccessToken(subject.TenantID, subject.UserID, scopes)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate access token"})
-		return
-	}
-
-	refreshToken, err := s.jwtService.IssueRefreshToken(subject.TenantID, subject.UserID)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate refresh token"})
-		return
-	}
-
-	accessExpiration := int(s.jwtService.GetAccessTokenExpiration().Seconds())
-	refreshExpiration := int(s.jwtService.GetRefreshTokenExpiration().Seconds())
+	// User fully authenticated - encode tokens into response
+	accessExpiration := int(tokens.AccessExpiration.Seconds())
+	refreshExpiration := int(tokens.RefreshExpiration.Seconds())
 
 	// X-Forwarded-Prefix support for reverse proxy deployments
 	prefix := r.Header.Get("X-Forwarded-Prefix")
@@ -79,7 +54,7 @@ func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r
 	// HttpOnly prevents JavaScript access, Secure requires HTTPS, SameSite prevents CSRF
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenCookie,
-		Value:    refreshToken,
+		Value:    tokens.RefreshToken,
 		Path:     cookiePath,
 		MaxAge:   refreshExpiration,
 		HttpOnly: true,
@@ -88,7 +63,7 @@ func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r
 	})
 
 	respondJSON(w, http.StatusOK, sdk.LoginResponse{
-		AccessToken: accessToken,
+		AccessToken: tokens.AccessToken,
 		TokenType:   "Bearer",
 		ExpiresIn:   accessExpiration,
 	})
@@ -96,30 +71,41 @@ func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r
 
 // RefreshToken validates a refresh token from HTTP-only cookie and issues new token pair
 func (s *TokenService) RefreshToken(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	// Read refresh token from HTTP-only cookie
 	cookie, err := r.Cookie(refreshTokenCookie)
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
 		return
 	}
 
-	claims, err := s.jwtService.ValidateToken(cookie.Value)
+	tokens, err := s.sessionService.RefreshSession(ctx, cookie.Value)
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
 		return
 	}
 
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to parse user ID"})
-		return
-	}
+	// Encode tokens into HTTP response
+	accessExpiration := int(tokens.AccessExpiration.Seconds())
+	refreshExpiration := int(tokens.RefreshExpiration.Seconds())
 
-	// MFA not required for refresh (user already authenticated)
-	s.IssueTokens(ctx, w, r, &Subject{
-		UserID:      userID,
-		TenantID:    claims.TenantID,
-		MFARequired: false,
+	// X-Forwarded-Prefix support for reverse proxy deployments
+	prefix := r.Header.Get("X-Forwarded-Prefix")
+	cookiePath := prefix + sdk.RouteV1Refresh
+
+	// HttpOnly prevents JavaScript access, Secure requires HTTPS, SameSite prevents CSRF
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    tokens.RefreshToken,
+		Path:     cookiePath,
+		MaxAge:   refreshExpiration,
+		HttpOnly: true,
+		Secure:   s.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	respondJSON(w, http.StatusOK, sdk.LoginResponse{
+		AccessToken: tokens.AccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   accessExpiration,
 	})
 }
 

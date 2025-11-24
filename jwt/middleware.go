@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/sdk"
 )
@@ -60,15 +59,9 @@ func (m *HTTPMiddleware) Authenticate() func(http.Handler) http.Handler {
 				return
 			}
 
-			userID, err := uuid.Parse(claims.Subject)
-			if err != nil {
-				http.Error(w, `{"error":"invalid user ID in token"}`, http.StatusUnauthorized)
-				return
-			}
-
 			// Add identity context for downstream RLS enforcement
 			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
-			ctx = identity.WithUser(ctx, userID, claims.TenantID)
+			ctx = identity.WithUser(ctx, claims.UserID, claims.TenantID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

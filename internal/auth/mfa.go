@@ -229,16 +229,11 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, challengeToken, code st
 		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
 	}
 
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
-	}
-
-	if err := s.verifyMFA(ctx, userID, code); err != nil {
+	if err := s.verifyMFA(ctx, claims.UserID, code); err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
 
-	return userID, claims.TenantID, nil
+	return claims.UserID, claims.TenantID, nil
 }
 
 // verifyMFA tries TOTP code first, then backup code

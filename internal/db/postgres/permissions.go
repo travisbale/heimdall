@@ -63,8 +63,13 @@ func (p *PermissionsDB) GetPermissionByID(ctx context.Context, permissionID uuid
 
 // GetUserPermissions retrieves all permissions for a user (from roles + direct)
 func (p *PermissionsDB) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]*auth.EffectivePermission, error) {
+	ctx, err := p.db.SetTenantContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	var permissions []*auth.EffectivePermission
-	err := p.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err = p.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		results, err := q.GetUserPermissions(ctx, userID)
 		if err != nil {
 			return err

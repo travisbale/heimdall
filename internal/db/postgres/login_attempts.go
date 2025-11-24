@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
 
@@ -21,12 +22,12 @@ func NewLoginAttemptsDB(db *DB) *LoginAttemptsDB {
 }
 
 // RecordAttempt logs failed login attempt with calculated lockout expiry (pre-authentication operation)
-func (r *LoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lockedUntil *time.Time) error {
+func (r *LoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, lockedUntil *time.Time) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		_, err := q.InsertLoginAttempt(ctx, sqlc.InsertLoginAttemptParams{
 			Email:       email,
 			UserID:      userID,
-			IpAddress:   ipAddress,
+			IpAddress:   identity.GetIPAddress(ctx),
 			LockedUntil: lockedUntil,
 		})
 		if err != nil {

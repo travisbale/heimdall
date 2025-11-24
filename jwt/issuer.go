@@ -20,6 +20,7 @@ const (
 // Claims represents the JWT claims structure
 type Claims struct {
 	jwt.RegisteredClaims
+	UserID   uuid.UUID   `json:"user_id"`
 	TenantID uuid.UUID   `json:"tenant_id"`
 	Scopes   []sdk.Scope `json:"scopes,omitempty"`
 }
@@ -67,7 +68,7 @@ func (i *Issuer) IssueRefreshToken(tenantID, userID uuid.UUID) (string, error) {
 }
 
 // IssueMFAChallengeToken creates a short-lived token for MFA verification
-func (i *Issuer) IssueMFAChallengeToken(userID, tenantID uuid.UUID) (string, error) {
+func (i *Issuer) IssueMFAChallengeToken(tenantID, userID uuid.UUID) (string, error) {
 	expiresAt := time.Now().Add(i.mfaChallengeTokenExpiration)
 	return i.issueToken(AudienceMFAChallenge, tenantID, userID, nil, expiresAt)
 }
@@ -76,6 +77,7 @@ func (i *Issuer) issueToken(audience string, tenantID, userID uuid.UUID, scopes 
 	now := time.Now()
 
 	claims := &Claims{
+		UserID:   userID,
 		TenantID: tenantID,
 		Scopes:   scopes,
 		RegisteredClaims: jwt.RegisteredClaims{

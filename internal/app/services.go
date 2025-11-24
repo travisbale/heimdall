@@ -22,6 +22,7 @@ type services struct {
 	oidc          *auth.OIDCService
 	rbac          *auth.RBACService
 	loginAttempts *auth.LoginAttemptsService
+	session       *auth.SessionService
 	jwt           *jwt.Service
 }
 
@@ -112,6 +113,14 @@ func initializeServices(
 		Logger:             clog.New("mfa_service"),
 	})
 
+	// Session service for token generation
+	sessionService := auth.NewSessionService(&auth.SessionServiceConfig{
+		MFAService:  mfaService,
+		RBACService: rbacService,
+		JWTIssuer:   jwtService,
+		Logger:      clog.New("session_service"),
+	})
+
 	return &services{
 		user:          userService,
 		password:      passwordService,
@@ -119,6 +128,7 @@ func initializeServices(
 		oidc:          oidcService,
 		rbac:          rbacService,
 		loginAttempts: loginAttemptsService,
+		session:       sessionService,
 		jwt:           jwtService,
 	}, nil
 }

@@ -13,6 +13,11 @@ SELECT *
 FROM users
 WHERE id = $1;
 
+-- name: GetUserTenantID :one
+SELECT tenant_id
+FROM users
+WHERE id = $1;
+
 -- name: GetUserByEmail :one
 SELECT *
 FROM users

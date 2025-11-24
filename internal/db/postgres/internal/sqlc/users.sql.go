@@ -116,6 +116,19 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const getUserTenantID = `-- name: GetUserTenantID :one
+SELECT tenant_id
+FROM users
+WHERE id = $1
+`
+
+func (q *Queries) GetUserTenantID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getUserTenantID, id)
+	var tenant_id uuid.UUID
+	err := row.Scan(&tenant_id)
+	return tenant_id, err
+}
+
 const updateLastLogin = `-- name: UpdateLastLogin :exec
 UPDATE users
 SET last_login_at = now()

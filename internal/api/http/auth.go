@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
 )
@@ -14,7 +13,6 @@ const refreshTokenCookie = "refresh_token"
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
 	passwordService passwordService
-	mfaService      mfaService
 	tokenService    tokenService
 }
 
@@ -22,7 +20,6 @@ type AuthHandler struct {
 func NewAuthHandler(config *Config) *AuthHandler {
 	return &AuthHandler{
 		passwordService: config.PasswordService,
-		mfaService:      config.MFAService,
 		tokenService:    config.TokenService,
 	}
 }
@@ -34,7 +31,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.passwordService.Login(r.Context(), req.Email, req.Password, identity.GetIPAddress(r.Context()))
+	user, err := h.passwordService.Authenticate(r.Context(), req.Email, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
@@ -52,20 +49,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add tenant context for MFA status check (RLS requirement)
-	ctx := identity.WithTenant(r.Context(), user.TenantID)
-
-	mfaStatus, err := h.mfaService.GetStatus(ctx, user.ID)
-	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get MFA status"})
-		return
-	}
-
-	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
-		UserID:      user.ID,
-		TenantID:    user.TenantID,
-		MFARequired: mfaStatus.VerifiedAt != nil,
-	})
+	// Issue session tokens and check if user requires MFA
+	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, true)
 }
 
 // Logout handles user logout by revoking tokens

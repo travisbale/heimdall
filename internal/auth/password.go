@@ -12,8 +12,8 @@ import (
 )
 
 type loginAttemptsService interface {
-	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lastLoginAt *time.Time) error
-	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string) error
+	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, lastLoginAt *time.Time) error
+	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID) error
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 
@@ -49,8 +49,8 @@ func NewPasswordService(config *PasswordServiceConfig) *PasswordService {
 	}
 }
 
-// Login authenticates a user and returns the active user account
-func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress string) (*User, error) {
+// Authenticate verifies user credentials and returns the active user account
+func (s *PasswordService) Authenticate(ctx context.Context, email, password string) (*User, error) {
 	if locked, _, err := s.loginAttemptsService.IsAccountLocked(ctx, email); err != nil {
 		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
 	} else if locked {
@@ -61,7 +61,7 @@ func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress 
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, nil, ipAddress, nil); err != nil {
+			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, nil, nil); err != nil {
 				s.logger.Error(ctx, "failed to record login attempt for non-existent user", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
@@ -75,7 +75,7 @@ func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress 
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
-			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, ipAddress, user.LastLoginAt); err != nil {
+			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, user.LastLoginAt); err != nil {
 				s.logger.Error(ctx, "failed to record login attempt", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
@@ -86,7 +86,7 @@ func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress 
 	}
 
 	// Record successful login
-	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID, ipAddress); err != nil {
+	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID); err != nil {
 		s.logger.Error(ctx, "failed to record successful login", "email", email, "error", err)
 	}
 
@@ -98,7 +98,7 @@ func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress 
 		return nil, ErrEmailNotVerified
 	}
 
-	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email, "ip_address", ipAddress)
+	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
 
 	return user, nil
 }

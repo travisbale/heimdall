@@ -19,7 +19,7 @@ type userService interface {
 
 // passwordService defines the interface for password authentication operations
 type passwordService interface {
-	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
+	Authenticate(ctx context.Context, email, password string) (*auth.User, error)
 	InitiatePasswordReset(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
@@ -81,8 +81,14 @@ type mfaService interface {
 	VerifyMFALogin(ctx context.Context, challengeToken, code string) (userID, tenantID uuid.UUID, err error)
 }
 
+// sessionService defines the interface for session token generation
+type sessionService interface {
+	CreateSession(ctx context.Context, tenantID, userID uuid.UUID, checkMFA bool) (*auth.SessionTokens, error)
+	RefreshSession(ctx context.Context, refreshToken string) (*auth.SessionTokens, error)
+}
+
 type tokenService interface {
-	IssueTokens(cxt context.Context, w http.ResponseWriter, r *http.Request, subject *Subject)
-	RefreshToken(cxt context.Context, w http.ResponseWriter, r *http.Request)
+	IssueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, tenantID, userID uuid.UUID, checkMFA bool)
+	RefreshToken(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	RevokeTokens(w http.ResponseWriter, r *http.Request)
 }

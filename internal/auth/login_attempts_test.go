@@ -24,18 +24,16 @@ type mockLoginAttemptsDB struct {
 type recordedAttempt struct {
 	email       string
 	userID      *uuid.UUID
-	ipAddress   string
 	lockedUntil *time.Time
 }
 
-func (m *mockLoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lockedUntil *time.Time) error {
+func (m *mockLoginAttemptsDB) RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, lockedUntil *time.Time) error {
 	if m.recordError != nil {
 		return m.recordError
 	}
 	m.recordedAttempts = append(m.recordedAttempts, recordedAttempt{
 		email:       email,
 		userID:      userID,
-		ipAddress:   ipAddress,
 		lockedUntil: lockedUntil,
 	})
 	return nil
@@ -158,8 +156,7 @@ func TestRecordFailedLogin_FirstAttempt(t *testing.T) {
 	db.recentFailedCount = 0 // No previous failures
 
 	userID := uuid.New()
-	ipAddress := "192.168.1.1"
-	err := service.RecordFailedLogin(ctx, "user@example.com", &userID, ipAddress, nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", &userID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -186,7 +183,7 @@ func TestRecordFailedLogin_FifthAttempt_5MinuteLockout(t *testing.T) {
 	db.recentFailedCount = 4 // 4 previous failures, this will be the 5th
 
 	before := time.Now()
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 	after := time.Now()
 
 	if err != nil {
@@ -217,7 +214,7 @@ func TestRecordFailedLogin_TenthAttempt_15MinuteLockout(t *testing.T) {
 	db.recentFailedCount = 9 // 9 previous failures, this will be the 10th
 
 	before := time.Now()
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 	after := time.Now()
 
 	if err != nil {
@@ -244,7 +241,7 @@ func TestRecordFailedLogin_FifteenthAttempt_1HourLockout(t *testing.T) {
 	db.recentFailedCount = 14 // 14 previous failures, this will be the 15th
 
 	before := time.Now()
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 	after := time.Now()
 
 	if err != nil {
@@ -271,7 +268,7 @@ func TestRecordFailedLogin_TwentiethAttempt_24HourLockout(t *testing.T) {
 	db.recentFailedCount = 19 // 19 previous failures, this will be the 20th
 
 	before := time.Now()
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 	after := time.Now()
 
 	if err != nil {
@@ -302,7 +299,7 @@ func TestRecordFailedLogin_BetweenThresholds_NoLockout(t *testing.T) {
 		db.recordedAttempts = nil        // Reset
 		db.recentFailedCount = count - 1 // Previous failures
 
-		err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+		err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 		if err != nil {
 			t.Fatalf("count %d: expected no error, got %v", count, err)
 		}
@@ -322,7 +319,7 @@ func TestRecordFailedLogin_WithLastLoginAt(t *testing.T) {
 	lastLogin := time.Now().Add(-2 * time.Hour)
 	db.recentFailedCount = 4 // Should trigger 5-minute lockout on this attempt
 
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", &lastLogin)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, &lastLogin)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -340,7 +337,7 @@ func TestRecordFailedLogin_DatabaseError(t *testing.T) {
 
 	db.recentFailedError = ErrUserNotFound
 
-	err := service.RecordFailedLogin(ctx, "user@example.com", nil, "", nil)
+	err := service.RecordFailedLogin(ctx, "user@example.com", nil, nil)
 	if err == nil {
 		t.Error("expected error from database")
 	}
@@ -352,7 +349,7 @@ func TestRecordSuccessfulLogin_DeletesOldAttempts(t *testing.T) {
 	service, db := createTestLoginAttemptsService()
 	ctx := context.Background()
 
-	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil, "")
+	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -376,7 +373,7 @@ func TestRecordSuccessfulLogin_DatabaseError_LogsButSucceeds(t *testing.T) {
 	db.deleteError = ErrUserNotFound
 
 	// Should not return error even if cleanup fails
-	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil, "")
+	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil)
 	if err != nil {
 		t.Errorf("expected no error (cleanup failure should be logged), got %v", err)
 	}
@@ -393,7 +390,7 @@ func TestLoginAttemptsFlow_ProgressiveLockout(t *testing.T) {
 	// First 4 attempts - no lockout
 	for i := range 4 {
 		db.recentFailedCount = int64(i)
-		err := service.RecordFailedLogin(ctx, email, nil, "", nil)
+		err := service.RecordFailedLogin(ctx, email, nil, nil)
 		if err != nil {
 			t.Fatalf("attempt %d: unexpected error: %v", i+1, err)
 		}
@@ -406,7 +403,7 @@ func TestLoginAttemptsFlow_ProgressiveLockout(t *testing.T) {
 
 	// 5th attempt - should trigger 5 minute lockout
 	db.recentFailedCount = 4
-	err := service.RecordFailedLogin(ctx, email, nil, "", nil)
+	err := service.RecordFailedLogin(ctx, email, nil, nil)
 	if err != nil {
 		t.Fatalf("5th attempt: unexpected error: %v", err)
 	}
@@ -435,13 +432,13 @@ func TestLoginAttemptsFlow_SuccessfulLoginResetsLockout(t *testing.T) {
 
 	// Record failed attempts
 	db.recentFailedCount = 4
-	err := service.RecordFailedLogin(ctx, email, nil, "", nil)
+	err := service.RecordFailedLogin(ctx, email, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Successful login should cleanup old attempts
-	err = service.RecordSuccessfulLogin(ctx, email, nil, "")
+	err = service.RecordSuccessfulLogin(ctx, email, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -20,6 +20,7 @@ type Config struct {
 	MFAService         mfaService
 	OIDCService        oidcService
 	RBACService        rbacService
+	SessionService     sessionService
 	JWTService         jwtService
 	TokenService       tokenService
 	Environment        string

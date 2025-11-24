@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -40,38 +41,16 @@ func NewValidator(publicKeyPath string) (*Validator, error) {
 }
 
 // ValidateToken validates a JWT access/refresh token and returns the claims
-// Checks signature, expiration, audience (must be heimdall:api), and presence of required claims
 func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
-	claims := &Claims{}
-	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
-	} else if !token.Valid {
-		return nil, ErrInvalidToken
-	}
-
-	// Verify token is an API token, not an MFA challenge token
-	hasCorrectAudience := false
-	for _, aud := range claims.Audience {
-		if aud == AudienceAPI {
-			hasCorrectAudience = true
-			break
-		}
-	}
-	if !hasCorrectAudience {
-		return nil, ErrInvalidAudience
-	}
-
-	// Ensure multi-tenant context is present
-	if claims.Subject == "" || claims.TenantID == uuid.Nil {
-		return nil, ErrMissingClaims
-	}
-
-	return claims, nil
+	return v.validateToken(AudienceAPI, tokenString)
 }
 
 // ValidateMFAChallengeToken validates an MFA challenge token and returns the claims
-// These tokens are short-lived and can ONLY be used for MFA verification endpoints
 func (v *Validator) ValidateMFAChallengeToken(tokenString string) (*Claims, error) {
+	return v.validateToken(AudienceMFAChallenge, tokenString)
+}
+
+func (v *Validator) validateToken(audience, tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
@@ -79,19 +58,10 @@ func (v *Validator) ValidateMFAChallengeToken(tokenString string) (*Claims, erro
 		return nil, ErrInvalidToken
 	}
 
-	// Verify token is an MFA challenge token, not a regular API token
-	hasCorrectAudience := false
-	for _, aud := range claims.Audience {
-		if aud == AudienceMFAChallenge {
-			hasCorrectAudience = true
-			break
-		}
-	}
-	if !hasCorrectAudience {
+	if !slices.Contains(claims.Audience, audience) {
 		return nil, ErrInvalidAudience
 	}
 
-	// Ensure multi-tenant context is present
 	if claims.Subject == "" || claims.TenantID == uuid.Nil {
 		return nil, ErrMissingClaims
 	}
@@ -99,8 +69,8 @@ func (v *Validator) ValidateMFAChallengeToken(tokenString string) (*Claims, erro
 	return claims, nil
 }
 
+// keyFunc rejects tokens signed with algorithms other than RSA
 func (v *Validator) keyFunc(token *jwt.Token) (any, error) {
-	// Reject tokens signed with algorithms other than RSA
 	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 		return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 	}

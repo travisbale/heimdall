@@ -666,7 +666,7 @@ func (m *mockLoginAttemptsService) IsAccountLocked(ctx context.Context, email st
 	return m.locked, m.lockedUntil, nil
 }
 
-func (m *mockLoginAttemptsService) RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lastLoginAt *time.Time) error {
+func (m *mockLoginAttemptsService) RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, lastLoginAt *time.Time) error {
 	if m.recordFailedError != nil {
 		return m.recordFailedError
 	}
@@ -674,7 +674,7 @@ func (m *mockLoginAttemptsService) RecordFailedLogin(ctx context.Context, email 
 	return nil
 }
 
-func (m *mockLoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string) error {
+func (m *mockLoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID) error {
 	if m.recordSuccessError != nil {
 		return m.recordSuccessError
 	}

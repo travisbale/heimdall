@@ -73,10 +73,6 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Auto-login after successful verification for better UX (MFA not required for new users)
-	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
-		UserID:      user.ID,
-		TenantID:    user.TenantID,
-		MFARequired: false,
-	})
+	// Auto-login after successful verification for better UX, check if user requires MFA
+	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, true)
 }

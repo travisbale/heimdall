@@ -17,7 +17,7 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	config.TokenService = NewTokenService(config.RBACService, config.JWTService, config.SecureCookies())
+	config.TokenService = NewTokenService(config.SessionService, config.SecureCookies())
 
 	// Create domain handlers
 	healthHandler := NewHealthHandler(config)
