@@ -16,8 +16,8 @@ import (
 	"github.com/travisbale/heimdall/internal/auth"
 )
 
-// Cipher handles encryption and decryption of TOTP secrets
-type Cipher interface {
+// cipher handles encryption and decryption of TOTP secrets
+type cipher interface {
 	Encrypt(plaintext string) (string, error)
 	Decrypt(ciphertext string) (string, error)
 }
@@ -32,16 +32,19 @@ type MFASettingsDB interface {
 // Verifier implements TOTP-based MFA verification
 type Verifier struct {
 	mfaSettingsDB MFASettingsDB
-	cipher        Cipher
-	period        uint // TOTP time window in seconds (default 30)
+	cipher        cipher
+	validateOpts  totp.ValidateOpts
 }
 
 // NewVerifier creates a new TOTP verifier with configurable period (0 = default 30s)
-func NewVerifier(db MFASettingsDB, cipher Cipher, period uint) *Verifier {
+func NewVerifier(db MFASettingsDB, cipher cipher, period uint) *Verifier {
 	return &Verifier{
 		mfaSettingsDB: db,
 		cipher:        cipher,
-		period:        period,
+		validateOpts: totp.ValidateOpts{
+			Period: period,
+			Digits: otp.DigitsSix,
+		},
 	}
 }
 
@@ -57,7 +60,7 @@ func (v *Verifier) Setup(ctx context.Context, userID uuid.UUID, email string) (*
 		Issuer:      "Heimdall",
 		AccountName: email,
 		Secret:      secret,
-		Period:      v.period,
+		Period:      v.validateOpts.Period,
 		Digits:      otp.DigitsSix,
 		Algorithm:   otp.AlgorithmSHA1,
 	})
@@ -107,17 +110,18 @@ func (v *Verifier) Enable(ctx context.Context, userID uuid.UUID, code string) er
 		return fmt.Errorf("failed to decrypt secret: %w", err)
 	}
 
-	valid, err := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-		Period: v.period,
-		Digits: otp.DigitsSix,
-	})
-	if err != nil || !valid {
+	valid, err := totp.ValidateCustom(code, secret, time.Now(), v.validateOpts)
+	if err != nil {
+		return fmt.Errorf("%w: %v", auth.ErrInvalidMFACode, err)
+	}
+
+	if !valid {
 		return auth.ErrInvalidMFACode
 	}
 
 	// Mark code as used to prevent replay during immediate login
 	now := time.Now()
-	currentWindow := now.Unix() / int64(v.period)
+	currentWindow := now.Unix() / int64(v.validateOpts.Period)
 	settings.VerifiedAt = &now
 	settings.LastUsedWindow = &currentWindow
 	settings.LastUsedAt = &now
@@ -141,16 +145,17 @@ func (v *Verifier) Verify(ctx context.Context, userID uuid.UUID, code string) er
 		return fmt.Errorf("failed to decrypt secret: %w", err)
 	}
 
-	valid, err := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-		Period: v.period,
-		Digits: otp.DigitsSix,
-	})
-	if err != nil || !valid {
+	valid, err := totp.ValidateCustom(code, secret, time.Now(), v.validateOpts)
+	if err != nil {
+		return fmt.Errorf("%w: %v", auth.ErrInvalidMFACode, err)
+	}
+
+	if !valid {
 		return auth.ErrInvalidMFACode
 	}
 
 	// Replay prevention: check if code was already used in this time window
-	currentWindow := time.Now().Unix() / int64(v.period)
+	currentWindow := time.Now().Unix() / int64(v.validateOpts.Period)
 	if settings.LastUsedWindow != nil && currentWindow <= *settings.LastUsedWindow {
 		return auth.ErrMFACodeAlreadyUsed
 	}

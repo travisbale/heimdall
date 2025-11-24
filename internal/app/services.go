@@ -34,11 +34,12 @@ func initializeServices(
 ) (*services, error) {
 	// JWT service for token issuance and validation
 	jwtConfig := &jwt.Config{
-		Issuer:                 config.JWTIssuer,
-		PrivateKeyPath:         config.JWTPrivateKeyPath,
-		PublicKeyPath:          config.JWTPublicKeyPath,
-		AccessTokenExpiration:  15 * time.Minute,
-		RefreshTokenExpiration: config.JWTExpiration,
+		Issuer:                      config.JWTIssuer,
+		PrivateKeyPath:              config.JWTPrivateKeyPath,
+		PublicKeyPath:               config.JWTPublicKeyPath,
+		AccessTokenExpiration:       15 * time.Minute,
+		RefreshTokenExpiration:      config.JWTExpiration,
+		MFAChallengeTokenExpiration: 5 * time.Minute,
 	}
 
 	jwtService, err := jwt.NewService(jwtConfig)
@@ -93,12 +94,13 @@ func initializeServices(
 
 	// MFA service for TOTP and backup codes
 	mfaService := auth.NewMFAService(&auth.MFAServiceCofig{
-		MFASettingsDB: dbs.mfaSettings,
-		BackupCodesDB: dbs.mfaBackupCodes,
-		UsersDB:       dbs.users,
-		Verifier:      totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
-		Hasher:        passwordHasher,
-		Logger:        clog.New("mfa_service"),
+		MFASettingsDB:      dbs.mfaSettings,
+		BackupCodesDB:      dbs.mfaBackupCodes,
+		UsersDB:            dbs.users,
+		Verifier:           totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
+		Hasher:             passwordHasher,
+		ChallengeValidator: jwtService.Validator,
+		Logger:             clog.New("mfa_service"),
 	})
 
 	return &services{

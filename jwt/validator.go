@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	ErrInvalidToken  = errors.New("invalid token")
-	ErrMissingClaims = errors.New("missing required claims")
+	ErrInvalidToken    = errors.New("invalid token")
+	ErrMissingClaims   = errors.New("missing required claims")
+	ErrInvalidAudience = errors.New("invalid token audience")
+	ErrWrongTokenType  = errors.New("wrong token type for this operation")
 )
 
 // Validator handles JWT validation
@@ -37,14 +39,56 @@ func NewValidator(publicKeyPath string) (*Validator, error) {
 	}, nil
 }
 
-// ValidateToken validates a JWT token string and returns the claims
-// Checks signature, expiration, and presence of required tenant/user claims
+// ValidateToken validates a JWT access/refresh token and returns the claims
+// Checks signature, expiration, audience (must be heimdall:api), and presence of required claims
 func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	} else if !token.Valid {
 		return nil, ErrInvalidToken
+	}
+
+	// Verify token is an API token, not an MFA challenge token
+	hasCorrectAudience := false
+	for _, aud := range claims.Audience {
+		if aud == AudienceAPI {
+			hasCorrectAudience = true
+			break
+		}
+	}
+	if !hasCorrectAudience {
+		return nil, ErrInvalidAudience
+	}
+
+	// Ensure multi-tenant context is present
+	if claims.Subject == "" || claims.TenantID == uuid.Nil {
+		return nil, ErrMissingClaims
+	}
+
+	return claims, nil
+}
+
+// ValidateMFAChallengeToken validates an MFA challenge token and returns the claims
+// These tokens are short-lived and can ONLY be used for MFA verification endpoints
+func (v *Validator) ValidateMFAChallengeToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+	} else if !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	// Verify token is an MFA challenge token, not a regular API token
+	hasCorrectAudience := false
+	for _, aud := range claims.Audience {
+		if aud == AudienceMFAChallenge {
+			hasCorrectAudience = true
+			break
+		}
+	}
+	if !hasCorrectAudience {
+		return nil, ErrInvalidAudience
 	}
 
 	// Ensure multi-tenant context is present

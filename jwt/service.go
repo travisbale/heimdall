@@ -6,11 +6,12 @@ import (
 )
 
 type Config struct {
-	Issuer                 string
-	PrivateKeyPath         string
-	PublicKeyPath          string
-	AccessTokenExpiration  time.Duration
-	RefreshTokenExpiration time.Duration
+	Issuer                      string
+	PrivateKeyPath              string
+	PublicKeyPath               string
+	AccessTokenExpiration       time.Duration
+	RefreshTokenExpiration      time.Duration
+	MFAChallengeTokenExpiration time.Duration
 }
 
 // Service combines issuing and validating JWTs using asymmetric RSA keys

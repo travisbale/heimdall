@@ -11,6 +11,12 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
+// Token audiences for different token types
+const (
+	AudienceAPI          = "heimdall:api"           // Regular access tokens for API requests
+	AudienceMFAChallenge = "heimdall:mfa-challenge" // Temporary tokens for MFA verification
+)
+
 // Claims represents the JWT claims structure
 type Claims struct {
 	jwt.RegisteredClaims
@@ -20,10 +26,11 @@ type Claims struct {
 
 // Issuer handles JWT token generation
 type Issuer struct {
-	issuer                 string
-	privateKey             *rsa.PrivateKey
-	accessTokenExpiration  time.Duration
-	refreshTokenExpiration time.Duration
+	issuer                      string
+	privateKey                  *rsa.PrivateKey
+	accessTokenExpiration       time.Duration
+	refreshTokenExpiration      time.Duration
+	mfaChallengeTokenExpiration time.Duration
 }
 
 // NewIssuer creates a new JWT issuer with the provided RSA private key
@@ -39,45 +46,42 @@ func NewIssuer(config *Config) (*Issuer, error) {
 	}
 
 	return &Issuer{
-		issuer:                 config.Issuer,
-		privateKey:             privateKey,
-		accessTokenExpiration:  config.AccessTokenExpiration,
-		refreshTokenExpiration: config.RefreshTokenExpiration,
+		issuer:                      config.Issuer,
+		privateKey:                  privateKey,
+		accessTokenExpiration:       config.AccessTokenExpiration,
+		refreshTokenExpiration:      config.RefreshTokenExpiration,
+		mfaChallengeTokenExpiration: config.MFAChallengeTokenExpiration,
 	}, nil
 }
 
-// IssueAccessToken creates short-lived token for API requests (typically 15 min)
-func (i *Issuer) IssueAccessToken(userID, tenantID uuid.UUID, scopes []sdk.Scope) (string, error) {
+// IssueAccessToken creates short-lived token for API requests
+func (i *Issuer) IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, error) {
 	expiresAt := time.Now().Add(i.accessTokenExpiration)
-	return i.issueToken(userID, tenantID, expiresAt, scopes)
+	return i.issueToken(AudienceAPI, tenantID, userID, scopes, expiresAt)
 }
 
-// IssueRefreshToken creates long-lived token for obtaining new access tokens (typically 24h)
-func (i *Issuer) IssueRefreshToken(userID, tenantID uuid.UUID) (string, error) {
+// IssueRefreshToken creates long-lived token for obtaining new access tokens
+func (i *Issuer) IssueRefreshToken(tenantID, userID uuid.UUID) (string, error) {
 	expiresAt := time.Now().Add(i.refreshTokenExpiration)
-	return i.issueToken(userID, tenantID, expiresAt, nil)
+	return i.issueToken(AudienceAPI, tenantID, userID, nil, expiresAt)
 }
 
-// GetAccessTokenExpiration returns the access token expiration duration
-func (i *Issuer) GetAccessTokenExpiration() time.Duration {
-	return i.accessTokenExpiration
+// IssueMFAChallengeToken creates a short-lived token for MFA verification
+func (i *Issuer) IssueMFAChallengeToken(userID, tenantID uuid.UUID) (string, error) {
+	expiresAt := time.Now().Add(i.mfaChallengeTokenExpiration)
+	return i.issueToken(AudienceMFAChallenge, tenantID, userID, nil, expiresAt)
 }
 
-// GetRefreshTokenExpiration returns the refresh token expiration duration
-func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
-	return i.refreshTokenExpiration
-}
-
-// issueToken generates a new JWT token for the user
-// Uses RS256 (RSA asymmetric signing) so tokens can be verified without access to private key
-func (i *Issuer) issueToken(userID, tenantID uuid.UUID, expiresAt time.Time, scopes []sdk.Scope) (string, error) {
+func (i *Issuer) issueToken(audience string, tenantID, userID uuid.UUID, scopes []sdk.Scope, expiresAt time.Time) (string, error) {
 	now := time.Now()
+
 	claims := &Claims{
 		TenantID: tenantID,
 		Scopes:   scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    i.issuer,
 			Subject:   userID.String(),
+			Audience:  jwt.ClaimStrings{audience},
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
@@ -91,4 +95,19 @@ func (i *Issuer) issueToken(userID, tenantID uuid.UUID, expiresAt time.Time, sco
 	}
 
 	return signedToken, nil
+}
+
+// GetAccessTokenExpiration returns the access token expiration duration
+func (i *Issuer) GetAccessTokenExpiration() time.Duration {
+	return i.accessTokenExpiration
+}
+
+// GetRefreshTokenExpiration returns the refresh token expiration duration
+func (i *Issuer) GetRefreshTokenExpiration() time.Duration {
+	return i.refreshTokenExpiration
+}
+
+// GetMFAChallengeTokenExpiration returns the MFA challenge token expiration duration
+func (i *Issuer) GetMFAChallengeTokenExpiration() time.Duration {
+	return i.mfaChallengeTokenExpiration
 }

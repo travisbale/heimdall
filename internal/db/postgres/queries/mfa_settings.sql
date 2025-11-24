@@ -1,9 +1,8 @@
 -- name: CreateMFASettings :one
 INSERT INTO mfa_settings (
     user_id,
-    tenant_id,
     totp_secret
-) VALUES ($1, $2, $3)
+) VALUES ($1, $2)
 RETURNING *;
 
 -- name: GetMFASettingsByUserID :one

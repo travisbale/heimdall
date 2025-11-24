@@ -17,7 +17,7 @@ func TestIssuer_IssueAccessToken(t *testing.T) {
 	tenantID := uuid.New()
 	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate}
 
-	token, err := service.IssueAccessToken(userID, tenantID, scopes)
+	token, err := service.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -63,7 +63,7 @@ func TestIssuer_IssueRefreshToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := service.IssueRefreshToken(userID, tenantID)
+	token, err := service.IssueRefreshToken(tenantID, userID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -106,7 +106,7 @@ func TestIssuer_TokenExpiration(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := issuer.IssueAccessToken(userID, tenantID, nil)
+	token, err := issuer.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

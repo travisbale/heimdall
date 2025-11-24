@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -21,17 +20,11 @@ func NewMFABackupCodesDB(db *DB) *MFABackupCodesDB {
 
 // CreateBatch creates multiple backup codes using batch insert
 func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, codeHashes []string) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return err
-		}
-
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		params := make([]sqlc.CreateBackupCodesParams, len(codeHashes))
 		for i, codeHash := range codeHashes {
 			params[i] = sqlc.CreateBackupCodesParams{
 				UserID:   userID,
-				TenantID: tenantID,
 				CodeHash: codeHash,
 			}
 		}
@@ -48,7 +41,7 @@ func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, co
 func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*auth.MFABackupCode, error) {
 	var result []*auth.MFABackupCode
 
-	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		rows, err := q.GetUnusedBackupCodesByUserID(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("failed to get unused backup codes: %w", err)
@@ -72,7 +65,7 @@ func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UU
 
 // MarkUsed marks a backup code as used
 func (r *MFABackupCodesDB) MarkUsed(ctx context.Context, codeID uuid.UUID) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.MarkBackupCodeUsed(ctx, codeID)
 		if err != nil {
 			return fmt.Errorf("failed to mark backup code as used: %w", err)
@@ -83,7 +76,7 @@ func (r *MFABackupCodesDB) MarkUsed(ctx context.Context, codeID uuid.UUID) error
 
 // DeleteByUserID deletes all backup codes for a user
 func (r *MFABackupCodesDB) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.DeleteBackupCodesByUserID(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("failed to delete backup codes: %w", err)
@@ -96,7 +89,7 @@ func (r *MFABackupCodesDB) DeleteByUserID(ctx context.Context, userID uuid.UUID)
 func (r *MFABackupCodesDB) CountUnused(ctx context.Context, userID uuid.UUID) (int, error) {
 	var count int64
 
-	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		result, err := q.CountUnusedBackupCodes(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("failed to count unused backup codes: %w", err)

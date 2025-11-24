@@ -33,32 +33,37 @@ func NewTokenService(rbacService rbacService, jwtService jwtService, secureCooki
 }
 
 // IssueTokens creates JWT token pair and stores refresh token in HTTP-only cookie
-// Access token returned in response body, refresh token in secure cookie to prevent XSS attacks
 func (s *TokenService) IssueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, subject *Subject) {
-	var scopes []sdk.Scope
 	if subject.MFARequired {
-		// User needs to complete MFA before getting full scopes
-		scopes = []sdk.Scope{sdk.ScopeMFALogin}
-	} else {
-		// Get user's actual scopes
-		ctx = identity.WithUser(ctx, subject.UserID, subject.TenantID)
-		var err error
-		scopes, err = s.rbacService.GetUserScopes(ctx, subject.UserID)
+		challengeToken, err := s.jwtService.IssueMFAChallengeToken(subject.UserID, subject.TenantID)
 		if err != nil {
-			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to retrieve scopes for user"})
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate MFA challenge token"})
 			return
 		}
-		// Add authenticated scope to indicate full authentication is complete
-		scopes = append(scopes, sdk.ScopeAuthenticated)
+
+		// User must complete MFA to get full access
+		respondJSON(w, http.StatusOK, sdk.LoginResponse{
+			MFAChallengeToken: challengeToken,
+			ExpiresIn:         int(s.jwtService.GetMFAChallengeTokenExpiration().Seconds()),
+		})
+		return
 	}
 
-	accessToken, err := s.jwtService.IssueAccessToken(subject.UserID, subject.TenantID, scopes)
+	// User is fully authenticated - issue regular access/refresh token pair
+	ctx = identity.WithUser(ctx, subject.UserID, subject.TenantID)
+	scopes, err := s.rbacService.GetUserScopes(ctx, subject.UserID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to retrieve scopes for user"})
+		return
+	}
+
+	accessToken, err := s.jwtService.IssueAccessToken(subject.TenantID, subject.UserID, scopes)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate access token"})
 		return
 	}
 
-	refreshToken, err := s.jwtService.IssueRefreshToken(subject.UserID, subject.TenantID)
+	refreshToken, err := s.jwtService.IssueRefreshToken(subject.TenantID, subject.UserID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to generate refresh token"})
 		return

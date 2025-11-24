@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 )
@@ -26,15 +25,9 @@ func NewMFASettingsDB(db *DB) *MFASettingsDB {
 func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*auth.MFASettings, error) {
 	var result *auth.MFASettings
 
-	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return err
-		}
-
+	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateMFASettings(ctx, sqlc.CreateMFASettingsParams{
 			UserID:     userID,
-			TenantID:   tenantID,
 			TotpSecret: encryptedSecret,
 		})
 		if err != nil {
@@ -58,7 +51,7 @@ func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedS
 func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*auth.MFASettings, error) {
 	var result *auth.MFASettings
 
-	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetMFASettingsByUserID(ctx, userID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -82,7 +75,7 @@ func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*aut
 
 // Update updates MFA settings
 func (r *MFASettingsDB) Update(ctx context.Context, settings *auth.MFASettings) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.UpdateMFASettings(ctx, sqlc.UpdateMFASettingsParams{
 			UserID:         settings.UserID,
 			LastUsedWindow: settings.LastUsedWindow,
@@ -98,7 +91,7 @@ func (r *MFASettingsDB) Update(ctx context.Context, settings *auth.MFASettings) 
 
 // Delete deletes MFA settings for a user
 func (r *MFASettingsDB) Delete(ctx context.Context, userID uuid.UUID) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.DeleteMFASettings(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("failed to delete MFA settings: %w", err)
@@ -109,7 +102,7 @@ func (r *MFASettingsDB) Delete(ctx context.Context, userID uuid.UUID) error {
 
 // UpdateLastUsed updates last used window and timestamp (for replay prevention)
 func (r *MFASettingsDB) UpdateLastUsed(ctx context.Context, userID uuid.UUID, window int64) error {
-	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		now := time.Now()
 		err := q.UpdateMFASettings(ctx, sqlc.UpdateMFASettingsParams{
 			UserID:         userID,

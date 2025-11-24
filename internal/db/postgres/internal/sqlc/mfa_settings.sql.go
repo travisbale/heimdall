@@ -15,24 +15,21 @@ import (
 const createMFASettings = `-- name: CreateMFASettings :one
 INSERT INTO mfa_settings (
     user_id,
-    tenant_id,
     totp_secret
-) VALUES ($1, $2, $3)
-RETURNING user_id, tenant_id, totp_secret, last_used_window, created_at, verified_at, last_used_at
+) VALUES ($1, $2)
+RETURNING user_id, totp_secret, last_used_window, created_at, verified_at, last_used_at
 `
 
 type CreateMFASettingsParams struct {
 	UserID     uuid.UUID `json:"user_id"`
-	TenantID   uuid.UUID `json:"tenant_id"`
 	TotpSecret string    `json:"totp_secret"`
 }
 
 func (q *Queries) CreateMFASettings(ctx context.Context, arg CreateMFASettingsParams) (MfaSetting, error) {
-	row := q.db.QueryRow(ctx, createMFASettings, arg.UserID, arg.TenantID, arg.TotpSecret)
+	row := q.db.QueryRow(ctx, createMFASettings, arg.UserID, arg.TotpSecret)
 	var i MfaSetting
 	err := row.Scan(
 		&i.UserID,
-		&i.TenantID,
 		&i.TotpSecret,
 		&i.LastUsedWindow,
 		&i.CreatedAt,
@@ -52,7 +49,7 @@ func (q *Queries) DeleteMFASettings(ctx context.Context, userID uuid.UUID) error
 }
 
 const getMFASettingsByUserID = `-- name: GetMFASettingsByUserID :one
-SELECT user_id, tenant_id, totp_secret, last_used_window, created_at, verified_at, last_used_at FROM mfa_settings WHERE user_id = $1
+SELECT user_id, totp_secret, last_used_window, created_at, verified_at, last_used_at FROM mfa_settings WHERE user_id = $1
 `
 
 func (q *Queries) GetMFASettingsByUserID(ctx context.Context, userID uuid.UUID) (MfaSetting, error) {
@@ -60,7 +57,6 @@ func (q *Queries) GetMFASettingsByUserID(ctx context.Context, userID uuid.UUID) 
 	var i MfaSetting
 	err := row.Scan(
 		&i.UserID,
-		&i.TenantID,
 		&i.TotpSecret,
 		&i.LastUsedWindow,
 		&i.CreatedAt,

@@ -17,7 +17,7 @@ func TestValidator_ValidateToken_Success(t *testing.T) {
 	tenantID := uuid.New()
 	scopes := []sdk.Scope{sdk.ScopeUserRead}
 
-	token, err := service.IssueAccessToken(userID, tenantID, scopes)
+	token, err := service.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestValidator_ValidateToken_ExpiredToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := service.IssueAccessToken(userID, tenantID, nil)
+	token, err := service.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestValidator_ValidateToken_InvalidSignature(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := otherIssuer.IssueAccessToken(userID, tenantID, nil)
+	token, err := otherIssuer.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -134,11 +134,12 @@ func TestValidator_ValidateToken_MissingSubject(t *testing.T) {
 	service, privateKeyPath, publicKeyPath := createTestService(t)
 	defer cleanupKeys(privateKeyPath, publicKeyPath)
 
-	// Manually create a token without subject
+	// Manually create a token without subject but with valid audience
 	claims := &Claims{
 		TenantID: uuid.New(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "test-issuer",
+			Audience:  jwt.ClaimStrings{AudienceAPI}, // Valid audience
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			// Subject intentionally missing
@@ -161,12 +162,13 @@ func TestValidator_ValidateToken_MissingTenantID(t *testing.T) {
 	service, privateKeyPath, publicKeyPath := createTestService(t)
 	defer cleanupKeys(privateKeyPath, publicKeyPath)
 
-	// Manually create a token without tenant ID
+	// Manually create a token without tenant ID but with valid audience
 	claims := &Claims{
 		TenantID: uuid.Nil, // Missing tenant ID
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "test-issuer",
 			Subject:   uuid.New().String(),
+			Audience:  jwt.ClaimStrings{AudienceAPI}, // Valid audience
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 		},

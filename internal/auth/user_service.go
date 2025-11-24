@@ -10,25 +10,6 @@ import (
 
 const registrationTokenExpiration = 24 * time.Hour
 
-// userDB defines the interface for user database operations
-type userDB interface {
-	CreateUser(ctx context.Context, user *User) (*User, error)
-	GetUser(ctx context.Context, id uuid.UUID) (*User, error)
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	UpdateUser(ctx context.Context, params *UpdateUserParams) (*User, error)
-	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
-	DeleteUser(ctx context.Context, id uuid.UUID) error
-}
-
-type tenantsDB interface {
-	BootstrapTenant(ctx context.Context, email string, status UserStatus) (*Tenant, *User, error)
-}
-
-type hasher interface {
-	HashPassword(password string) (string, error)
-	VerifyPassword(password string, encodedHash string) error
-}
-
 type oidcService interface {
 	IsSSORequired(ctx context.Context, email string) (bool, error)
 }
@@ -36,12 +17,6 @@ type oidcService interface {
 type emailClient interface {
 	SendVerificationEmail(ctx context.Context, email, token string) error
 	SendPasswordResetEmail(ctx context.Context, email, token string) error
-}
-
-type tokenDB interface {
-	CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*UserToken, error)
-	GetToken(ctx context.Context, token string) (*UserToken, error)
-	DeleteToken(ctx context.Context, userID uuid.UUID) error
 }
 
 type loginAttemptsService interface {

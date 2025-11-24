@@ -14,7 +14,9 @@ import (
 // contextKey is a custom type for context keys to avoid collisions
 type contextKey string
 
-const claimsContextKey contextKey = "jwt_claims"
+const (
+	claimsContextKey contextKey = "jwt_claims"
+)
 
 type validator interface {
 	ValidateToken(token string) (*Claims, error)

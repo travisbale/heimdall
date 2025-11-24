@@ -66,7 +66,6 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			// Bootstrap new tenant with user and System Admin role
 			_, user, err = s.tenantsDB.BootstrapTenant(ctx, email, UserStatusUnverified)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)

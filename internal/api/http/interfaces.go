@@ -24,11 +24,14 @@ type userService interface {
 
 // jwtService defines the interface for JWT token operations
 type jwtService interface {
-	IssueAccessToken(userID, tenantID uuid.UUID, scopes []sdk.Scope) (string, error)
-	IssueRefreshToken(userID, tenantID uuid.UUID) (string, error)
+	IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, error)
+	IssueMFAChallengeToken(userID, tenantID uuid.UUID) (string, error)
+	IssueRefreshToken(tenantID, userID uuid.UUID) (string, error)
 	ValidateToken(token string) (*jwt.Claims, error)
+	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
 	GetAccessTokenExpiration() time.Duration
 	GetRefreshTokenExpiration() time.Duration
+	GetMFAChallengeTokenExpiration() time.Duration
 }
 
 // oidcService defines the interface for OIDC/OAuth operations
@@ -72,7 +75,7 @@ type mfaService interface {
 	DisableMFA(ctx context.Context, userID uuid.UUID, password, code string) error
 	GetStatus(ctx context.Context, userID uuid.UUID) (*auth.MFAStatus, error)
 	RegenerateBackupCodes(ctx context.Context, userID uuid.UUID, password string) ([]string, error)
-	VerifyMFA(ctx context.Context, userID uuid.UUID, code string) error
+	VerifyMFALogin(ctx context.Context, challengeToken, code string) (userID, tenantID uuid.UUID, err error)
 }
 
 type tokenService interface {

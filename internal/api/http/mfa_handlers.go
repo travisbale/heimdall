@@ -13,6 +13,7 @@ import (
 // MFAHandler handles MFA HTTP requests
 type MFAHandler struct {
 	mfaService   mfaService
+	jwtService   jwtService
 	tokenService tokenService
 	logger       logger
 }
@@ -21,6 +22,7 @@ type MFAHandler struct {
 func NewMFAHandler(config *Config) *MFAHandler {
 	return &MFAHandler{
 		mfaService:   config.MFAService,
+		jwtService:   config.JWTService,
 		tokenService: config.TokenService,
 		logger:       config.Logger,
 	}
@@ -175,16 +177,12 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, tenantID, err := identity.GetUserAndTenant(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
-		return
-	}
-
-	err = h.mfaService.VerifyMFA(r.Context(), userID, req.Code)
+	userID, tenantID, err := h.mfaService.VerifyMFALogin(r.Context(), req.ChallengeToken, req.Code)
 	if err != nil {
 		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "user_id", userID, "error", err.Error())
 		switch {
+		case errors.Is(err, auth.ErrInvalidChallengeToken):
+			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired challenge token"})
 		case errors.Is(err, auth.ErrInvalidMFACode):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid MFA code"})
 		case errors.Is(err, auth.ErrMFACodeAlreadyUsed):
@@ -204,8 +202,8 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info(r.Context(), events.MFAVerificationSuccess, "user_id", userID)
 
 	h.tokenService.IssueTokens(r.Context(), w, r, &Subject{
-		UserID:      userID,
 		TenantID:    tenantID,
+		UserID:      userID,
 		MFARequired: false,
 	})
 }

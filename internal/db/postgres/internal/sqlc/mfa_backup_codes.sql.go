@@ -33,7 +33,7 @@ func (q *Queries) DeleteBackupCodesByUserID(ctx context.Context, userID uuid.UUI
 }
 
 const getUnusedBackupCodesByUserID = `-- name: GetUnusedBackupCodesByUserID :many
-SELECT id, user_id, tenant_id, code_hash, used, used_at, created_at FROM mfa_backup_codes
+SELECT id, user_id, code_hash, used, used_at, created_at FROM mfa_backup_codes
 WHERE user_id = $1 AND used = false
 ORDER BY created_at ASC
 `
@@ -50,7 +50,6 @@ func (q *Queries) GetUnusedBackupCodesByUserID(ctx context.Context, userID uuid.
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.TenantID,
 			&i.CodeHash,
 			&i.Used,
 			&i.UsedAt,

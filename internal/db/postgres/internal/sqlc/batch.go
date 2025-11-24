@@ -18,8 +18,8 @@ var (
 )
 
 const createBackupCodes = `-- name: CreateBackupCodes :batchexec
-INSERT INTO mfa_backup_codes (user_id, tenant_id, code_hash)
-VALUES ($1, $2, $3)
+INSERT INTO mfa_backup_codes (user_id, code_hash)
+VALUES ($1, $2)
 `
 
 type CreateBackupCodesBatchResults struct {
@@ -30,7 +30,6 @@ type CreateBackupCodesBatchResults struct {
 
 type CreateBackupCodesParams struct {
 	UserID   uuid.UUID `json:"user_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
 	CodeHash string    `json:"code_hash"`
 }
 
@@ -39,7 +38,6 @@ func (q *Queries) CreateBackupCodes(ctx context.Context, arg []CreateBackupCodes
 	for _, a := range arg {
 		vals := []interface{}{
 			a.UserID,
-			a.TenantID,
 			a.CodeHash,
 		}
 		batch.Queue(createBackupCodes, vals...)

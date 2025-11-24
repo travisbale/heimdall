@@ -3,34 +3,30 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/heimdall/jwt"
 )
 
-// Hasher hashes and verifies passwords/codes
-type Hasher interface {
-	HashPassword(password string) (string, error)
-	VerifyPassword(password, hash string) error
-}
-
-// MFAVerifier handles setup and verification for a specific MFA method (TOTP, WebAuthn, etc.)
-type MFAVerifier interface {
+// mfaVerifier handles setup and verification for a specific MFA method (TOTP, WebAuthn, etc.)
+type mfaVerifier interface {
 	Setup(ctx context.Context, userID uuid.UUID, email string) (*MFAEnrollment, error)
 	Enable(ctx context.Context, userID uuid.UUID, code string) error
 	Verify(ctx context.Context, userID uuid.UUID, code string) error
 }
 
-// MFASettingsDB provides database operations for MFA settings
-type MFASettingsDB interface {
+// mfaSettingsDB provides database operations for MFA settings
+type mfaSettingsDB interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*MFASettings, error)
 	Delete(ctx context.Context, userID uuid.UUID) error
 }
 
-// MFABackupCodesDB provides database operations for MFA backup codes
-type MFABackupCodesDB interface {
+// mfaBackupCodesDB provides database operations for MFA backup codes
+type mfaBackupCodesDB interface {
 	CreateBatch(ctx context.Context, userID uuid.UUID, codeHashes []string) error
 	GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*MFABackupCode, error)
 	MarkUsed(ctx context.Context, codeID uuid.UUID) error
@@ -38,41 +34,42 @@ type MFABackupCodesDB interface {
 	CountUnused(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
-// UsersDB provides database operations for users
-type UsersDB interface {
-	GetUser(ctx context.Context, userID uuid.UUID) (*User, error)
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	UpdateUser(ctx context.Context, params *UpdateUserParams) (*User, error)
+// mfaChallengeTokenValidator validates MFA challenge tokens and returns claims
+type mfaChallengeTokenValidator interface {
+	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
 }
 
 type MFAServiceCofig struct {
-	MFASettingsDB MFASettingsDB
-	BackupCodesDB MFABackupCodesDB
-	UsersDB       UsersDB
-	Verifier      MFAVerifier
-	Hasher        Hasher
-	Logger        logger
+	MFASettingsDB      mfaSettingsDB
+	BackupCodesDB      mfaBackupCodesDB
+	UsersDB            userDB
+	Verifier           mfaVerifier
+	Hasher             hasher
+	ChallengeValidator mfaChallengeTokenValidator
+	Logger             logger
 }
 
 // MFAService manages multi-factor authentication
 type MFAService struct {
-	mfaSettingsDB MFASettingsDB
-	backupCodesDB MFABackupCodesDB
-	usersDB       UsersDB
-	verifier      MFAVerifier
-	hasher        Hasher
-	logger        logger
+	mfaSettingsDB      mfaSettingsDB
+	backupCodesDB      mfaBackupCodesDB
+	usersDB            userDB
+	verifier           mfaVerifier
+	hasher             hasher
+	challengeValidator mfaChallengeTokenValidator
+	logger             logger
 }
 
 // NewMFAService creates a new MFA service
 func NewMFAService(config *MFAServiceCofig) *MFAService {
 	return &MFAService{
-		mfaSettingsDB: config.MFASettingsDB,
-		backupCodesDB: config.BackupCodesDB,
-		usersDB:       config.UsersDB,
-		verifier:      config.Verifier,
-		hasher:        config.Hasher,
-		logger:        config.Logger,
+		mfaSettingsDB:      config.MFASettingsDB,
+		backupCodesDB:      config.BackupCodesDB,
+		usersDB:            config.UsersDB,
+		verifier:           config.Verifier,
+		hasher:             config.Hasher,
+		challengeValidator: config.ChallengeValidator,
+		logger:             config.Logger,
 	}
 }
 
@@ -142,7 +139,7 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password,
 		return ErrInvalidCredentials
 	}
 
-	err = s.VerifyMFA(ctx, userID, code)
+	err = s.verifyMFA(ctx, userID, code)
 	if err != nil {
 		return err
 	}
@@ -225,51 +222,56 @@ func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatu
 	}, nil
 }
 
-// VerifyMFA tries TOTP code first, then backup code
-func (s *MFAService) VerifyMFA(ctx context.Context, userID uuid.UUID, code string) error {
-	// Verify TOTP
+// VerifyMFALogin validates MFA challenge token and verifies MFA code during login
+func (s *MFAService) VerifyMFALogin(ctx context.Context, challengeToken, code string) (uuid.UUID, uuid.UUID, error) {
+	claims, err := s.challengeValidator.ValidateMFAChallengeToken(challengeToken)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
+	}
+
+	if err := s.verifyMFA(ctx, userID, code); err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+
+	return userID, claims.TenantID, nil
+}
+
+// verifyMFA tries TOTP code first, then backup code
+func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code string) error {
 	err := s.verifier.Verify(ctx, userID, code)
-	if err == nil {
-		return nil
-	}
-
-	// Replay attack - return immediately, don't try backup codes
-	if err == ErrMFACodeAlreadyUsed {
+	if !errors.Is(err, ErrInvalidMFACode) {
 		return err
 	}
 
-	// Only try backup codes if TOTP code was invalid (not other errors)
-	if err != ErrInvalidMFACode {
-		return err
-	}
-
-	// Verify backup code
+	// MFA code was invalid, try backup codes
 	backupCodes, err := s.backupCodesDB.GetUnusedByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if len(backupCodes) == 0 {
-		return ErrInvalidBackupCode
-	}
-
-	var matchedCode *MFABackupCode
 	for _, backupCode := range backupCodes {
 		err := s.hasher.VerifyPassword(code, backupCode.CodeHash)
-		if err == nil {
-			matchedCode = backupCode
-			break
+		if err != nil {
+			switch {
+			case errors.Is(err, ErrInvalidCredentials):
+				continue
+			default:
+				return fmt.Errorf("failed to verify backup code: %w", err)
+			}
 		}
+
+		if err := s.backupCodesDB.MarkUsed(ctx, backupCode.ID); err != nil {
+			return err
+		}
+
+		s.logger.Info(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", backupCode.ID)
+		return nil
 	}
 
-	if matchedCode == nil {
-		return ErrInvalidBackupCode
-	}
-
-	if err := s.backupCodesDB.MarkUsed(ctx, matchedCode.ID); err != nil {
-		return err
-	}
-
-	s.logger.Info(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", matchedCode.ID)
-	return nil
+	return ErrInvalidBackupCode
 }

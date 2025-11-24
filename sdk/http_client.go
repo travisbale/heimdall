@@ -19,9 +19,10 @@ type validatable interface {
 
 // HTTPClient is an HTTP client for the heimdall API
 type HTTPClient struct {
-	baseURL     string
-	httpClient  *http.Client
-	accessToken string
+	baseURL        string
+	httpClient     *http.Client
+	accessToken    string
+	challengeToken string // Temporary token for MFA verification
 }
 
 // Option is a functional option for configuring the HTTPClient
@@ -109,7 +110,14 @@ func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginRespons
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1Login, &req, &resp); err != nil {
 		return nil, err
 	}
-	c.accessToken = resp.AccessToken
+
+	// If MFA is required, store challenge token; otherwise, store access token
+	if resp.MFAChallengeToken != "" {
+		c.challengeToken = resp.MFAChallengeToken
+	} else {
+		c.accessToken = resp.AccessToken
+	}
+
 	return &resp, nil
 }
 
@@ -400,10 +408,18 @@ func (c *HTTPClient) RegenerateBackupCodes(ctx context.Context, req RegenerateBa
 // The access token is automatically set on the client for subsequent authenticated requests
 // This should be called after Login when MFA is required
 func (c *HTTPClient) VerifyMFALogin(ctx context.Context, req VerifyMFALoginRequest) (*LoginResponse, error) {
+	// Automatically include the challenge token from the initial login
+	if req.ChallengeToken == "" && c.challengeToken != "" {
+		req.ChallengeToken = c.challengeToken
+	}
+
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1TOTPLogin, &req, &resp); err != nil {
 		return nil, err
 	}
+
+	// Clear challenge token and set access token
+	c.challengeToken = ""
 	c.accessToken = resp.AccessToken
 	return &resp, nil
 }

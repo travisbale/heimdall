@@ -92,9 +92,10 @@ func (r *LoginRequest) Validate(ctx context.Context) error {
 // LoginResponse represents the login response
 // Note: refresh_token is sent via HTTP-only cookie, not in JSON body
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"` // seconds until access token expires
+	AccessToken       string `json:"access_token,omitempty"`        // Set when login is complete
+	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA is required
+	TokenType         string `json:"token_type,omitempty"`          // "Bearer" for access tokens, omitted for challenge tokens
+	ExpiresIn         int    `json:"expires_in"`                    // seconds until token expires
 }
 
 // LogoutResponse represents the logout response
@@ -653,11 +654,15 @@ type BackupCodesResponse struct {
 
 // VerifyMFALoginRequest verifies MFA during login
 type VerifyMFALoginRequest struct {
-	Code string `json:"code"` // TOTP code (6 digits) or backup code (8 digits)
+	ChallengeToken string `json:"challenge_token"` // Challenge token from initial login
+	Code           string `json:"code"`            // TOTP code (6 digits) or backup code (8 digits)
 }
 
 // Validate validates the verify MFA login request
 func (r *VerifyMFALoginRequest) Validate(ctx context.Context) error {
+	if r.ChallengeToken == "" {
+		return fmt.Errorf("challenge_token is required")
+	}
 	if r.Code == "" {
 		return fmt.Errorf("code is required")
 	}
