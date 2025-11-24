@@ -8,6 +8,7 @@ const (
 	LoginSucceeded         = "login_succeeded"
 	PasswordResetRequested = "password_reset_requested"
 	PasswordResetCompleted = "password_reset_completed"
+	PasswordChanged        = "password_changed"
 	EmailVerified          = "email_verified"
 	AccountLocked          = "account_locked"
 )

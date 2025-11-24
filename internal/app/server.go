@@ -66,6 +66,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Address:            config.HTTPAddress,
 		Database:           db,
 		UserService:        services.user,
+		PasswordService:    services.password,
 		MFAService:         services.mfa,
 		OIDCService:        services.oidc,
 		RBACService:        services.rbac,

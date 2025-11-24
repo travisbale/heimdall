@@ -17,6 +17,7 @@ import (
 // services holds all business logic service instances
 type services struct {
 	user          *auth.UserService
+	password      *auth.PasswordService
 	mfa           *auth.MFAService
 	oidc          *auth.OIDCService
 	rbac          *auth.RBACService
@@ -78,18 +79,26 @@ func initializeServices(
 		Logger:             clog.New("oidc_service"),
 	})
 
-	// User service for authentication and registration
-	userService := auth.NewUserService(&auth.UserServiceConfig{
+	// Password service for password authentication
+	passwordService := auth.NewPasswordService(&auth.PasswordServiceConfig{
 		UserDB:               dbs.users,
-		TenantsDB:            dbs.tenants,
 		Hasher:               passwordHasher,
-		EmailClient:          emailClient,
-		VerificationTokenDB:  dbs.verificationTokens,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
+		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
-		OIDCService:          oidcService,
-		RBACService:          rbacService,
-		Logger:               clog.New("user_service"),
+		Logger:               clog.New("password_service"),
+	})
+
+	// User service for registration and user management
+	userService := auth.NewUserService(&auth.UserServiceConfig{
+		UserDB:              dbs.users,
+		TenantsDB:           dbs.tenants,
+		Hasher:              passwordHasher,
+		EmailClient:         emailClient,
+		VerificationTokenDB: dbs.verificationTokens,
+		OIDCService:         oidcService,
+		RBACService:         rbacService,
+		Logger:              clog.New("user_service"),
 	})
 
 	// MFA service for TOTP and backup codes
@@ -105,6 +114,7 @@ func initializeServices(
 
 	return &services{
 		user:          userService,
+		password:      passwordService,
 		mfa:           mfaService,
 		oidc:          oidcService,
 		rbac:          rbacService,

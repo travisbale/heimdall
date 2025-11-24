@@ -11,15 +11,18 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// userService defines the interface for user authentication and management operations
+// userService defines the interface for user registration and management operations
 type userService interface {
-	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
-
 	Register(ctx context.Context, email string) (*auth.User, error)
 	ConfirmRegistration(ctx context.Context, token string, password string) (*auth.User, error)
+}
 
+// passwordService defines the interface for password authentication operations
+type passwordService interface {
+	Login(ctx context.Context, email, password, ipAddress string) (*auth.User, error)
 	InitiatePasswordReset(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
 }
 
 // jwtService defines the interface for JWT token operations

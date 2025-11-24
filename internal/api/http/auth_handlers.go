@@ -13,17 +13,17 @@ const refreshTokenCookie = "refresh_token"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	userService  userService
-	mfaService   mfaService
-	tokenService tokenService
+	passwordService passwordService
+	mfaService      mfaService
+	tokenService    tokenService
 }
 
 // NewAuthHandler creates a new AuthHandler
 func NewAuthHandler(config *Config) *AuthHandler {
 	return &AuthHandler{
-		userService:  config.UserService,
-		mfaService:   config.MFAService,
-		tokenService: config.TokenService,
+		passwordService: config.PasswordService,
+		mfaService:      config.MFAService,
+		tokenService:    config.TokenService,
 	}
 }
 
@@ -34,7 +34,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.Login(r.Context(), req.Email, req.Password, identity.GetIPAddress(r.Context()))
+	user, err := h.passwordService.Login(r.Context(), req.Email, req.Password, identity.GetIPAddress(r.Context()))
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):

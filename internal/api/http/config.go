@@ -16,6 +16,7 @@ type Config struct {
 	Address            string
 	Database           database
 	UserService        userService
+	PasswordService    passwordService
 	MFAService         mfaService
 	OIDCService        oidcService
 	RBACService        rbacService

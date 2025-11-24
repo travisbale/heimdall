@@ -6,12 +6,51 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
 )
 
+type loginAttemptsService interface {
+	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string, lastLoginAt *time.Time) error
+	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID, ipAddress string) error
+	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
+}
+
+// PasswordService handles password-based authentication operations
+type PasswordService struct {
+	userDB               userDB
+	hasher               hasher
+	passwordResetTokenDB tokenDB
+	emailClient          emailClient
+	loginAttemptsService loginAttemptsService
+	logger               logger
+}
+
+// PasswordServiceConfig contains all dependencies for PasswordService
+type PasswordServiceConfig struct {
+	UserDB               userDB
+	Hasher               hasher
+	PasswordResetTokenDB tokenDB
+	EmailClient          emailClient
+	LoginAttemptsService loginAttemptsService
+	Logger               logger
+}
+
+// NewPasswordService creates a new PasswordService with the provided configuration
+func NewPasswordService(config *PasswordServiceConfig) *PasswordService {
+	return &PasswordService{
+		userDB:               config.UserDB,
+		hasher:               config.Hasher,
+		passwordResetTokenDB: config.PasswordResetTokenDB,
+		emailClient:          config.EmailClient,
+		loginAttemptsService: config.LoginAttemptsService,
+		logger:               config.Logger,
+	}
+}
+
 // Login authenticates a user and returns the active user account
-func (s *UserService) Login(ctx context.Context, email, password, ipAddress string) (*User, error) {
+func (s *PasswordService) Login(ctx context.Context, email, password, ipAddress string) (*User, error) {
 	if locked, _, err := s.loginAttemptsService.IsAccountLocked(ctx, email); err != nil {
 		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
 	} else if locked {
@@ -65,7 +104,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress stri
 }
 
 // InitiatePasswordReset generates a password reset token and sends a reset email
-func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) error {
+func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email string) error {
 	user, err := s.userDB.GetUserByEmail(ctx, email)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
@@ -92,7 +131,7 @@ func (s *UserService) InitiatePasswordReset(ctx context.Context, email string) e
 }
 
 // ResetPassword validates the reset token and updates the user's password
-func (s *UserService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
+func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
 	// Get the password reset token
 	resetToken, err := s.passwordResetTokenDB.GetToken(ctx, tokenStr)
 	if err != nil {
@@ -125,6 +164,34 @@ func (s *UserService) ResetPassword(ctx context.Context, tokenStr, newPassword s
 	}
 
 	s.logger.Info(ctx, events.PasswordResetCompleted, "user_id", resetToken.UserID)
+
+	return nil
+}
+
+// ChangePassword updates a user's password after validating their current password
+func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
+	user, err := s.userDB.GetUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if err := s.hasher.VerifyPassword(oldPassword, user.PasswordHash); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	passwordHash, err := s.hasher.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if _, err := s.userDB.UpdateUser(ctx, &UpdateUserParams{
+		ID:           userID,
+		PasswordHash: &passwordHash,
+	}); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	s.logger.Info(ctx, events.PasswordChanged, "user_id", userID)
 
 	return nil
 }

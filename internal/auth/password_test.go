@@ -9,9 +9,44 @@ import (
 	"github.com/google/uuid"
 )
 
+type passwordServiceTestFixture struct {
+	service              *PasswordService
+	userDB               *mockUserDB
+	hasher               *mockHasher
+	emailClient          *mockEmailClient
+	passwordResetTokenDB *mockTokenDB
+	loginAttempts        *mockLoginAttemptsService
+}
+
+func newPasswordServiceTestFixture() *passwordServiceTestFixture {
+	userDB := newMockUserDB()
+	hasher := &mockHasher{}
+	emailClient := &mockEmailClient{}
+	passwordResetTokenDB := newMockTokenDB()
+	loginAttempts := &mockLoginAttemptsService{}
+
+	service := NewPasswordService(&PasswordServiceConfig{
+		UserDB:               userDB,
+		Hasher:               hasher,
+		PasswordResetTokenDB: passwordResetTokenDB,
+		EmailClient:          emailClient,
+		LoginAttemptsService: loginAttempts,
+		Logger:               &mockLogger{},
+	})
+
+	return &passwordServiceTestFixture{
+		service:              service,
+		userDB:               userDB,
+		hasher:               hasher,
+		emailClient:          emailClient,
+		passwordResetTokenDB: passwordResetTokenDB,
+		loginAttempts:        loginAttempts,
+	}
+}
+
 func TestLogin(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create active user with password
@@ -42,7 +77,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	t.Run("WrongPassword", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create active user with password
@@ -69,7 +104,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	t.Run("UserNotFound", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		_, err := f.service.Login(ctx, "nonexistent@example.com", "password", "192.168.1.1")
@@ -84,7 +119,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	t.Run("AccountLocked", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		f.loginAttempts.locked = true
@@ -97,7 +132,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	t.Run("UnverifiedEmail", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create unverified user with password
@@ -121,7 +156,7 @@ func TestLogin(t *testing.T) {
 
 func TestInitiatePasswordReset(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create active user
@@ -152,7 +187,7 @@ func TestInitiatePasswordReset(t *testing.T) {
 	})
 
 	t.Run("UserNotFound", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		err := f.service.InitiatePasswordReset(ctx, "nonexistent@example.com")
@@ -164,7 +199,7 @@ func TestInitiatePasswordReset(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create active user
@@ -205,7 +240,7 @@ func TestResetPassword(t *testing.T) {
 	})
 
 	t.Run("ExpiredToken", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		// Create active user
@@ -234,7 +269,7 @@ func TestResetPassword(t *testing.T) {
 	})
 
 	t.Run("InvalidToken", func(t *testing.T) {
-		f := newUserServiceTestFixture()
+		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
 		err := f.service.ResetPassword(ctx, "nonexistent_token", "newpassword123")

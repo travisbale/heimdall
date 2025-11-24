@@ -9,7 +9,61 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/heimdall/sdk"
 )
+
+const registrationTokenExpiration = 24 * time.Hour
+
+type oidcService interface {
+	IsSSORequired(ctx context.Context, email string) (bool, error)
+}
+
+type emailClient interface {
+	SendVerificationEmail(ctx context.Context, email, token string) error
+	SendPasswordResetEmail(ctx context.Context, email, token string) error
+}
+
+type rbacService interface {
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
+}
+
+// UserServiceConfig holds the dependencies for creating a UserService
+type UserServiceConfig struct {
+	UserDB              userDB
+	TenantsDB           tenantsDB
+	Hasher              hasher
+	EmailClient         emailClient
+	VerificationTokenDB tokenDB
+	OIDCService         oidcService
+	RBACService         rbacService
+	Logger              logger
+}
+
+// UserService handles user registration, email verification, and user management
+type UserService struct {
+	userDB              userDB
+	tenantsDB           tenantsDB
+	hasher              hasher
+	emailClient         emailClient
+	verificationTokenDB tokenDB
+	oidcService         oidcService
+	rbacService         rbacService
+	logger              logger
+}
+
+func NewUserService(config *UserServiceConfig) *UserService {
+	return &UserService{
+		userDB:              config.UserDB,
+		tenantsDB:           config.TenantsDB,
+		hasher:              config.Hasher,
+		emailClient:         config.EmailClient,
+		verificationTokenDB: config.VerificationTokenDB,
+		oidcService:         config.OIDCService,
+		rbacService:         config.RBACService,
+		logger:              config.Logger,
+	}
+}
 
 // CreateUser creates a new user and assigns specified roles
 func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid.UUID) (*User, string, error) {

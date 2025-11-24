@@ -10,6 +10,54 @@ import (
 	"github.com/travisbale/heimdall/identity"
 )
 
+type userServiceTestFixture struct {
+	service             *UserService
+	userDB              *mockUserDB
+	hasher              *mockHasher
+	emailClient         *mockEmailClient
+	verificationTokenDB *mockTokenDB
+	oidcService         *mockOIDCServiceForUser
+}
+
+func newUserServiceTestFixture() *userServiceTestFixture {
+	userDB := newMockUserDB()
+	hasher := &mockHasher{}
+	emailClient := &mockEmailClient{}
+	verificationTokenDB := newMockTokenDB()
+	oidcService := &mockOIDCServiceForUser{}
+	rbacService := newMockRBACService()
+	tenantsDB := newMockTenantsDB()
+
+	// Wire up dependencies so BootstrapTenant can properly update shared mocks
+	tenantsDB.setDependencies(userDB)
+
+	service := NewUserService(&UserServiceConfig{
+		UserDB:              userDB,
+		TenantsDB:           tenantsDB,
+		Hasher:              hasher,
+		EmailClient:         emailClient,
+		VerificationTokenDB: verificationTokenDB,
+		OIDCService:         oidcService,
+		RBACService:         rbacService,
+		Logger:              &mockLogger{},
+	})
+
+	return &userServiceTestFixture{
+		service:             service,
+		userDB:              userDB,
+		hasher:              hasher,
+		emailClient:         emailClient,
+		verificationTokenDB: verificationTokenDB,
+		oidcService:         oidcService,
+	}
+}
+
+// Helper function to add a user to mockUserDB (adds to both maps)
+func addUserToMockDB(userDB *mockUserDB, user *User) {
+	userDB.users[user.ID] = user
+	userDB.emails[user.Email] = user
+}
+
 func TestRegister(t *testing.T) {
 	t.Run("Success_NewUser", func(t *testing.T) {
 		f := newUserServiceTestFixture()

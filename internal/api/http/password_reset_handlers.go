@@ -10,13 +10,13 @@ import (
 
 // PasswordResetHandler handles password reset HTTP requests
 type PasswordResetHandler struct {
-	userService userService
+	passwordService passwordService
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
 func NewPasswordResetHandler(config *Config) *PasswordResetHandler {
 	return &PasswordResetHandler{
-		userService: config.UserService,
+		passwordService: config.PasswordService,
 	}
 }
 
@@ -28,7 +28,7 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 	}
 
 	// Always return success regardless of outcome (prevent user enumeration)
-	_ = h.userService.InitiatePasswordReset(r.Context(), req.Email)
+	_ = h.passwordService.InitiatePasswordReset(r.Context(), req.Email)
 	respondJSON(w, http.StatusOK, sdk.ForgotPasswordResponse{
 		Message: "If an account exists with this email, a password reset link has been sent.",
 	})
@@ -41,7 +41,7 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err := h.userService.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	err := h.passwordService.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrPasswordResetTokenNotFound):
