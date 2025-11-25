@@ -17,7 +17,7 @@ func TestValidator_ValidateToken_Success(t *testing.T) {
 	tenantID := uuid.New()
 	scopes := []sdk.Scope{sdk.ScopeUserRead}
 
-	token, err := service.IssueAccessToken(tenantID, userID, scopes)
+	token, _, err := service.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestValidator_ValidateToken_ExpiredToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := service.IssueAccessToken(tenantID, userID, nil)
+	token, _, err := service.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestValidator_ValidateToken_InvalidSignature(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := otherIssuer.IssueAccessToken(tenantID, userID, nil)
+	token, _, err := otherIssuer.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}

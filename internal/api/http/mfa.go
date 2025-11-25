@@ -129,6 +129,10 @@ func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
 
 	status, err := h.mfaService.GetStatus(r.Context(), userID)
 	if err != nil {
+		if errors.Is(err, iam.ErrMFANotEnabled) {
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA is not enabled"})
+			return
+		}
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get MFA status"})
 		return
 	}
@@ -200,6 +204,64 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Info(r.Context(), events.MFAVerificationSuccess)
+
+	encodeSessionResponse(w, r, tokens, h.secureCookies)
+}
+
+// RequiredSetup handles MFA setup when user's role requires MFA but they haven't set it up.
+// This is an unauthenticated endpoint that validates the MFA setup token from login response.
+func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
+	var req sdk.RequiredMFASetupRequest
+	if !decodeAndValidateJSON(w, r, &req) {
+		return
+	}
+
+	enrollment, err := h.authService.SetupRequiredMFA(r.Context(), req.SetupToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, iam.ErrInvalidSetupToken):
+			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired setup token"})
+		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
+			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
+		default:
+			h.logger.Error(r.Context(), "failed to setup required MFA", "error", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to setup MFA"})
+		}
+		return
+	}
+
+	respondJSON(w, http.StatusOK, &sdk.MFASetupResponse{
+		Secret:      enrollment.Secret,
+		QRCode:      enrollment.QRCode,
+		BackupCodes: enrollment.BackupCodes,
+	})
+}
+
+// RequiredEnable enables MFA after required setup and completes the login flow.
+// This is an unauthenticated endpoint that validates the MFA setup token from login response.
+func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
+	var req sdk.RequiredMFAEnableRequest
+	if !decodeAndValidateJSON(w, r, &req) {
+		return
+	}
+
+	tokens, err := h.authService.EnableRequiredMFA(r.Context(), req.SetupToken, req.Code)
+	if err != nil {
+		switch {
+		case errors.Is(err, iam.ErrInvalidSetupToken):
+			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired setup token"})
+		case errors.Is(err, iam.ErrInvalidMFACode):
+			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid MFA code"})
+		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
+			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
+		case errors.Is(err, iam.ErrMFANotEnabled):
+			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA setup not found. Please start MFA setup first."})
+		default:
+			h.logger.Error(r.Context(), "failed to enable required MFA", "error", err)
+			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to enable MFA"})
+		}
+		return
+	}
 
 	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }

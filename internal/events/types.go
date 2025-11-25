@@ -49,6 +49,7 @@ const (
 // MFA Events
 const (
 	MFASetupStarted        = "mfa_setup_started"
+	MFASetupRequired       = "mfa_setup_required"
 	MFAEnabled             = "mfa_enabled"
 	MFADisabled            = "mfa_disabled"
 	MFAVerificationSuccess = "mfa_verification_success"

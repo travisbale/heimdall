@@ -50,6 +50,12 @@ func (v *Validator) ValidateMFAChallengeToken(tokenString string) (*Claims, erro
 	return v.validateToken(AudienceMFAChallenge, tokenString)
 }
 
+// ValidateMFASetupToken validates an MFA setup token and returns the claims
+func (v *Validator) ValidateMFASetupToken(tokenString string) (*Claims, error) {
+	return v.validateToken(AudienceMFASetup, tokenString)
+}
+
+// validateToken validates a token and confirms the target audience is correct
 func (v *Validator) validateToken(audience, tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	if token, err := jwt.ParseWithClaims(tokenString, claims, v.keyFunc); err != nil {

@@ -42,6 +42,7 @@ func initializeServices(
 		AccessTokenExpiration:       15 * time.Minute,
 		RefreshTokenExpiration:      config.JWTExpiration,
 		MFAChallengeTokenExpiration: 5 * time.Minute,
+		MFASetupTokenExpiration:     5 * time.Minute,
 	}
 
 	jwtService, err := jwt.NewService(jwtConfig)

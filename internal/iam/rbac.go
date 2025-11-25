@@ -190,3 +190,17 @@ func (s *RBACService) GetDirectPermissions(ctx context.Context, userID uuid.UUID
 func (s *RBACService) ListPermissions(ctx context.Context) ([]*Permission, error) {
 	return s.permissionsDB.ListPermissions(ctx)
 }
+
+// UserRolesRequireMFA checks if any of the user's assigned roles require MFA
+func (s *RBACService) UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error) {
+	roles, err := s.userRolesDB.GetUserRoles(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user roles: %w", err)
+	}
+	for _, role := range roles {
+		if role.MFARequired {
+			return true, nil
+		}
+	}
+	return false, nil
+}

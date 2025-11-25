@@ -6,24 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
-
-// SessionTokens contains all tokens issued for a user session
-type SessionTokens struct {
-	AccessToken            string
-	RefreshToken           string
-	MFAChallengeToken      string
-	AccessExpiration       time.Duration
-	RefreshExpiration      time.Duration
-	MFAChallengeExpiration time.Duration
-}
-
-// RequiresMFA returns true if MFA verification is needed to complete authentication
-func (s *SessionTokens) RequiresMFA() bool {
-	return s.MFAChallengeToken != ""
-}
 
 type passwordService interface {
 	VerifyCredentials(ctx context.Context, email, password string) (*User, error)
@@ -40,17 +26,18 @@ type userAccountService interface {
 type mfaVerificationService interface {
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 	VerifyCode(ctx context.Context, userID uuid.UUID, code string) error
+	SetupMFA(ctx context.Context, userID uuid.UUID) (*MFAEnrollment, error)
+	EnableMFA(ctx context.Context, userID uuid.UUID, code string) error
 }
 
 type jwtService interface {
-	IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, error)
-	IssueMFAChallengeToken(tenantID, userID uuid.UUID) (string, error)
-	IssueRefreshToken(tenantID, userID uuid.UUID) (string, error)
+	IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, time.Duration, error)
+	IssueMFAChallengeToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
+	IssueMFASetupToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
+	IssueRefreshToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
 	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
+	ValidateMFASetupToken(token string) (*jwt.Claims, error)
 	ValidateToken(token string) (*jwt.Claims, error)
-	GetAccessTokenExpiration() time.Duration
-	GetRefreshTokenExpiration() time.Duration
-	GetMFAChallengeTokenExpiration() time.Duration
 }
 
 // AuthService orchestrates authentication flows
@@ -95,16 +82,7 @@ func (s *AuthService) AuthenticateWithPassword(ctx context.Context, email, passw
 		return nil, err
 	}
 
-	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check MFA status: %w", err)
-	}
-
-	if mfaEnabled {
-		return s.issueMFAChallenge(user.TenantID, user.ID)
-	}
-
-	return s.createSession(ctx, user.TenantID, user.ID)
+	return s.completeAuthentication(ctx, user)
 }
 
 // AuthenticateWithOIDC handles OAuth/OIDC callback
@@ -114,8 +92,7 @@ func (s *AuthService) AuthenticateWithOIDC(ctx context.Context, state, code stri
 		return nil, err
 	}
 
-	// No MFA check - OIDC providers handle their own MFA
-	return s.createSession(ctx, user.TenantID, user.ID)
+	return s.completeAuthentication(ctx, user)
 }
 
 // CompleteRegistration handles email verification and auto-login
@@ -125,16 +102,7 @@ func (s *AuthService) CompleteRegistration(ctx context.Context, token, password 
 		return nil, err
 	}
 
-	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check MFA status: %w", err)
-	}
-
-	if mfaEnabled {
-		return s.issueMFAChallenge(user.TenantID, user.ID)
-	}
-
-	return s.createSession(ctx, user.TenantID, user.ID)
+	return s.completeAuthentication(ctx, user)
 }
 
 // AuthenticateWithMFA completes MFA challenge and issues final tokens
@@ -161,17 +129,81 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	return s.createSession(ctx, claims.TenantID, claims.UserID)
 }
 
+// SetupRequiredMFA validates the setup token and initiates MFA enrollment
+func (s *AuthService) SetupRequiredMFA(ctx context.Context, setupToken string) (*MFAEnrollment, error) {
+	claims, err := s.jwtService.ValidateMFASetupToken(setupToken)
+	if err != nil {
+		return nil, ErrInvalidSetupToken
+	}
+
+	return s.mfaService.SetupMFA(ctx, claims.UserID)
+}
+
+// EnableRequiredMFA validates the setup token, enables MFA, and returns a challenge token
+func (s *AuthService) EnableRequiredMFA(ctx context.Context, setupToken, code string) (*SessionTokens, error) {
+	claims, err := s.jwtService.ValidateMFASetupToken(setupToken)
+	if err != nil {
+		return nil, ErrInvalidSetupToken
+	}
+
+	if err := s.mfaService.EnableMFA(ctx, claims.UserID, code); err != nil {
+		return nil, err
+	}
+
+	s.logger.Info(ctx, events.MFAEnabled, "user_id", claims.UserID, "required", true)
+
+	return s.issueMFAChallenge(claims.TenantID, claims.UserID)
+}
+
 // issueMFAChallenge creates a challenge token for MFA verification
 func (s *AuthService) issueMFAChallenge(tenantID, userID uuid.UUID) (*SessionTokens, error) {
-	challengeToken, err := s.jwtService.IssueMFAChallengeToken(tenantID, userID)
+	challengeToken, expiration, err := s.jwtService.IssueMFAChallengeToken(tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate MFA challenge token: %w", err)
 	}
 
 	return &SessionTokens{
 		MFAChallengeToken:      challengeToken,
-		MFAChallengeExpiration: s.jwtService.GetMFAChallengeTokenExpiration(),
+		MFAChallengeExpiration: expiration,
 	}, nil
+}
+
+// issueMFASetupChallenge creates a setup token for required MFA configuration
+func (s *AuthService) issueMFASetupChallenge(tenantID, userID uuid.UUID) (*SessionTokens, error) {
+	setupToken, expiration, err := s.jwtService.IssueMFASetupToken(tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate MFA setup token: %w", err)
+	}
+
+	return &SessionTokens{
+		MFASetupToken:      setupToken,
+		MFASetupExpiration: expiration,
+	}, nil
+}
+
+// completeAuthentication checks MFA status and either issues tokens or requires MFA
+func (s *AuthService) completeAuthentication(ctx context.Context, user *User) (*SessionTokens, error) {
+	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check MFA status: %w", err)
+	}
+
+	if mfaEnabled {
+		return s.issueMFAChallenge(user.TenantID, user.ID)
+	}
+
+	// Check if role requires MFA but user hasn't set it up
+	rolesRequireMFA, err := s.rbacService.UserRolesRequireMFA(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check MFA requirements: %w", err)
+	}
+
+	if rolesRequireMFA {
+		s.logger.Info(ctx, events.MFASetupRequired, "user_id", user.ID)
+		return s.issueMFASetupChallenge(user.TenantID, user.ID)
+	}
+
+	return s.createSession(ctx, user.TenantID, user.ID)
 }
 
 // createSession issues access and refresh tokens for a fully authenticated user
@@ -181,12 +213,12 @@ func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.U
 		return nil, fmt.Errorf("failed to retrieve user scopes: %w", err)
 	}
 
-	accessToken, err := s.jwtService.IssueAccessToken(tenantID, userID, scopes)
+	accessToken, accessExpiration, err := s.jwtService.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := s.jwtService.IssueRefreshToken(tenantID, userID)
+	refreshToken, refreshExpiration, err := s.jwtService.IssueRefreshToken(tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -194,7 +226,7 @@ func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.U
 	return &SessionTokens{
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
-		AccessExpiration:  s.jwtService.GetAccessTokenExpiration(),
-		RefreshExpiration: s.jwtService.GetRefreshTokenExpiration(),
+		AccessExpiration:  accessExpiration,
+		RefreshExpiration: refreshExpiration,
 	}, nil
 }

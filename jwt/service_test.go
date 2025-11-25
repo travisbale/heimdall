@@ -96,7 +96,7 @@ func TestRoundTrip_AccessToken(t *testing.T) {
 	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate, sdk.Scope("delete:users")}
 
 	// Issue token
-	token, err := service.IssueAccessToken(tenantID, userID, scopes)
+	token, _, err := service.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		t.Fatalf("failed to issue token: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestRoundTrip_RefreshToken(t *testing.T) {
 	tenantID := uuid.New()
 
 	// Issue refresh token
-	token, err := service.IssueRefreshToken(tenantID, userID)
+	token, _, err := service.IssueRefreshToken(tenantID, userID)
 	if err != nil {
 		t.Fatalf("failed to issue refresh token: %v", err)
 	}

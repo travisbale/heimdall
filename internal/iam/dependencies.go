@@ -25,4 +25,5 @@ type logger interface {
 type rbacService interface {
 	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
 	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
+	UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error)
 }

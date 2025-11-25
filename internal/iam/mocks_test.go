@@ -695,9 +695,11 @@ func (m *mockOIDCServiceForUser) IsSSORequired(ctx context.Context, email string
 }
 
 type mockRBACService struct {
-	setUserRolesError  error
-	getUserScopesError error
-	userScopes         map[uuid.UUID][]sdk.Scope
+	setUserRolesError      error
+	getUserScopesError     error
+	userRolesRequireMFAErr error
+	userScopes             map[uuid.UUID][]sdk.Scope
+	userRolesRequireMFAVal bool
 }
 
 func newMockRBACService() *mockRBACService {
@@ -723,4 +725,11 @@ func (m *mockRBACService) SetUserRoles(ctx context.Context, userID uuid.UUID, ro
 	}
 	// Mock implementation - just succeed without actually doing anything
 	return nil
+}
+
+func (m *mockRBACService) UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error) {
+	if m.userRolesRequireMFAErr != nil {
+		return false, m.userRolesRequireMFAErr
+	}
+	return m.userRolesRequireMFAVal, nil
 }

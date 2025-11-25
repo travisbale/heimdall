@@ -28,7 +28,7 @@ func NewServer(config *Config) *Server {
 	mfaHandler := NewMFAHandler(config)
 
 	// Create JWT middleware
-	jwtMiddleware := jwt.NewHTTPMiddleware(config.JWTService)
+	jwtMiddleware := jwt.NewHTTPMiddleware(config.JWTValidator)
 	require := jwtMiddleware.RequireScope
 
 	r := chi.NewRouter()
@@ -85,6 +85,10 @@ func NewServer(config *Config) *Server {
 		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
 
 		r.Post(sdk.RouteV1MFAVerify, mfaHandler.Login)
+
+		// Required MFA setup (unauthenticated, uses setup token from login response)
+		r.Post(sdk.RouteV1MFARequiredSetup, mfaHandler.RequiredSetup)
+		r.Post(sdk.RouteV1MFARequiredEnable, mfaHandler.RequiredEnable)
 	})
 
 	// OIDC provider management

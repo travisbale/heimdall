@@ -49,4 +49,8 @@ const (
 	RouteV1MFADisable         = "/v1/mfa/disable"                 // Disable MFA (authenticated)
 	RouteV1MFAStatus          = "/v1/mfa/status"                  // Get MFA status (authenticated)
 	RouteV1MFARegenerateCodes = "/v1/mfa/backup-codes/regenerate" // Regenerate backup codes (authenticated)
+
+	// Required MFA setup endpoints (unauthenticated, uses setup token)
+	RouteV1MFARequiredSetup  = "/v1/mfa/required-setup"  // Start MFA setup when role requires it
+	RouteV1MFARequiredEnable = "/v1/mfa/required-enable" // Enable MFA and complete login
 )

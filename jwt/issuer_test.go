@@ -17,13 +17,17 @@ func TestIssuer_IssueAccessToken(t *testing.T) {
 	tenantID := uuid.New()
 	scopes := []sdk.Scope{sdk.ScopeUserRead, sdk.ScopeUserUpdate}
 
-	token, err := service.IssueAccessToken(tenantID, userID, scopes)
+	token, expiration, err := service.IssueAccessToken(tenantID, userID, scopes)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
 	if token == "" {
 		t.Error("expected non-empty token")
+	}
+
+	if expiration != 15*time.Minute {
+		t.Errorf("expected expiration 15m, got %v", expiration)
 	}
 
 	// Parse token to verify structure
@@ -63,13 +67,17 @@ func TestIssuer_IssueRefreshToken(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := service.IssueRefreshToken(tenantID, userID)
+	token, expiration, err := service.IssueRefreshToken(tenantID, userID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
 	if token == "" {
 		t.Error("expected non-empty token")
+	}
+
+	if expiration != 24*time.Hour {
+		t.Errorf("expected expiration 24h, got %v", expiration)
 	}
 
 	// Parse token to verify it has no permissions
@@ -106,7 +114,7 @@ func TestIssuer_TokenExpiration(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	token, err := issuer.IssueAccessToken(tenantID, userID, nil)
+	token, _, err := issuer.IssueAccessToken(tenantID, userID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -123,21 +131,6 @@ func TestIssuer_TokenExpiration(t *testing.T) {
 
 	if err == nil {
 		t.Error("expected error for expired token")
-	}
-}
-
-func TestIssuer_GetExpirations(t *testing.T) {
-	service, privateKeyPath, publicKeyPath := createTestService(t)
-	defer cleanupKeys(privateKeyPath, publicKeyPath)
-
-	accessExp := service.GetAccessTokenExpiration()
-	if accessExp != 15*time.Minute {
-		t.Errorf("expected access token expiration 15m, got %v", accessExp)
-	}
-
-	refreshExp := service.GetRefreshTokenExpiration()
-	if refreshExp != 24*time.Hour {
-		t.Errorf("expected refresh token expiration 24h, got %v", refreshExp)
 	}
 }
 

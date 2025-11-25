@@ -12,6 +12,7 @@ type Config struct {
 	AccessTokenExpiration       time.Duration
 	RefreshTokenExpiration      time.Duration
 	MFAChallengeTokenExpiration time.Duration
+	MFASetupTokenExpiration     time.Duration
 }
 
 // Service combines issuing and validating JWTs using asymmetric RSA keys

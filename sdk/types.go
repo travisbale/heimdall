@@ -93,8 +93,9 @@ func (r *LoginRequest) Validate(ctx context.Context) error {
 // Note: refresh_token is sent via HTTP-only cookie, not in JSON body
 type LoginResponse struct {
 	AccessToken       string `json:"access_token,omitempty"`        // Set when login is complete
-	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA is required
-	TokenType         string `json:"token_type,omitempty"`          // "Bearer" for access tokens, omitted for challenge tokens
+	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA verification is required
+	MFASetupToken     string `json:"mfa_setup_token,omitempty"`     // Set when role requires MFA but user hasn't set it up
+	TokenType         string `json:"token_type,omitempty"`          // "Bearer" for access tokens, omitted for challenge/setup tokens
 	ExpiresIn         int    `json:"expires_in"`                    // seconds until token expires
 }
 
@@ -668,6 +669,39 @@ func (r *VerifyMFACodeRequest) Validate(ctx context.Context) error {
 	}
 	if len(r.Code) != 6 && len(r.Code) != 8 {
 		return fmt.Errorf("code must be 6 digits (TOTP) or 8 digits (backup code)")
+	}
+	return nil
+}
+
+// RequiredMFASetupRequest initiates MFA setup when role requires it
+type RequiredMFASetupRequest struct {
+	SetupToken string `json:"setup_token"` // Setup token from login response
+}
+
+// Validate validates the required MFA setup request
+func (r *RequiredMFASetupRequest) Validate(ctx context.Context) error {
+	if r.SetupToken == "" {
+		return fmt.Errorf("setup_token is required")
+	}
+	return nil
+}
+
+// RequiredMFAEnableRequest enables MFA after required setup
+type RequiredMFAEnableRequest struct {
+	SetupToken string `json:"setup_token"` // Setup token from login response
+	Code       string `json:"code"`        // TOTP code to verify setup
+}
+
+// Validate validates the required MFA enable request
+func (r *RequiredMFAEnableRequest) Validate(ctx context.Context) error {
+	if r.SetupToken == "" {
+		return fmt.Errorf("setup_token is required")
+	}
+	if r.Code == "" {
+		return fmt.Errorf("code is required")
+	}
+	if len(r.Code) != 6 {
+		return fmt.Errorf("code must be 6 digits")
 	}
 	return nil
 }

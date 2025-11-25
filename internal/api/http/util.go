@@ -69,6 +69,16 @@ func parseUUID(s string) uuid.UUID {
 
 // encodeSessionResponse encodes session tokens into HTTP response (cookies + JSON)
 func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *iam.SessionTokens, secureCookies bool) {
+	// MFA setup required - user's role requires MFA but they haven't set it up yet
+	if tokens.RequiresMFASetup() {
+		respondJSON(w, http.StatusOK, sdk.LoginResponse{
+			MFASetupToken: tokens.MFASetupToken,
+			ExpiresIn:     int(tokens.MFASetupExpiration.Seconds()),
+		})
+		return
+	}
+
+	// MFA verification required - user has MFA enabled
 	if tokens.RequiresMFA() {
 		respondJSON(w, http.StatusOK, sdk.LoginResponse{
 			MFAChallengeToken: tokens.MFAChallengeToken,

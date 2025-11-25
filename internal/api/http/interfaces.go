@@ -2,11 +2,9 @@ package http
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/iam"
-	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -29,18 +27,8 @@ type authService interface {
 	AuthenticateWithMFA(ctx context.Context, challengeToken, code string) (*iam.SessionTokens, error)
 	CompleteRegistration(ctx context.Context, token, password string) (*iam.SessionTokens, error)
 	RefreshSession(ctx context.Context, refreshToken string) (*iam.SessionTokens, error)
-}
-
-// jwtService defines the interface for JWT token operations
-type jwtService interface {
-	IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, error)
-	IssueMFAChallengeToken(userID, tenantID uuid.UUID) (string, error)
-	IssueRefreshToken(tenantID, userID uuid.UUID) (string, error)
-	ValidateToken(token string) (*jwt.Claims, error)
-	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
-	GetAccessTokenExpiration() time.Duration
-	GetRefreshTokenExpiration() time.Duration
-	GetMFAChallengeTokenExpiration() time.Duration
+	SetupRequiredMFA(ctx context.Context, setupToken string) (*iam.MFAEnrollment, error)
+	EnableRequiredMFA(ctx context.Context, setupToken, code string) (*iam.SessionTokens, error)
 }
 
 // oidcService defines the interface for OIDC/OAuth operations

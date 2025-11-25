@@ -1,6 +1,10 @@
 package http
 
-import "context"
+import (
+	"context"
+
+	"github.com/travisbale/heimdall/jwt"
+)
 
 type logger interface {
 	Info(ctx context.Context, msg string, args ...any)
@@ -12,6 +16,10 @@ type database interface {
 	Health(ctx context.Context) error
 }
 
+type jwtValidator interface {
+	ValidateToken(token string) (*jwt.Claims, error)
+}
+
 type Config struct {
 	Address            string
 	Database           database
@@ -21,7 +29,7 @@ type Config struct {
 	OIDCService        oidcService
 	RBACService        rbacService
 	AuthService        authService
-	JWTService         jwtService
+	JWTValidator       jwtValidator
 	Environment        string
 	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
 	CORSAllowedOrigins []string

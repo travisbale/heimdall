@@ -19,10 +19,9 @@ type validatable interface {
 
 // HTTPClient is an HTTP client for the heimdall API
 type HTTPClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	accessToken    string
-	challengeToken string // Temporary token for MFA verification
+	baseURL     string
+	httpClient  *http.Client
+	accessToken string
 }
 
 // Option is a functional option for configuring the HTTPClient
@@ -105,16 +104,14 @@ func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
 // Login authenticates a user and returns an access token
 // The access token is automatically set on the client for subsequent authenticated requests
 // The refresh token is automatically stored in the client's cookie jar
+// If MFA is required, returns MFAChallengeToken or MFASetupToken instead of AccessToken
 func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1Login, &req, &resp); err != nil {
 		return nil, err
 	}
 
-	// If MFA is required, store challenge token; otherwise, store access token
-	if resp.MFAChallengeToken != "" {
-		c.challengeToken = resp.MFAChallengeToken
-	} else {
+	if resp.AccessToken != "" {
 		c.accessToken = resp.AccessToken
 	}
 
@@ -154,12 +151,17 @@ func (c *HTTPClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 // VerifyEmail verifies a user's email address using the verification token
 // The access token is automatically set on the client for subsequent authenticated requests
 // Returns a LoginResponse with access token on successful verification
+// May return MFAChallengeToken or MFASetupToken if user's role requires MFA
 func (c *HTTPClient) VerifyEmail(ctx context.Context, req VerifyEmailRequest) (*LoginResponse, error) {
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1VerifyEmail, &req, &resp); err != nil {
 		return nil, err
 	}
-	c.accessToken = resp.AccessToken
+
+	if resp.AccessToken != "" {
+		c.accessToken = resp.AccessToken
+	}
+
 	return &resp, nil
 }
 
@@ -406,21 +408,35 @@ func (c *HTTPClient) RegenerateBackupCodes(ctx context.Context, req RegenerateBa
 
 // VerifyMFACode verifies MFA code during login and completes authentication
 // The access token is automatically set on the client for subsequent authenticated requests
-// This should be called after Login when MFA is required
 func (c *HTTPClient) VerifyMFACode(ctx context.Context, req VerifyMFACodeRequest) (*LoginResponse, error) {
-	// Automatically include the challenge token from the initial login
-	if req.ChallengeToken == "" && c.challengeToken != "" {
-		req.ChallengeToken = c.challengeToken
-	}
-
 	var resp LoginResponse
 	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFAVerify, &req, &resp); err != nil {
 		return nil, err
 	}
 
-	// Clear challenge token and set access token
-	c.challengeToken = ""
 	c.accessToken = resp.AccessToken
+	return &resp, nil
+}
+
+// RequiredMFASetup initiates MFA setup when a user's role requires MFA but they haven't set it up
+// Returns the TOTP secret, QR code, and backup codes
+func (c *HTTPClient) RequiredMFASetup(ctx context.Context, req RequiredMFASetupRequest) (*MFASetupResponse, error) {
+	var resp MFASetupResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFARequiredSetup, &req, &resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// RequiredMFAEnable enables MFA after required setup and issues an MFA challenge token
+// After this succeeds, call VerifyMFACode to complete the login flow
+func (c *HTTPClient) RequiredMFAEnable(ctx context.Context, req RequiredMFAEnableRequest) (*LoginResponse, error) {
+	var resp LoginResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFARequiredEnable, &req, &resp); err != nil {
+		return nil, err
+	}
+
 	return &resp, nil
 }
 

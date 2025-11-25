@@ -71,7 +71,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		OIDCService:        services.oidc,
 		RBACService:        services.rbac,
 		AuthService:        services.auth,
-		JWTService:         services.jwt,
+		JWTValidator:       services.jwt,
 		Environment:        config.Environment,
 		TrustedProxyMode:   config.TrustedProxyMode,
 		CORSAllowedOrigins: config.CORSAllowedOrigins,
