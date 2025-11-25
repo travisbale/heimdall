@@ -22,7 +22,6 @@ type Config struct {
 	RBACService        rbacService
 	SessionService     sessionService
 	JWTService         jwtService
-	TokenService       tokenService
 	Environment        string
 	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
 	CORSAllowedOrigins []string

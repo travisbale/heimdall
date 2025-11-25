@@ -37,6 +37,7 @@ type UserServiceConfig struct {
 	VerificationTokenDB tokenDB
 	OIDCService         oidcService
 	RBACService         rbacService
+	SessionService      *SessionService
 	Logger              logger
 }
 
@@ -49,6 +50,7 @@ type UserService struct {
 	verificationTokenDB tokenDB
 	oidcService         oidcService
 	rbacService         rbacService
+	sessionService      *SessionService
 	logger              logger
 }
 
@@ -61,6 +63,7 @@ func NewUserService(config *UserServiceConfig) *UserService {
 		verificationTokenDB: config.VerificationTokenDB,
 		oidcService:         config.OIDCService,
 		rbacService:         config.RBACService,
+		sessionService:      config.SessionService,
 		logger:              config.Logger,
 	}
 }
@@ -165,8 +168,8 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	return user, nil
 }
 
-// ConfirmRegistration verifies the email verification token, sets the password, and activates the account
-func (s *UserService) ConfirmRegistration(ctx context.Context, tokenStr string, password string) (*User, error) {
+// ConfirmRegistration verifies the email verification token, sets the password, activates the account, and creates a session
+func (s *UserService) ConfirmRegistration(ctx context.Context, tokenStr string, password string) (*SessionTokens, error) {
 	verificationToken, err := s.verificationTokenDB.GetToken(ctx, tokenStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verification token: %w", err)
@@ -206,7 +209,8 @@ func (s *UserService) ConfirmRegistration(ctx context.Context, tokenStr string, 
 
 	s.logger.Info(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
-	return user, nil
+	// Auto-login after verification, check if user requires MFA
+	return s.sessionService.CreateSession(ctx, user.TenantID, user.ID, true)
 }
 
 func (s *UserService) createVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {

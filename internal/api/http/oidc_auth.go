@@ -11,14 +11,14 @@ import (
 
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
-	oidcService  oidcService
-	tokenService tokenService
+	oidcService   oidcService
+	secureCookies bool
 }
 
 func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
 	return &OIDCAuthHandler{
-		oidcService:  config.OIDCService,
-		tokenService: config.TokenService,
+		oidcService:   config.OIDCService,
+		secureCookies: config.SecureCookies(),
 	}
 }
 
@@ -95,8 +95,8 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange code for tokens, fetch user info, and create/link account
-	user, _, err := h.oidcService.HandleOIDCCallback(r.Context(), state, code)
+	// Exchange code for tokens, fetch user info, create/link account, and create session
+	tokens, err := h.oidcService.HandleOIDCCallback(r.Context(), state, code)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrOIDCSessionNotFound):
@@ -120,6 +120,5 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Issue JWT tokens to complete login, MFA is handled by IDP
-	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, false)
+	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }

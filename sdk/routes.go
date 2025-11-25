@@ -42,11 +42,11 @@ const (
 	RouteV1UserPermissions = "/v1/users/{userID}/permissions"
 	RouteV1UserPermission  = "/v1/users/{userID}/permissions/{permissionID}"
 
-	// TOTP MFA endpoints (authenticated)
-	RouteV1TOTPSetup           = "/v1/mfa/totp/setup"                   // Start MFA setup
-	RouteV1TOTPEnable          = "/v1/mfa/totp/enable"                  // Verify and enable MFA
-	RouteV1TOTPDisable         = "/v1/mfa/totp/disable"                 // Disable MFA
-	RouteV1TOTPStatus          = "/v1/mfa/totp/status"                  // Get MFA status
-	RouteV1TOTPRegenerateCodes = "/v1/mfa/totp/backup-codes/regenerate" // Regenerate backup codes
-	RouteV1TOTPLogin           = "/v1/mfa/totp/login"                   // Verify MFA during login
+	// MFA endpoints
+	RouteV1MFASetup           = "/v1/mfa/setup"                   // Start MFA setup (authenticated)
+	RouteV1MFAEnable          = "/v1/mfa/enable"                  // Verify and enable MFA (authenticated)
+	RouteV1MFAVerify          = "/v1/mfa/verify"                  // Verify MFA code during login
+	RouteV1MFADisable         = "/v1/mfa/disable"                 // Disable MFA (authenticated)
+	RouteV1MFAStatus          = "/v1/mfa/status"                  // Get MFA status (authenticated)
+	RouteV1MFARegenerateCodes = "/v1/mfa/backup-codes/regenerate" // Regenerate backup codes (authenticated)
 )

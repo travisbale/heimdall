@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,12 +13,13 @@ import (
 // userService defines the interface for user registration and management operations
 type userService interface {
 	Register(ctx context.Context, email string) (*auth.User, error)
-	ConfirmRegistration(ctx context.Context, token string, password string) (*auth.User, error)
+	ConfirmRegistration(ctx context.Context, token string, password string) (*auth.SessionTokens, error)
 }
 
 // passwordService defines the interface for password authentication operations
 type passwordService interface {
 	Authenticate(ctx context.Context, email, password string) (*auth.User, error)
+	Login(ctx context.Context, email, password string) (*auth.SessionTokens, error)
 	InitiatePasswordReset(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
@@ -41,7 +41,7 @@ type jwtService interface {
 type oidcService interface {
 	StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error)
 	StartSSOLogin(ctx context.Context, email string) (string, error)
-	HandleOIDCCallback(ctx context.Context, state, code string) (*auth.User, *auth.OIDCLink, error)
+	HandleOIDCCallback(ctx context.Context, state, code string) (*auth.SessionTokens, error)
 
 	CreateOIDCProvider(ctx context.Context, provider *auth.OIDCProviderConfig, accessToken string) (*auth.OIDCProviderConfig, error)
 	GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*auth.OIDCProviderConfig, error)
@@ -78,17 +78,11 @@ type mfaService interface {
 	DisableMFA(ctx context.Context, userID uuid.UUID, password, code string) error
 	GetStatus(ctx context.Context, userID uuid.UUID) (*auth.MFAStatus, error)
 	RegenerateBackupCodes(ctx context.Context, userID uuid.UUID, password string) ([]string, error)
-	VerifyMFACode(ctx context.Context, challengeToken, code string) (userID, tenantID uuid.UUID, err error)
+	VerifyMFACode(ctx context.Context, challengeToken, code string) (*auth.SessionTokens, error)
 }
 
 // sessionService defines the interface for session token generation
 type sessionService interface {
 	CreateSession(ctx context.Context, tenantID, userID uuid.UUID, checkMFA bool) (*auth.SessionTokens, error)
 	RefreshSession(ctx context.Context, refreshToken string) (*auth.SessionTokens, error)
-}
-
-type tokenService interface {
-	IssueTokens(ctx context.Context, w http.ResponseWriter, r *http.Request, tenantID, userID uuid.UUID, checkMFA bool)
-	RefreshToken(ctx context.Context, w http.ResponseWriter, r *http.Request)
-	RevokeTokens(w http.ResponseWriter, r *http.Request)
 }

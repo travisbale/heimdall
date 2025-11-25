@@ -370,7 +370,7 @@ func (c *HTTPClient) SetDirectPermissions(ctx context.Context, req SetDirectPerm
 // SetupMFA initiates MFA setup by generating TOTP secret, QR code, and backup codes
 func (c *HTTPClient) SetupMFA(ctx context.Context) (*MFASetupResponse, error) {
 	var resp MFASetupResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1TOTPSetup, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFASetup, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -378,18 +378,18 @@ func (c *HTTPClient) SetupMFA(ctx context.Context) (*MFASetupResponse, error) {
 
 // EnableMFA validates TOTP code and enables MFA
 func (c *HTTPClient) EnableMFA(ctx context.Context, req EnableMFARequest) error {
-	return c.doRequest(ctx, http.MethodPost, RouteV1TOTPEnable, &req, nil)
+	return c.doRequest(ctx, http.MethodPost, RouteV1MFAEnable, &req, nil)
 }
 
 // DisableMFA disables MFA for the authenticated user
 func (c *HTTPClient) DisableMFA(ctx context.Context, req DisableMFARequest) error {
-	return c.doRequest(ctx, http.MethodDelete, RouteV1TOTPDisable, &req, nil)
+	return c.doRequest(ctx, http.MethodDelete, RouteV1MFADisable, &req, nil)
 }
 
 // GetMFAStatus retrieves MFA status for the authenticated user
 func (c *HTTPClient) GetMFAStatus(ctx context.Context) (*MFAStatus, error) {
 	var status MFAStatus
-	if err := c.doRequest(ctx, http.MethodGet, RouteV1TOTPStatus, nil, &status); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1MFAStatus, nil, &status); err != nil {
 		return nil, err
 	}
 	return &status, nil
@@ -398,7 +398,7 @@ func (c *HTTPClient) GetMFAStatus(ctx context.Context) (*MFAStatus, error) {
 // RegenerateBackupCodes generates new backup codes (requires password)
 func (c *HTTPClient) RegenerateBackupCodes(ctx context.Context, req RegenerateBackupCodesRequest) (*BackupCodesResponse, error) {
 	var resp BackupCodesResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1TOTPRegenerateCodes, &req, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFARegenerateCodes, &req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -414,7 +414,7 @@ func (c *HTTPClient) VerifyMFACode(ctx context.Context, req VerifyMFACodeRequest
 	}
 
 	var resp LoginResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1TOTPLogin, &req, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1MFAVerify, &req, &resp); err != nil {
 		return nil, err
 	}
 

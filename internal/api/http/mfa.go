@@ -12,19 +12,19 @@ import (
 
 // MFAHandler handles MFA HTTP requests
 type MFAHandler struct {
-	mfaService   mfaService
-	jwtService   jwtService
-	tokenService tokenService
-	logger       logger
+	mfaService    mfaService
+	jwtService    jwtService
+	secureCookies bool
+	logger        logger
 }
 
 // NewMFAHandler creates a new MFAHandler
 func NewMFAHandler(config *Config) *MFAHandler {
 	return &MFAHandler{
-		mfaService:   config.MFAService,
-		jwtService:   config.JWTService,
-		tokenService: config.TokenService,
-		logger:       config.Logger,
+		mfaService:    config.MFAService,
+		jwtService:    config.JWTService,
+		secureCookies: config.SecureCookies(),
+		logger:        config.Logger,
 	}
 }
 
@@ -177,9 +177,9 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, tenantID, err := h.mfaService.VerifyMFACode(r.Context(), req.ChallengeToken, req.Code)
+	tokens, err := h.mfaService.VerifyMFACode(r.Context(), req.ChallengeToken, req.Code)
 	if err != nil {
-		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "user_id", userID, "error", err.Error())
+		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
 		case errors.Is(err, auth.ErrInvalidChallengeToken):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired challenge token"})
@@ -199,8 +199,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info(r.Context(), events.MFAVerificationSuccess, "user_id", userID)
+	h.logger.Info(r.Context(), events.MFAVerificationSuccess)
 
-	// User has already completed MFA verification - skip MFA check
-	h.tokenService.IssueTokens(r.Context(), w, r, tenantID, userID, false)
+	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }

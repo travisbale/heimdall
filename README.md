@@ -11,6 +11,7 @@ Authentication and authorization service written in Go. Handles user accounts, p
 
 - **JWT Authentication** - RSA-signed tokens with user and tenant claims
 - **Password Security** - Argon2id hashing with OWASP-recommended parameters
+- **Multi-Factor Authentication (MFA)** - TOTP-based MFA with backup codes for enhanced security
 - **Email Verification** - Registration flow with email verification via mailman
 - **Password Reset** - Secure token-based password reset via email
 - **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
@@ -137,6 +138,15 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `POST /v1/forgot-password` - Request password reset (sends email)
 - `POST /v1/reset-password` - Reset password with token
 
+**Multi-Factor Authentication (MFA):**
+
+- `POST /v1/mfa/verify` - Verify MFA code during login
+- `POST /v1/mfa/setup` - Initiate MFA setup (returns QR code and backup codes)
+- `POST /v1/mfa/enable` - Enable MFA after validating TOTP code
+- `DELETE /v1/mfa/disable` - Disable MFA (requires password and TOTP/backup code)
+- `POST /v1/mfa/backup-codes/regenerate` - Regenerate backup codes (requires password)
+- `GET /v1/mfa/status` - Get MFA status and remaining backup codes
+
 **OAuth/OIDC Authentication:**
 
 - `POST /v1/oauth/login` - Start individual OAuth login (Google, Microsoft, GitHub)
@@ -215,7 +225,7 @@ heimdall/
 ├── identity/              # Tenant context utilities
 ├── internal/
 │   ├── api/              # HTTP and gRPC handlers
-│   │   ├── http/         # HTTP REST API handlers (auth, OIDC, RBAC)
+│   │   ├── http/         # HTTP REST API handlers (auth, MFA, OIDC, RBAC)
 │   │   └── grpc/         # gRPC service implementation
 │   ├── app/              # Server setup and lifecycle
 │   ├── auth/             # Authentication/authorization service layer and domain models
@@ -227,6 +237,8 @@ heimdall/
 │   ├── email/            # Email service integrations
 │   │   ├── mailman/      # Mailman gRPC client
 │   │   └── console/      # Console email stub (development)
+│   ├── mfa/              # Multi-Factor Authentication utilities
+│   │   └── totp/         # TOTP verification logic
 │   ├── oidc/             # OIDC provider implementations
 │   └── pb/               # Generated protobuf code
 ├── jwt/                   # JWT token issuance and validation
@@ -290,7 +302,8 @@ Environment variables:
 - `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
-- `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets)
+- `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets, MFA TOTP secrets)
+- `TOTP_PERIOD` - TOTP time window in seconds (default: `30`)
 
 ## License
 

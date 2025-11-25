@@ -10,15 +10,15 @@ import (
 
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
-	userService  userService
-	tokenService tokenService
+	userService   userService
+	secureCookies bool
 }
 
 // NewRegistrationHandler creates a new RegistrationHandler
 func NewRegistrationHandler(config *Config) *RegistrationHandler {
 	return &RegistrationHandler{
-		userService:  config.UserService,
-		tokenService: config.TokenService,
+		userService:   config.UserService,
+		secureCookies: config.SecureCookies(),
 	}
 }
 
@@ -58,7 +58,7 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	user, err := h.userService.ConfirmRegistration(r.Context(), req.Token, req.Password)
+	tokens, err := h.userService.ConfirmRegistration(r.Context(), req.Token, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrVerificationTokenNotFound):
@@ -73,6 +73,5 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Auto-login after successful verification for better UX, check if user requires MFA
-	h.tokenService.IssueTokens(r.Context(), w, r, user.TenantID, user.ID, true)
+	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }

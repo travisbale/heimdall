@@ -65,6 +65,14 @@ func initializeServices(
 		Logger:            clog.New("rbac_service"),
 	})
 
+	// Session service for token generation
+	sessionService := auth.NewSessionService(&auth.SessionServiceConfig{
+		MFASettingsDB: dbs.mfaSettings,
+		RBACService:   rbacService,
+		JWTService:    jwtService,
+		Logger:        clog.New("session_service"),
+	})
+
 	// OIDC service for OAuth/SSO authentication
 	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
 		OIDCProviderDB:     dbs.oidcProviders,
@@ -73,6 +81,7 @@ func initializeServices(
 		UserDB:             dbs.users,
 		TenantsDB:          dbs.tenants,
 		RBACService:        rbacService,
+		SessionService:     sessionService,
 		SystemProviders:    systemProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
@@ -87,6 +96,7 @@ func initializeServices(
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
+		SessionService:       sessionService,
 		Logger:               clog.New("password_service"),
 	})
 
@@ -99,6 +109,7 @@ func initializeServices(
 		VerificationTokenDB: dbs.verificationTokens,
 		OIDCService:         oidcService,
 		RBACService:         rbacService,
+		SessionService:      sessionService,
 		Logger:              clog.New("user_service"),
 	})
 
@@ -110,15 +121,8 @@ func initializeServices(
 		Verifier:           totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
 		Hasher:             passwordHasher,
 		ChallengeValidator: jwtService.Validator,
+		SessionService:     sessionService,
 		Logger:             clog.New("mfa_service"),
-	})
-
-	// Session service for token generation
-	sessionService := auth.NewSessionService(&auth.SessionServiceConfig{
-		MFAService:  mfaService,
-		RBACService: rbacService,
-		JWTIssuer:   jwtService,
-		Logger:      clog.New("session_service"),
 	})
 
 	return &services{

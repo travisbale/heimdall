@@ -24,6 +24,7 @@ type PasswordService struct {
 	passwordResetTokenDB tokenDB
 	emailClient          emailClient
 	loginAttemptsService loginAttemptsService
+	sessionService       *SessionService
 	logger               logger
 }
 
@@ -34,6 +35,7 @@ type PasswordServiceConfig struct {
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
 	LoginAttemptsService loginAttemptsService
+	SessionService       *SessionService
 	Logger               logger
 }
 
@@ -45,6 +47,7 @@ func NewPasswordService(config *PasswordServiceConfig) *PasswordService {
 		passwordResetTokenDB: config.PasswordResetTokenDB,
 		emailClient:          config.EmailClient,
 		loginAttemptsService: config.LoginAttemptsService,
+		sessionService:       config.SessionService,
 		logger:               config.Logger,
 	}
 }
@@ -101,6 +104,17 @@ func (s *PasswordService) Authenticate(ctx context.Context, email, password stri
 	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
 
 	return user, nil
+}
+
+// Login authenticates user credentials and creates a session
+func (s *PasswordService) Login(ctx context.Context, email, password string) (*SessionTokens, error) {
+	user, err := s.Authenticate(ctx, email, password)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if user requires MFA during session creation
+	return s.sessionService.CreateSession(ctx, user.TenantID, user.ID, true)
 }
 
 // InitiatePasswordReset generates a password reset token and sends a reset email

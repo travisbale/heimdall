@@ -46,6 +46,7 @@ type MFAServiceCofig struct {
 	Verifier           mfaVerifier
 	Hasher             hasher
 	ChallengeValidator mfaChallengeTokenValidator
+	SessionService     *SessionService
 	Logger             logger
 }
 
@@ -57,6 +58,7 @@ type MFAService struct {
 	verifier           mfaVerifier
 	hasher             hasher
 	challengeValidator mfaChallengeTokenValidator
+	sessionService     *SessionService
 	logger             logger
 }
 
@@ -69,6 +71,7 @@ func NewMFAService(config *MFAServiceCofig) *MFAService {
 		verifier:           config.Verifier,
 		hasher:             config.Hasher,
 		challengeValidator: config.ChallengeValidator,
+		sessionService:     config.SessionService,
 		logger:             config.Logger,
 	}
 }
@@ -222,18 +225,19 @@ func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatu
 	}, nil
 }
 
-// VerifyMFACode validates MFA challenge token and verifies MFA code
-func (s *MFAService) VerifyMFACode(ctx context.Context, challengeToken, code string) (uuid.UUID, uuid.UUID, error) {
+// VerifyMFACode validates MFA challenge token, verifies MFA code, and creates a session
+func (s *MFAService) VerifyMFACode(ctx context.Context, challengeToken, code string) (*SessionTokens, error) {
 	claims, err := s.challengeValidator.ValidateMFAChallengeToken(challengeToken)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
 	}
 
 	if err := s.verifyMFA(ctx, claims.UserID, code); err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return nil, err
 	}
 
-	return claims.UserID, claims.TenantID, nil
+	// User has already completed MFA verification - skip MFA check
+	return s.sessionService.CreateSession(ctx, claims.TenantID, claims.UserID, false)
 }
 
 // verifyMFA tries TOTP code first, then backup code

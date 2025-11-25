@@ -122,12 +122,12 @@ func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCP
 	return authURL, nil
 }
 
-// HandleOIDCCallback processes the OAuth callback and returns the user and link
-func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string) (*User, *OIDCLink, error) {
+// HandleOIDCCallback processes the OAuth callback, authenticates the user, and creates a session
+func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string) (*SessionTokens, error) {
 	// Get the OIDC session by state
 	session, err := s.oidcSessionDB.GetOIDCSessionByState(ctx, state)
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid or expired state: %w", err)
+		return nil, fmt.Errorf("invalid or expired state: %w", err)
 	}
 
 	// Clean up the OIDC session after callback completes
@@ -137,24 +137,27 @@ func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string
 		}
 	}()
 
+	var user *User
+
 	// Route to appropriate handler based on session type
 	if session.OIDCProviderID != nil {
-		user, link, err := s.handleSSOCallback(ctx, session, code)
+		user, _, err = s.handleSSOCallback(ctx, session, code)
 		if err != nil {
 			s.logger.Info(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
+			return nil, err
 		}
-		return user, link, err
-	}
-
-	if session.ProviderType != nil {
-		user, err := s.handleIndividualOAuthCallback(ctx, session, code)
+	} else if session.ProviderType != nil {
+		user, err = s.handleIndividualOAuthCallback(ctx, session, code)
 		if err != nil {
 			s.logger.Info(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
+			return nil, err
 		}
-		return user, nil, err
+	} else {
+		return nil, fmt.Errorf("session has neither OIDCProviderID nor ProviderType")
 	}
 
-	return nil, nil, fmt.Errorf("session has neither OIDCProviderID nor ProviderType")
+	// MFA is handled by the identity provider - skip MFA check
+	return s.sessionService.CreateSession(ctx, user.TenantID, user.ID, false)
 }
 
 // handleSSOCallback processes corporate SSO callbacks

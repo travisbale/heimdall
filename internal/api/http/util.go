@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/clog"
+	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -64,4 +65,36 @@ func parseUUID(s string) uuid.UUID {
 		return uuid.Nil
 	}
 	return id
+}
+
+// encodeSessionResponse encodes session tokens into HTTP response (cookies + JSON)
+func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *auth.SessionTokens, secureCookies bool) {
+	if tokens.RequiresMFA {
+		respondJSON(w, http.StatusOK, sdk.LoginResponse{
+			MFAChallengeToken: tokens.MFAChallengeToken,
+			ExpiresIn:         int(tokens.MFAChallengeExpiration.Seconds()),
+		})
+		return
+	}
+
+	// X-Forwarded-Prefix support for reverse proxy deployments
+	prefix := r.Header.Get("X-Forwarded-Prefix")
+	cookiePath := prefix + sdk.RouteV1Refresh
+
+	// HttpOnly prevents JavaScript access, Secure requires HTTPS, SameSite prevents CSRF
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    tokens.RefreshToken,
+		Path:     cookiePath,
+		MaxAge:   int(tokens.RefreshExpiration.Seconds()),
+		HttpOnly: true,
+		Secure:   secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	respondJSON(w, http.StatusOK, sdk.LoginResponse{
+		AccessToken: tokens.AccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   int(tokens.AccessExpiration.Seconds()),
+	})
 }

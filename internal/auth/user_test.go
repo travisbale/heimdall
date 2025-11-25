@@ -27,6 +27,16 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 	oidcService := &mockOIDCServiceForUser{}
 	rbacService := newMockRBACService()
 	tenantsDB := newMockTenantsDB()
+	mfaSettingsDB := newMockMFASettingsDB()
+	jwtService := newMockJWTService()
+
+	// Create SessionService with mock dependencies
+	sessionService := NewSessionService(&SessionServiceConfig{
+		MFASettingsDB: mfaSettingsDB,
+		RBACService:   rbacService,
+		JWTService:    jwtService,
+		Logger:        &mockLogger{},
+	})
 
 	// Wire up dependencies so BootstrapTenant can properly update shared mocks
 	tenantsDB.setDependencies(userDB)
@@ -39,6 +49,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 		VerificationTokenDB: verificationTokenDB,
 		OIDCService:         oidcService,
 		RBACService:         rbacService,
+		SessionService:      sessionService,
 		Logger:              &mockLogger{},
 	})
 
@@ -184,15 +195,29 @@ func TestConfirmRegistration(t *testing.T) {
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 
-		confirmedUser, err := f.service.ConfirmRegistration(ctx, token, "newpassword123")
+		tokens, err := f.service.ConfirmRegistration(ctx, token, "newpassword123")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
+		if tokens == nil {
+			t.Fatal("expected session tokens to be created")
+		}
+		if tokens.AccessToken == "" {
+			t.Error("expected access token")
+		}
+		if tokens.RefreshToken == "" {
+			t.Error("expected refresh token")
+		}
+
+		// Verify user status was updated in database
+		confirmedUser, err := f.userDB.GetUserByID(ctx, userID)
+		if err != nil {
+			t.Fatalf("failed to get user: %v", err)
+		}
 		if confirmedUser.Status != UserStatusActive {
 			t.Errorf("expected status %s, got %s", UserStatusActive, confirmedUser.Status)
 		}
-
 		if confirmedUser.PasswordHash == "" {
 			t.Error("expected password hash to be set")
 		}

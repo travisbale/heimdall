@@ -17,8 +17,6 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	config.TokenService = NewTokenService(config.SessionService, config.SecureCookies())
-
 	// Create domain handlers
 	healthHandler := NewHealthHandler(config)
 	authHandler := NewAuthHandler(config)
@@ -86,7 +84,7 @@ func NewServer(config *Config) *Server {
 		r.Post(sdk.RouteV1SSOLogin, oidcAuthHandler.SSOLogin)
 		r.Get(sdk.RouteV1OAuthCallback, oidcAuthHandler.Callback)
 
-		r.Post(sdk.RouteV1TOTPLogin, mfaHandler.Login)
+		r.Post(sdk.RouteV1MFAVerify, mfaHandler.Login)
 	})
 
 	// OIDC provider management
@@ -118,12 +116,12 @@ func NewServer(config *Config) *Server {
 	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserPermissions, rbacHandler.GetDirectPermissions)
 	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
 
-	// TOTP MFA management endpoints
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1TOTPSetup, mfaHandler.Setup)
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1TOTPEnable, mfaHandler.Enable)
-	r.With(jwtMiddleware.Authenticate()).Delete(sdk.RouteV1TOTPDisable, mfaHandler.Disable)
-	r.With(jwtMiddleware.Authenticate()).Get(sdk.RouteV1TOTPStatus, mfaHandler.Status)
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1TOTPRegenerateCodes, mfaHandler.RegenerateCodes)
+	// MFA management endpoints
+	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFASetup, mfaHandler.Setup)
+	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFAEnable, mfaHandler.Enable)
+	r.With(jwtMiddleware.Authenticate()).Delete(sdk.RouteV1MFADisable, mfaHandler.Disable)
+	r.With(jwtMiddleware.Authenticate()).Get(sdk.RouteV1MFAStatus, mfaHandler.Status)
+	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFARegenerateCodes, mfaHandler.RegenerateCodes)
 
 	return &Server{
 		&http.Server{

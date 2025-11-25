@@ -18,6 +18,7 @@ func newTestOIDCService(
 	rbacService *mockRBACService,
 	factory *mockProviderFactory,
 	systemProviders map[sdk.OIDCProviderType]OIDCProvider,
+	sessionService *SessionService,
 ) *OIDCService {
 	return NewOIDCService(&OIDCServiceConfig{
 		OIDCProviderDB:     providerDB,
@@ -26,6 +27,7 @@ func newTestOIDCService(
 		UserDB:             userDB,
 		TenantsDB:          tenantsDB,
 		RBACService:        rbacService,
+		SessionService:     sessionService,
 		SystemProviders:    systemProviders,
 		RegistrationClient: nil, // Not needed for these tests
 		ProviderFactory:    factory,
@@ -54,6 +56,19 @@ func newTestFixture(mockProvider OIDCProvider, systemProviders map[sdk.OIDCProvi
 	userDB := newMockUserDB()
 	tenantsDB := newMockTenantsDB()
 	rbacService := newMockRBACService()
+	mfaSettingsDB := newMockMFASettingsDB()
+	jwtService := newMockJWTService()
+
+	// Create SessionService with mock dependencies
+	sessionService := NewSessionService(&SessionServiceConfig{
+		MFASettingsDB: mfaSettingsDB,
+		RBACService:   rbacService,
+		JWTService:    jwtService,
+		Logger:        &mockLogger{},
+	})
+
+	// Wire up dependencies so BootstrapTenant can properly update shared mocks
+	tenantsDB.setDependencies(userDB)
 
 	var factory *mockProviderFactory
 	if mockProvider != nil {
@@ -62,7 +77,7 @@ func newTestFixture(mockProvider OIDCProvider, systemProviders map[sdk.OIDCProvi
 		factory = &mockProviderFactory{}
 	}
 
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, tenantsDB, rbacService, factory, systemProviders)
+	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, tenantsDB, rbacService, factory, systemProviders, sessionService)
 
 	return &testFixture{
 		providerDB: providerDB,

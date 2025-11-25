@@ -33,31 +33,27 @@ type jwtService interface {
 
 // SessionService handles session token creation for authenticated users
 type SessionService struct {
-	mfaService  mfaService
-	rbacService rbacService
-	jwtService  jwtService
-	logger      logger
-}
-
-type mfaService interface {
-	GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatus, error)
+	mfaSettingsDB mfaSettingsDB
+	rbacService   rbacService
+	jwtService    jwtService
+	logger        logger
 }
 
 // SessionServiceConfig contains dependencies for SessionService
 type SessionServiceConfig struct {
-	MFAService  mfaService
-	RBACService rbacService
-	JWTIssuer   jwtService
-	Logger      logger
+	MFASettingsDB mfaSettingsDB
+	RBACService   rbacService
+	JWTService    jwtService
+	Logger        logger
 }
 
 // NewSessionService creates a new SessionService
 func NewSessionService(config *SessionServiceConfig) *SessionService {
 	return &SessionService{
-		mfaService:  config.MFAService,
-		rbacService: config.RBACService,
-		jwtService:  config.JWTIssuer,
-		logger:      config.Logger,
+		mfaSettingsDB: config.MFASettingsDB,
+		rbacService:   config.RBACService,
+		jwtService:    config.JWTService,
+		logger:        config.Logger,
 	}
 }
 
@@ -69,15 +65,14 @@ func (s *SessionService) CreateSession(ctx context.Context, tenantID, userID uui
 		MFAChallengeExpiration: s.jwtService.GetMFAChallengeTokenExpiration(),
 	}
 
-	// Check if MFA verification required
 	if checkMFA {
-		mfaStatus, err := s.mfaService.GetStatus(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get MFA status: %w", err)
+		mfaSettings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
+		if err != nil && err != ErrMFANotEnabled {
+			return nil, fmt.Errorf("failed to get MFA settings: %w", err)
 		}
 
-		// User requires MFA - issue challenge token only
-		if mfaStatus.VerifiedAt != nil {
+		// User has MFA enabled, issue challenge token
+		if mfaSettings != nil && mfaSettings.VerifiedAt != nil {
 			challengeToken, err := s.jwtService.IssueMFAChallengeToken(tenantID, userID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate MFA challenge token: %w", err)
