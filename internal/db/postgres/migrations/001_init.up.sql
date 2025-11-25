@@ -200,12 +200,7 @@ CREATE POLICY oidc_providers_insert_policy ON oidc_providers FOR INSERT
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE POLICY oidc_providers_update_policy ON oidc_providers FOR UPDATE
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
-        END
-    )
+    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE POLICY oidc_providers_delete_policy ON oidc_providers FOR DELETE

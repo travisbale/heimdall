@@ -42,18 +42,11 @@ CREATE INDEX idx_mfa_backup_codes_user_id ON mfa_backup_codes(user_id);
 CREATE INDEX idx_mfa_backup_codes_used ON mfa_backup_codes(user_id, used);
 
 -- Enable RLS on mfa_settings table
--- Allow operations with or without tenant context (MFA verification happens during login)
+-- Tenant isolation enforced via JOIN to users table (users table has RLS)
 ALTER TABLE mfa_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mfa_settings FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY mfa_settings_policy ON mfa_settings FOR ALL
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN
-                EXISTS (SELECT 1 FROM users WHERE users.id = mfa_settings.user_id)
-            ELSE
-                EXISTS (SELECT 1 FROM users WHERE users.id = mfa_settings.user_id)
-        END
-    );
+    USING (EXISTS (SELECT 1 FROM users WHERE users.id = mfa_settings.user_id));
 
 -- No RLS needed for mfa_backup_codes - user_id constraint provides isolation

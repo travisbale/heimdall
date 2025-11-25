@@ -2,10 +2,8 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -39,15 +37,6 @@ func (u *UserRolesDB) SetUserRoles(ctx context.Context, userID uuid.UUID, roleID
 
 // GetUserRoles retrieves all roles for a user
 func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*iam.Role, error) {
-	// If tenant context exists (API call with JWT), use caller's tenant for isolation.
-	if _, err := identity.GetTenant(ctx); err != nil {
-		// If not (auth flow), look up tenant from userID.
-		ctx, err = u.db.SetTenantContext(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set tenant context: %w", err)
-		}
-	}
-
 	var roles []*iam.Role
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		results, err := q.GetUserRoles(ctx, userID)

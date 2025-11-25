@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
@@ -112,6 +113,9 @@ func (s *AuthService) AuthenticateWithMFA(ctx context.Context, challengeToken, c
 		return nil, ErrInvalidChallengeToken
 	}
 
+	// Set tenant context from token for RLS-protected operations
+	ctx = identity.WithTenant(ctx, claims.TenantID)
+
 	if err := s.mfaService.VerifyCode(ctx, claims.UserID, code); err != nil {
 		return nil, err
 	}
@@ -126,6 +130,9 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		return nil, fmt.Errorf("invalid or expired refresh token: %w", err)
 	}
 
+	// Set tenant context from token for RLS-protected operations
+	ctx = identity.WithTenant(ctx, claims.TenantID)
+
 	return s.createSession(ctx, claims.TenantID, claims.UserID)
 }
 
@@ -136,6 +143,9 @@ func (s *AuthService) SetupRequiredMFA(ctx context.Context, setupToken string) (
 		return nil, ErrInvalidSetupToken
 	}
 
+	// Set tenant context from token for RLS-protected operations
+	ctx = identity.WithTenant(ctx, claims.TenantID)
+
 	return s.mfaService.SetupMFA(ctx, claims.UserID)
 }
 
@@ -145,6 +155,9 @@ func (s *AuthService) EnableRequiredMFA(ctx context.Context, setupToken, code st
 	if err != nil {
 		return nil, ErrInvalidSetupToken
 	}
+
+	// Set tenant context from token for RLS-protected operations
+	ctx = identity.WithTenant(ctx, claims.TenantID)
 
 	if err := s.mfaService.EnableMFA(ctx, claims.UserID, code); err != nil {
 		return nil, err
@@ -183,6 +196,9 @@ func (s *AuthService) issueMFASetupChallenge(tenantID, userID uuid.UUID) (*Sessi
 
 // completeAuthentication checks MFA status and either issues tokens or requires MFA
 func (s *AuthService) completeAuthentication(ctx context.Context, user *User) (*SessionTokens, error) {
+	// Set tenant context for RLS-protected operations (MFA check, role check, scopes)
+	ctx = identity.WithTenant(ctx, user.TenantID)
+
 	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check MFA status: %w", err)

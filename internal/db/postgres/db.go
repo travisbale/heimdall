@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/travisbale/heimdall/identity"
@@ -91,26 +90,6 @@ func (d *DB) WithTenantContext(ctx context.Context, fn func(*sqlc.Queries) error
 	}
 
 	return d.withTenantTransaction(ctx, tenantID.String(), fn)
-}
-
-// SetTenantContext fetches the tenant ID for a user and adds it to the context
-// Returns updated context with tenant ID set, ready for RLS-enforced queries
-func (d *DB) SetTenantContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
-	var tenantID uuid.UUID
-
-	err := d.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		id, err := q.GetUserTenantID(ctx, userID)
-		if err != nil {
-			return err
-		}
-		tenantID = id
-		return nil
-	})
-	if err != nil {
-		return ctx, err
-	}
-
-	return identity.WithTenant(ctx, tenantID), nil
 }
 
 // withTenantTransaction executes a function within a transaction with the specified tenant ID.
