@@ -8,11 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 func TestRegistrationClient_Discover_Success(t *testing.T) {
-	var metadata auth.OIDCDiscoveryMetadata
+	var metadata iam.OIDCDiscoveryMetadata
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/.well-known/openid-configuration" {
@@ -23,7 +23,7 @@ func TestRegistrationClient_Discover_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	metadata = auth.OIDCDiscoveryMetadata{
+	metadata = iam.OIDCDiscoveryMetadata{
 		Issuer:                server.URL,
 		AuthorizationEndpoint: server.URL + "/authorize",
 		TokenEndpoint:         server.URL + "/token",
@@ -54,7 +54,7 @@ func TestRegistrationClient_Discover_Success(t *testing.T) {
 
 func TestRegistrationClient_Discover_TrailingSlash(t *testing.T) {
 	// Issuer URL should have trailing slash removed for comparison
-	var metadata auth.OIDCDiscoveryMetadata
+	var metadata iam.OIDCDiscoveryMetadata
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -62,7 +62,7 @@ func TestRegistrationClient_Discover_TrailingSlash(t *testing.T) {
 	}))
 	defer server.Close()
 
-	metadata = auth.OIDCDiscoveryMetadata{
+	metadata = iam.OIDCDiscoveryMetadata{
 		Issuer:                server.URL,
 		AuthorizationEndpoint: server.URL + "/authorize",
 		TokenEndpoint:         server.URL + "/token",
@@ -84,7 +84,7 @@ func TestRegistrationClient_Discover_TrailingSlash(t *testing.T) {
 
 func TestRegistrationClient_Discover_IssuerMismatch(t *testing.T) {
 	// Security test: issuer confusion attack prevention
-	metadata := auth.OIDCDiscoveryMetadata{
+	metadata := iam.OIDCDiscoveryMetadata{
 		Issuer:                "https://evil.example.com",
 		AuthorizationEndpoint: "https://evil.example.com/authorize",
 		TokenEndpoint:         "https://evil.example.com/token",
@@ -104,7 +104,7 @@ func TestRegistrationClient_Discover_IssuerMismatch(t *testing.T) {
 		t.Fatal("expected error for issuer mismatch, got nil")
 	}
 
-	if !errors.Is(err, auth.ErrOIDCIssuerMismatch) {
+	if !errors.Is(err, iam.ErrOIDCIssuerMismatch) {
 		t.Errorf("expected ErrOIDCIssuerMismatch, got: %v", err)
 	}
 }
@@ -137,7 +137,7 @@ func TestRegistrationClient_Discover_MissingRequiredFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var metadata auth.OIDCDiscoveryMetadata
+			var metadata iam.OIDCDiscoveryMetadata
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -165,7 +165,7 @@ func TestRegistrationClient_Discover_MissingRequiredFields(t *testing.T) {
 			if err == nil {
 				t.Error("expected error, got nil")
 			}
-			if err != nil && !errors.Is(err, auth.ErrOIDCDiscoveryFailed) && !errors.Is(err, auth.ErrOIDCIssuerMismatch) {
+			if err != nil && !errors.Is(err, iam.ErrOIDCDiscoveryFailed) && !errors.Is(err, iam.ErrOIDCIssuerMismatch) {
 				t.Errorf("expected discovery or issuer mismatch error, got: %v", err)
 			}
 		})
@@ -190,7 +190,7 @@ func TestRegistrationClient_Discover_HTTPErrors(t *testing.T) {
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if tt.statusCode == http.StatusOK {
-					metadata := auth.OIDCDiscoveryMetadata{
+					metadata := iam.OIDCDiscoveryMetadata{
 						Issuer:                serverURL,
 						AuthorizationEndpoint: serverURL + "/authorize",
 						TokenEndpoint:         serverURL + "/token",
@@ -233,13 +233,13 @@ func TestRegistrationClient_Discover_MalformedJSON(t *testing.T) {
 		t.Fatal("expected error for malformed JSON, got nil")
 	}
 
-	if !errors.Is(err, auth.ErrOIDCDiscoveryFailed) {
+	if !errors.Is(err, iam.ErrOIDCDiscoveryFailed) {
 		t.Errorf("expected ErrOIDCDiscoveryFailed, got: %v", err)
 	}
 }
 
 func TestRegistrationClient_Register_Success(t *testing.T) {
-	registration := auth.OIDCRegistration{
+	registration := iam.OIDCRegistration{
 		ClientID:     "test-client-id",
 		ClientSecret: "test-client-secret",
 	}
@@ -283,7 +283,7 @@ func TestRegistrationClient_Register_Success(t *testing.T) {
 }
 
 func TestRegistrationClient_Register_WithAccessToken(t *testing.T) {
-	registration := auth.OIDCRegistration{
+	registration := iam.OIDCRegistration{
 		ClientID:     "test-client-id",
 		ClientSecret: "test-client-secret",
 	}
@@ -334,7 +334,7 @@ func TestRegistrationClient_Register_EmptyEndpoint(t *testing.T) {
 		t.Fatal("expected error for empty registration endpoint, got nil")
 	}
 
-	if !errors.Is(err, auth.ErrOIDCRegistrationFailed) {
+	if !errors.Is(err, iam.ErrOIDCRegistrationFailed) {
 		t.Errorf("expected ErrOIDCRegistrationFailed, got: %v", err)
 	}
 }
@@ -342,17 +342,17 @@ func TestRegistrationClient_Register_EmptyEndpoint(t *testing.T) {
 func TestRegistrationClient_Register_MissingCredentials(t *testing.T) {
 	tests := []struct {
 		name         string
-		registration auth.OIDCRegistration
+		registration iam.OIDCRegistration
 	}{
 		{
 			name: "missing client_id",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientSecret: "test-secret",
 			},
 		},
 		{
 			name: "missing client_secret",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientID: "test-id",
 			},
 		},
@@ -381,7 +381,7 @@ func TestRegistrationClient_Register_MissingCredentials(t *testing.T) {
 				t.Fatal("expected error for missing credentials, got nil")
 			}
 
-			if !errors.Is(err, auth.ErrOIDCRegistrationFailed) {
+			if !errors.Is(err, iam.ErrOIDCRegistrationFailed) {
 				t.Errorf("expected ErrOIDCRegistrationFailed, got: %v", err)
 			}
 		})
@@ -391,12 +391,12 @@ func TestRegistrationClient_Register_MissingCredentials(t *testing.T) {
 func TestRegistrationClient_Register_RFC7592_Compliance(t *testing.T) {
 	tests := []struct {
 		name         string
-		registration auth.OIDCRegistration
+		registration iam.OIDCRegistration
 		wantErr      bool
 	}{
 		{
 			name: "both token and URI present (valid)",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientID:                "test-id",
 				ClientSecret:            "test-secret",
 				RegistrationAccessToken: "token",
@@ -406,7 +406,7 @@ func TestRegistrationClient_Register_RFC7592_Compliance(t *testing.T) {
 		},
 		{
 			name: "neither token nor URI present (valid)",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientID:     "test-id",
 				ClientSecret: "test-secret",
 			},
@@ -414,7 +414,7 @@ func TestRegistrationClient_Register_RFC7592_Compliance(t *testing.T) {
 		},
 		{
 			name: "token without URI (invalid)",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientID:                "test-id",
 				ClientSecret:            "test-secret",
 				RegistrationAccessToken: "token",
@@ -423,7 +423,7 @@ func TestRegistrationClient_Register_RFC7592_Compliance(t *testing.T) {
 		},
 		{
 			name: "URI without token (invalid)",
-			registration: auth.OIDCRegistration{
+			registration: iam.OIDCRegistration{
 				ClientID:              "test-id",
 				ClientSecret:          "test-secret",
 				RegistrationClientURI: "https://provider.example.com/register/client-id",
@@ -494,7 +494,7 @@ func TestRegistrationClient_Register_HTTPErrors(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 
-			if !errors.Is(err, auth.ErrOIDCRegistrationFailed) {
+			if !errors.Is(err, iam.ErrOIDCRegistrationFailed) {
 				t.Errorf("expected ErrOIDCRegistrationFailed, got: %v", err)
 			}
 		})

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // MFABackupCodesDB manages MFA backup codes (authenticated operations)
@@ -38,8 +38,8 @@ func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, co
 }
 
 // GetUnusedByUserID retrieves all unused backup codes for a user
-func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*auth.MFABackupCode, error) {
-	var result []*auth.MFABackupCode
+func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*iam.MFABackupCode, error) {
+	var result []*iam.MFABackupCode
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		rows, err := q.GetUnusedBackupCodesByUserID(ctx, userID)
@@ -47,9 +47,9 @@ func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UU
 			return fmt.Errorf("failed to get unused backup codes: %w", err)
 		}
 
-		result = make([]*auth.MFABackupCode, len(rows))
+		result = make([]*iam.MFABackupCode, len(rows))
 		for i, row := range rows {
-			result[i] = &auth.MFABackupCode{
+			result[i] = &iam.MFABackupCode{
 				ID:       row.ID,
 				UserID:   row.UserID,
 				CodeHash: row.CodeHash,

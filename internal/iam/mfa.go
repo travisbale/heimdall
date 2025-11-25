@@ -1,4 +1,4 @@
-package auth
+package iam
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/events"
-	"github.com/travisbale/heimdall/jwt"
 )
 
 // mfaVerifier handles setup and verification for a specific MFA method (TOTP, WebAuthn, etc.)
@@ -34,45 +33,34 @@ type mfaBackupCodesDB interface {
 	CountUnused(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
-// mfaChallengeTokenValidator validates MFA challenge tokens and returns claims
-type mfaChallengeTokenValidator interface {
-	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
-}
-
-type MFAServiceCofig struct {
-	MFASettingsDB      mfaSettingsDB
-	BackupCodesDB      mfaBackupCodesDB
-	UsersDB            userDB
-	Verifier           mfaVerifier
-	Hasher             hasher
-	ChallengeValidator mfaChallengeTokenValidator
-	SessionService     *SessionService
-	Logger             logger
+type MFAServiceConfig struct {
+	MFASettingsDB mfaSettingsDB
+	BackupCodesDB mfaBackupCodesDB
+	UsersDB       userDB
+	Verifier      mfaVerifier
+	Hasher        hasher
+	Logger        logger
 }
 
 // MFAService manages multi-factor authentication
 type MFAService struct {
-	mfaSettingsDB      mfaSettingsDB
-	backupCodesDB      mfaBackupCodesDB
-	usersDB            userDB
-	verifier           mfaVerifier
-	hasher             hasher
-	challengeValidator mfaChallengeTokenValidator
-	sessionService     *SessionService
-	logger             logger
+	mfaSettingsDB mfaSettingsDB
+	backupCodesDB mfaBackupCodesDB
+	usersDB       userDB
+	verifier      mfaVerifier
+	hasher        hasher
+	logger        logger
 }
 
 // NewMFAService creates a new MFA service
-func NewMFAService(config *MFAServiceCofig) *MFAService {
+func NewMFAService(config *MFAServiceConfig) *MFAService {
 	return &MFAService{
-		mfaSettingsDB:      config.MFASettingsDB,
-		backupCodesDB:      config.BackupCodesDB,
-		usersDB:            config.UsersDB,
-		verifier:           config.Verifier,
-		hasher:             config.Hasher,
-		challengeValidator: config.ChallengeValidator,
-		sessionService:     config.SessionService,
-		logger:             config.Logger,
+		mfaSettingsDB: config.MFASettingsDB,
+		backupCodesDB: config.BackupCodesDB,
+		usersDB:       config.UsersDB,
+		verifier:      config.Verifier,
+		hasher:        config.Hasher,
+		logger:        config.Logger,
 	}
 }
 
@@ -201,16 +189,22 @@ func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID
 	return backupCodes, nil
 }
 
-// GetStatus returns MFA status for a user
+// IsMFAEnabled returns whether MFA is enabled for a user
+func (s *MFAService) IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	settings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, ErrMFANotEnabled) {
+			return false, nil
+		}
+		return false, err
+	}
+	return settings.VerifiedAt != nil, nil
+}
+
+// GetStatus returns MFA status for a user (for UI display)
 func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatus, error) {
 	settings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
 	if err != nil {
-		if err == ErrMFANotEnabled {
-			return &MFAStatus{
-				VerifiedAt:           nil,
-				BackupCodesRemaining: 0,
-			}, nil
-		}
 		return nil, err
 	}
 
@@ -225,19 +219,9 @@ func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatu
 	}, nil
 }
 
-// VerifyMFACode validates MFA challenge token, verifies MFA code, and creates a session
-func (s *MFAService) VerifyMFACode(ctx context.Context, challengeToken, code string) (*SessionTokens, error) {
-	claims, err := s.challengeValidator.ValidateMFAChallengeToken(challengeToken)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidChallengeToken, err)
-	}
-
-	if err := s.verifyMFA(ctx, claims.UserID, code); err != nil {
-		return nil, err
-	}
-
-	// User has already completed MFA verification - skip MFA check
-	return s.sessionService.CreateSession(ctx, claims.TenantID, claims.UserID, false)
+// VerifyCode verifies an MFA code (TOTP or backup code) for a user
+func (s *MFAService) VerifyCode(ctx context.Context, userID uuid.UUID, code string) error {
+	return s.verifyMFA(ctx, userID, code)
 }
 
 // verifyMFA tries TOTP code first, then backup code

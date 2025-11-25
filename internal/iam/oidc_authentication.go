@@ -1,4 +1,4 @@
-package auth
+package iam
 
 import (
 	"context"
@@ -122,8 +122,8 @@ func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCP
 	return authURL, nil
 }
 
-// HandleOIDCCallback processes the OAuth callback, authenticates the user, and creates a session
-func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string) (*SessionTokens, error) {
+// ProcessCallback processes the OAuth callback and authenticates the user
+func (s *OIDCService) ProcessCallback(ctx context.Context, state, code string) (*User, error) {
 	// Get the OIDC session by state
 	session, err := s.oidcSessionDB.GetOIDCSessionByState(ctx, state)
 	if err != nil {
@@ -156,8 +156,7 @@ func (s *OIDCService) HandleOIDCCallback(ctx context.Context, state, code string
 		return nil, fmt.Errorf("session has neither OIDCProviderID nor ProviderType")
 	}
 
-	// MFA is handled by the identity provider - skip MFA check
-	return s.sessionService.CreateSession(ctx, user.TenantID, user.ID, false)
+	return user, nil
 }
 
 // handleSSOCallback processes corporate SSO callbacks

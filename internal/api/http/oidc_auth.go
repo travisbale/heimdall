@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
 	oidcService   oidcService
+	authService   authService
 	secureCookies bool
 }
 
 func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
 	return &OIDCAuthHandler{
 		oidcService:   config.OIDCService,
+		authService:   config.AuthService,
 		secureCookies: config.SecureCookies(),
 	}
 }
@@ -33,7 +35,7 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	authURL, err := h.oidcService.StartOIDCLogin(r.Context(), req.ProviderType)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCProviderNotConfigured):
+		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType)})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to start OAuth login"})
@@ -57,7 +59,7 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	authURL, err := h.oidcService.StartSSOLogin(r.Context(), req.Email)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrSSONotConfigured):
+		case errors.Is(err, iam.ErrSSONotConfigured):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login."})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to start SSO login"})
@@ -96,22 +98,22 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Exchange code for tokens, fetch user info, create/link account, and create session
-	tokens, err := h.oidcService.HandleOIDCCallback(r.Context(), state, code)
+	tokens, err := h.authService.AuthenticateWithOIDC(r.Context(), state, code)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCSessionNotFound):
+		case errors.Is(err, iam.ErrOIDCSessionNotFound):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired OAuth session"})
 
-		case errors.Is(err, auth.ErrOIDCProviderNotFound), errors.Is(err, auth.ErrOIDCProviderNotConfigured):
+		case errors.Is(err, iam.ErrOIDCProviderNotFound), errors.Is(err, iam.ErrOIDCProviderNotConfigured):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "OAuth provider not configured"})
 
-		case errors.Is(err, auth.ErrAutoProvisioningDisabled):
+		case errors.Is(err, iam.ErrAutoProvisioningDisabled):
 			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Account not found and auto-provisioning is disabled"})
 
-		case errors.Is(err, auth.ErrProviderEmailNotVerified):
+		case errors.Is(err, iam.ErrProviderEmailNotVerified):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Email must be verified by your OAuth provider"})
 
-		case errors.Is(err, auth.ErrEmailConflict):
+		case errors.Is(err, iam.ErrEmailConflict):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "This email address is associated with an existing account. Please contact your administrator."})
 
 		default:

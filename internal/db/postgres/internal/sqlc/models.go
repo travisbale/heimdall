@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -295,14 +295,14 @@ type Tenant struct {
 }
 
 type User struct {
-	ID           uuid.UUID       `json:"id"`
-	TenantID     uuid.UUID       `json:"tenant_id"`
-	Email        string          `json:"email"`
-	PasswordHash string          `json:"password_hash"`
-	Status       auth.UserStatus `json:"status"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	LastLoginAt  *time.Time      `json:"last_login_at"`
+	ID           uuid.UUID      `json:"id"`
+	TenantID     uuid.UUID      `json:"tenant_id"`
+	Email        string         `json:"email"`
+	PasswordHash string         `json:"password_hash"`
+	Status       iam.UserStatus `json:"status"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	LastLoginAt  *time.Time     `json:"last_login_at"`
 }
 
 type UserPermission struct {

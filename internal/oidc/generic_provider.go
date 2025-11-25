@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"golang.org/x/oauth2"
 )
 
@@ -56,7 +56,7 @@ func (p *GenericProvider) GetAuthorizationURL(state, codeVerifier, redirectURI s
 }
 
 // ExchangeCode exchanges authorization code for access and ID tokens using PKCE
-func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
+func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
 	p.oauth2Config.RedirectURL = redirectURI
 
 	// PKCE verifier must match the challenge sent in authorization request
@@ -72,7 +72,7 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 		idToken = rawIDToken
 	}
 
-	return &auth.OIDCTokenResponse{
+	return &iam.OIDCTokenResponse{
 		AccessToken:  token.AccessToken,
 		IDToken:      idToken,
 		RefreshToken: token.RefreshToken,
@@ -81,7 +81,7 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 }
 
 // GetUserInfo retrieves user profile from provider's userinfo endpoint
-func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (*auth.OIDCUserInfo, error) {
+func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
 	token := &oauth2.Token{
 		AccessToken: accessToken,
 	}
@@ -110,7 +110,7 @@ func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (
 		return nil, fmt.Errorf("failed to parse user info metadata: %w", err)
 	}
 
-	result := &auth.OIDCUserInfo{
+	result := &iam.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
@@ -127,7 +127,7 @@ func (p *GenericProvider) GetUserInfo(ctx context.Context, accessToken string) (
 }
 
 // ValidateIDToken validates ID token signature and expiration, returns claims
-func (p *GenericProvider) ValidateIDToken(ctx context.Context, rawIDToken string) (*auth.OIDCClaims, error) {
+func (p *GenericProvider) ValidateIDToken(ctx context.Context, rawIDToken string) (*iam.OIDCClaims, error) {
 	// Verifies signature using provider's public keys (from JWKS endpoint)
 	idToken, err := p.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
@@ -147,7 +147,7 @@ func (p *GenericProvider) ValidateIDToken(ctx context.Context, rawIDToken string
 		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
 	}
 
-	return &auth.OIDCClaims{
+	return &iam.OIDCClaims{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,

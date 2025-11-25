@@ -6,8 +6,8 @@ import (
 	"github.com/travisbale/heimdall/clog"
 	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/crypto/argon2"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/email/mailman"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/mfa/totp"
 	"github.com/travisbale/heimdall/internal/oidc"
 	"github.com/travisbale/heimdall/jwt"
@@ -16,13 +16,13 @@ import (
 
 // services holds all business logic service instances
 type services struct {
-	user          *auth.UserService
-	password      *auth.PasswordService
-	mfa           *auth.MFAService
-	oidc          *auth.OIDCService
-	rbac          *auth.RBACService
-	loginAttempts *auth.LoginAttemptsService
-	session       *auth.SessionService
+	user          *iam.UserService
+	password      *iam.PasswordService
+	mfa           *iam.MFAService
+	oidc          *iam.OIDCService
+	rbac          *iam.RBACService
+	loginAttempts *iam.LoginAttemptsService
+	auth          *iam.AuthService
 	jwt           *jwt.Service
 }
 
@@ -30,7 +30,7 @@ type services struct {
 func initializeServices(
 	config *Config,
 	dbs *databases,
-	systemProviders map[sdk.OIDCProviderType]auth.OIDCProvider,
+	systemProviders map[sdk.OIDCProviderType]iam.OIDCProvider,
 	emailClient *mailman.Client,
 	cipher *aes.Cipher,
 ) (*services, error) {
@@ -53,10 +53,10 @@ func initializeServices(
 	passwordHasher := argon2.NewHasher(getArgon2Config(config.Environment))
 
 	// Login attempts service for account lockout tracking
-	loginAttemptsService := auth.NewLoginAttemptsService(dbs.loginAttempts, clog.New("login_attempts_service"))
+	loginAttemptsService := iam.NewLoginAttemptsService(dbs.loginAttempts, clog.New("login_attempts_service"))
 
 	// RBAC service for roles and permissions
-	rbacService := auth.NewRBACService(&auth.RBACServiceConfig{
+	rbacService := iam.NewRBACService(&iam.RBACServiceConfig{
 		RolesDB:           dbs.roles,
 		PermissionsDB:     dbs.permissions,
 		RolePermissionsDB: dbs.rolePermissions,
@@ -65,23 +65,14 @@ func initializeServices(
 		Logger:            clog.New("rbac_service"),
 	})
 
-	// Session service for token generation
-	sessionService := auth.NewSessionService(&auth.SessionServiceConfig{
-		MFASettingsDB: dbs.mfaSettings,
-		RBACService:   rbacService,
-		JWTService:    jwtService,
-		Logger:        clog.New("session_service"),
-	})
-
 	// OIDC service for OAuth/SSO authentication
-	oidcService := auth.NewOIDCService(&auth.OIDCServiceConfig{
+	oidcService := iam.NewOIDCService(&iam.OIDCServiceConfig{
 		OIDCProviderDB:     dbs.oidcProviders,
 		OIDCLinkDB:         dbs.oidcLinks,
 		OIDCSessionDB:      dbs.oidcSessions,
 		UserDB:             dbs.users,
 		TenantsDB:          dbs.tenants,
 		RBACService:        rbacService,
-		SessionService:     sessionService,
 		SystemProviders:    systemProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
@@ -90,18 +81,17 @@ func initializeServices(
 	})
 
 	// Password service for password authentication
-	passwordService := auth.NewPasswordService(&auth.PasswordServiceConfig{
+	passwordService := iam.NewPasswordService(&iam.PasswordServiceConfig{
 		UserDB:               dbs.users,
 		Hasher:               passwordHasher,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
-		SessionService:       sessionService,
 		Logger:               clog.New("password_service"),
 	})
 
 	// User service for registration and user management
-	userService := auth.NewUserService(&auth.UserServiceConfig{
+	userService := iam.NewUserService(&iam.UserServiceConfig{
 		UserDB:              dbs.users,
 		TenantsDB:           dbs.tenants,
 		Hasher:              passwordHasher,
@@ -109,20 +99,28 @@ func initializeServices(
 		VerificationTokenDB: dbs.verificationTokens,
 		OIDCService:         oidcService,
 		RBACService:         rbacService,
-		SessionService:      sessionService,
 		Logger:              clog.New("user_service"),
 	})
 
 	// MFA service for TOTP and backup codes
-	mfaService := auth.NewMFAService(&auth.MFAServiceCofig{
-		MFASettingsDB:      dbs.mfaSettings,
-		BackupCodesDB:      dbs.mfaBackupCodes,
-		UsersDB:            dbs.users,
-		Verifier:           totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
-		Hasher:             passwordHasher,
-		ChallengeValidator: jwtService.Validator,
-		SessionService:     sessionService,
-		Logger:             clog.New("mfa_service"),
+	mfaService := iam.NewMFAService(&iam.MFAServiceConfig{
+		MFASettingsDB: dbs.mfaSettings,
+		BackupCodesDB: dbs.mfaBackupCodes,
+		UsersDB:       dbs.users,
+		Verifier:      totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
+		Hasher:        passwordHasher,
+		Logger:        clog.New("mfa_service"),
+	})
+
+	// Auth service orchestrates authentication flows
+	authService := iam.NewAuthService(&iam.AuthServiceConfig{
+		PasswordService: passwordService,
+		OIDCService:     oidcService,
+		UserService:     userService,
+		MFAService:      mfaService,
+		RBACService:     rbacService,
+		JWTService:      jwtService,
+		Logger:          clog.New("auth_service"),
 	})
 
 	return &services{
@@ -132,7 +130,7 @@ func initializeServices(
 		oidc:          oidcService,
 		rbac:          rbacService,
 		loginAttempts: loginAttemptsService,
-		session:       sessionService,
+		auth:          authService,
 		jwt:           jwtService,
 	}, nil
 }

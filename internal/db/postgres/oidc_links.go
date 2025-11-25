@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // OIDCLinksDB manages user-to-provider links for SSO (tracks by provider's sub claim)
@@ -23,8 +23,8 @@ func NewOIDCLinksDB(db *DB) *OIDCLinksDB {
 }
 
 // CreateOIDCLink creates link between user and provider (tracks by immutable sub claim)
-func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (*auth.OIDCLink, error) {
-	var result *auth.OIDCLink
+func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *iam.OIDCLink) (*iam.OIDCLink, error) {
+	var result *iam.OIDCLink
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		metadataJSON, err := json.Marshal(link.ProviderMetadata)
@@ -44,10 +44,10 @@ func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				if pgErr.ConstraintName == "oidc_links_user_id_oidc_provider_id_key" {
-					return auth.ErrOIDCLinkAlreadyExists
+					return iam.ErrOIDCLinkAlreadyExists
 				}
 				if pgErr.ConstraintName == "oidc_links_oidc_provider_id_provider_user_id_key" {
-					return auth.ErrOIDCProviderAccountAlreadyLinked
+					return iam.ErrOIDCProviderAccountAlreadyLinked
 				}
 			}
 			return fmt.Errorf("failed to create oidc link: %w", err)
@@ -61,8 +61,8 @@ func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *auth.OIDCLink) (
 }
 
 // GetOIDCLinkByProvider retrieves link by provider's sub claim (allows email reassignment)
-func (o *OIDCLinksDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid.UUID, providerUserID string) (*auth.OIDCLink, error) {
-	var result *auth.OIDCLink
+func (o *OIDCLinksDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid.UUID, providerUserID string) (*iam.OIDCLink, error) {
+	var result *iam.OIDCLink
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbLink, err := q.GetOIDCLinkByProvider(ctx, sqlc.GetOIDCLinkByProviderParams{
@@ -71,7 +71,7 @@ func (o *OIDCLinksDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrOIDCLinkNotFound
+				return iam.ErrOIDCLinkNotFound
 			}
 			return fmt.Errorf("failed to get oidc link by provider: %w", err)
 		}
@@ -84,8 +84,8 @@ func (o *OIDCLinksDB) GetOIDCLinkByProvider(ctx context.Context, providerID uuid
 }
 
 // GetOIDCLinkByUser retrieves an OIDC link by user ID and provider ID
-func (o *OIDCLinksDB) GetOIDCLinkByUser(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) (*auth.OIDCLink, error) {
-	var result *auth.OIDCLink
+func (o *OIDCLinksDB) GetOIDCLinkByUser(ctx context.Context, userID uuid.UUID, providerID uuid.UUID) (*iam.OIDCLink, error) {
+	var result *iam.OIDCLink
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbLink, err := q.GetOIDCLinkByUser(ctx, sqlc.GetOIDCLinkByUserParams{
@@ -94,7 +94,7 @@ func (o *OIDCLinksDB) GetOIDCLinkByUser(ctx context.Context, userID uuid.UUID, p
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrOIDCLinkNotFound
+				return iam.ErrOIDCLinkNotFound
 			}
 			return fmt.Errorf("failed to get oidc link by user: %w", err)
 		}
@@ -107,8 +107,8 @@ func (o *OIDCLinksDB) GetOIDCLinkByUser(ctx context.Context, userID uuid.UUID, p
 }
 
 // ListOIDCLinksByUser lists all OIDC links for a user
-func (o *OIDCLinksDB) ListOIDCLinksByUser(ctx context.Context, userID uuid.UUID) ([]*auth.OIDCLink, error) {
-	var result []*auth.OIDCLink
+func (o *OIDCLinksDB) ListOIDCLinksByUser(ctx context.Context, userID uuid.UUID) ([]*iam.OIDCLink, error) {
+	var result []*iam.OIDCLink
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbLinks, err := q.ListOIDCLinksByUser(ctx, userID)
@@ -116,7 +116,7 @@ func (o *OIDCLinksDB) ListOIDCLinksByUser(ctx context.Context, userID uuid.UUID)
 			return fmt.Errorf("failed to list oidc links by user: %w", err)
 		}
 
-		result = make([]*auth.OIDCLink, len(dbLinks))
+		result = make([]*iam.OIDCLink, len(dbLinks))
 		for i, dbLink := range dbLinks {
 			link, err := convertOIDCLinkToDomain(dbLink)
 			if err != nil {
@@ -156,7 +156,7 @@ func (o *OIDCLinksDB) DeleteOIDCLink(ctx context.Context, userID uuid.UUID, prov
 }
 
 // convertOIDCLinkToDomain converts a database OIDCLink to a domain OIDCLink
-func convertOIDCLinkToDomain(dbLink sqlc.OidcLink) (*auth.OIDCLink, error) {
+func convertOIDCLinkToDomain(dbLink sqlc.OidcLink) (*iam.OIDCLink, error) {
 	var metadata map[string]any
 	if len(dbLink.ProviderMetadata) > 0 {
 		if err := json.Unmarshal(dbLink.ProviderMetadata, &metadata); err != nil {
@@ -164,7 +164,7 @@ func convertOIDCLinkToDomain(dbLink sqlc.OidcLink) (*auth.OIDCLink, error) {
 		}
 	}
 
-	return &auth.OIDCLink{
+	return &iam.OIDCLink{
 		ID:               dbLink.ID,
 		UserID:           dbLink.UserID,
 		OIDCProviderID:   dbLink.OidcProviderID,

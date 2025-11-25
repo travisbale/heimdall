@@ -4,13 +4,14 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
 	userService   userService
+	authService   authService
 	secureCookies bool
 }
 
@@ -18,6 +19,7 @@ type RegistrationHandler struct {
 func NewRegistrationHandler(config *Config) *RegistrationHandler {
 	return &RegistrationHandler{
 		userService:   config.UserService,
+		authService:   config.AuthService,
 		secureCookies: config.SecureCookies(),
 	}
 }
@@ -32,10 +34,10 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userService.Register(r.Context(), req.Email)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrDuplicateEmail):
+		case errors.Is(err, iam.ErrDuplicateEmail):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "Email address is already registered"})
 
-		case errors.Is(err, auth.ErrSSORequired):
+		case errors.Is(err, iam.ErrSSORequired):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "This email domain requires SSO login"})
 
 		default:
@@ -58,13 +60,13 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	tokens, err := h.userService.ConfirmRegistration(r.Context(), req.Token, req.Password)
+	tokens, err := h.authService.CompleteRegistration(r.Context(), req.Token, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrVerificationTokenNotFound):
+		case errors.Is(err, iam.ErrVerificationTokenNotFound):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired verification token"})
 
-		case errors.Is(err, auth.ErrAccountAlreadyVerified):
+		case errors.Is(err, iam.ErrAccountAlreadyVerified):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Account has already been verified"})
 
 		default:

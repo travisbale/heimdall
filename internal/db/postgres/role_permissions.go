@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // RolePermissionsDB provides database operations for role permissions
@@ -19,17 +19,17 @@ func NewRolePermissionsDB(db *DB) *RolePermissionsDB {
 }
 
 // GetRolePermissions retrieves all permissions for a role
-func (r *RolePermissionsDB) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*auth.Permission, error) {
-	var permissions []*auth.Permission
+func (r *RolePermissionsDB) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*iam.Permission, error) {
+	var permissions []*iam.Permission
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		results, err := q.GetRolePermissions(ctx, roleID)
 		if err != nil {
 			return err
 		}
 
-		permissions = make([]*auth.Permission, len(results))
+		permissions = make([]*iam.Permission, len(results))
 		for i, result := range results {
-			permissions[i] = &auth.Permission{
+			permissions[i] = &iam.Permission{
 				ID:          result.ID,
 				Name:        result.Name,
 				Description: result.Description,

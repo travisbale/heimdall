@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -55,7 +55,7 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 		return
 	}
 
-	provider := &auth.OIDCProviderConfig{
+	provider := &iam.OIDCProviderConfig{
 		ProviderName:             req.ProviderName,
 		IssuerURL:                req.IssuerURL,
 		ClientID:                 req.ClientID,
@@ -70,13 +70,13 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 	result, err := h.oidcService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCDiscoveryFailed):
+		case errors.Is(err, iam.ErrOIDCDiscoveryFailed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Unable to discover OIDC provider. Check the issuer URL."})
 
-		case errors.Is(err, auth.ErrOIDCIssuerMismatch):
+		case errors.Is(err, iam.ErrOIDCIssuerMismatch):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "OIDC provider issuer validation failed"})
 
-		case errors.Is(err, auth.ErrOIDCRegistrationFailed):
+		case errors.Is(err, iam.ErrOIDCRegistrationFailed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Dynamic client registration failed"})
 
 		default:
@@ -102,7 +102,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 	provider, err := h.oidcService.GetOIDCProvider(r.Context(), req.ProviderID)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCProviderNotFound):
+		case errors.Is(err, iam.ErrOIDCProviderNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get OAuth provider"})
@@ -146,7 +146,7 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 		return
 	}
 
-	params := &auth.UpdateOIDCProviderParams{
+	params := &iam.UpdateOIDCProviderParams{
 		ID:                       req.ProviderID,
 		ProviderName:             req.ProviderName,
 		ClientSecret:             req.ClientSecret,
@@ -160,7 +160,7 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 	result, err := h.oidcService.UpdateOIDCProvider(r.Context(), params)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCProviderNotFound):
+		case errors.Is(err, iam.ErrOIDCProviderNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to update OAuth provider"})
@@ -185,7 +185,7 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 	err := h.oidcService.DeleteOIDCProvider(r.Context(), req.ProviderID)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrOIDCProviderNotFound):
+		case errors.Is(err, iam.ErrOIDCProviderNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "OAuth provider not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to delete OAuth provider"})
@@ -197,7 +197,7 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 }
 
 // convertProviderToSDK converts internal provider config to API response format
-func convertProviderToSDK(provider *auth.OIDCProviderConfig) sdk.OIDCProvider {
+func convertProviderToSDK(provider *iam.OIDCProviderConfig) sdk.OIDCProvider {
 	return sdk.OIDCProvider{
 		ID:                       provider.ID,
 		ProviderName:             provider.ProviderName,

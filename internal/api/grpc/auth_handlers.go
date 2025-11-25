@@ -6,13 +6,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/pb"
 )
 
 // authService defines the interface for authentication operations
 type authService interface {
-	CreateUser(ctx context.Context, user *auth.User, roleIDs []uuid.UUID) (*auth.User, string, error)
+	CreateUser(ctx context.Context, user *iam.User, roleIDs []uuid.UUID) (*iam.User, string, error)
 }
 
 type AuthHandler struct {
@@ -52,7 +52,7 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 		roleIDs = append(roleIDs, roleID)
 	}
 
-	user := &auth.User{
+	user := &iam.User{
 		TenantID: tenantID,
 		Email:    req.Email,
 	}

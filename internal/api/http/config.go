@@ -20,7 +20,7 @@ type Config struct {
 	MFAService         mfaService
 	OIDCService        oidcService
 	RBACService        rbacService
-	SessionService     sessionService
+	AuthService        authService
 	JWTService         jwtService
 	Environment        string
 	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)

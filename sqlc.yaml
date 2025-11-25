@@ -36,12 +36,12 @@ sql:
           - db_type: "user_status"
             nullable: false
             go_type:
-              import: "github.com/travisbale/heimdall/internal/auth"
+              import: "github.com/travisbale/heimdall/internal/iam"
               type: "UserStatus"
           - db_type: "user_status"
             nullable: true
             go_type:
-              import: "github.com/travisbale/heimdall/internal/auth"
+              import: "github.com/travisbale/heimdall/internal/iam"
               pointer: true
               type: "UserStatus"
           - db_type: "oidc_provider_type"

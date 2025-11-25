@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -78,7 +78,7 @@ func (m *MicrosoftProvider) GetAuthorizationURL(state, codeVerifier, redirectURI
 }
 
 // ExchangeCode exchanges an authorization code for tokens
-func (m *MicrosoftProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
+func (m *MicrosoftProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
 	// Update redirect URI for token exchange (must match authorization)
 	if redirectURI != "" {
 		m.config.RedirectURL = redirectURI
@@ -100,7 +100,7 @@ func (m *MicrosoftProvider) ExchangeCode(ctx context.Context, code, codeVerifier
 		return nil, fmt.Errorf("no id_token in token response")
 	}
 
-	return &auth.OIDCTokenResponse{
+	return &iam.OIDCTokenResponse{
 		AccessToken:  token.AccessToken,
 		IDToken:      rawIDToken,
 		RefreshToken: token.RefreshToken,
@@ -109,7 +109,7 @@ func (m *MicrosoftProvider) ExchangeCode(ctx context.Context, code, codeVerifier
 }
 
 // GetUserInfo retrieves user information from the provider
-func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string) (*auth.OIDCUserInfo, error) {
+func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
 	// Create an OAuth2 token source
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: accessToken,
@@ -134,7 +134,7 @@ func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string)
 		return nil, fmt.Errorf("failed to parse user info claims: %w", err)
 	}
 
-	result := &auth.OIDCUserInfo{
+	result := &iam.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
@@ -151,7 +151,7 @@ func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string)
 }
 
 // ValidateIDToken validates and parses an ID token
-func (m *MicrosoftProvider) ValidateIDToken(ctx context.Context, idToken string) (*auth.OIDCClaims, error) {
+func (m *MicrosoftProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
 	// Verify the ID token signature and claims
 	token, err := m.verifier.Verify(ctx, idToken)
 	if err != nil {
@@ -170,7 +170,7 @@ func (m *MicrosoftProvider) ValidateIDToken(ctx context.Context, idToken string)
 		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
 	}
 
-	return &auth.OIDCClaims{
+	return &iam.OIDCClaims{
 		Sub:           token.Subject,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,

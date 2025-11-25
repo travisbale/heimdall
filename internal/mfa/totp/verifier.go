@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // cipher handles encryption and decryption of TOTP secrets
@@ -24,9 +24,9 @@ type cipher interface {
 
 // MFASettingsDB provides database operations for MFA settings
 type MFASettingsDB interface {
-	Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*auth.MFASettings, error)
-	GetByUserID(ctx context.Context, userID uuid.UUID) (*auth.MFASettings, error)
-	Update(ctx context.Context, settings *auth.MFASettings) error
+	Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*iam.MFASettings, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*iam.MFASettings, error)
+	Update(ctx context.Context, settings *iam.MFASettings) error
 }
 
 // Verifier implements TOTP-based MFA verification
@@ -49,7 +49,7 @@ func NewVerifier(db MFASettingsDB, cipher cipher, period uint) *Verifier {
 }
 
 // Setup generates TOTP secret and QR code for MFA enrollment
-func (v *Verifier) Setup(ctx context.Context, userID uuid.UUID, email string) (*auth.MFAEnrollment, error) {
+func (v *Verifier) Setup(ctx context.Context, userID uuid.UUID, email string) (*iam.MFAEnrollment, error) {
 	secret := make([]byte, 20)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("failed to generate secret: %w", err)
@@ -88,7 +88,7 @@ func (v *Verifier) Setup(ctx context.Context, userID uuid.UUID, email string) (*
 		return nil, err
 	}
 
-	return &auth.MFAEnrollment{
+	return &iam.MFAEnrollment{
 		Secret: secretBase32,
 		QRCode: qrCode,
 	}, nil
@@ -102,7 +102,7 @@ func (v *Verifier) Enable(ctx context.Context, userID uuid.UUID, code string) er
 	}
 
 	if settings.VerifiedAt != nil {
-		return auth.ErrMFAAlreadyEnabled
+		return iam.ErrMFAAlreadyEnabled
 	}
 
 	secret, err := v.cipher.Decrypt(settings.TOTPSecret)
@@ -112,11 +112,11 @@ func (v *Verifier) Enable(ctx context.Context, userID uuid.UUID, code string) er
 
 	valid, err := totp.ValidateCustom(code, secret, time.Now(), v.validateOpts)
 	if err != nil {
-		return fmt.Errorf("%w: %v", auth.ErrInvalidMFACode, err)
+		return fmt.Errorf("%w: %v", iam.ErrInvalidMFACode, err)
 	}
 
 	if !valid {
-		return auth.ErrInvalidMFACode
+		return iam.ErrInvalidMFACode
 	}
 
 	// Mark code as used to prevent replay during immediate login
@@ -137,7 +137,7 @@ func (v *Verifier) Verify(ctx context.Context, userID uuid.UUID, code string) er
 	}
 
 	if settings.VerifiedAt == nil {
-		return auth.ErrMFANotEnabled
+		return iam.ErrMFANotEnabled
 	}
 
 	secret, err := v.cipher.Decrypt(settings.TOTPSecret)
@@ -147,17 +147,17 @@ func (v *Verifier) Verify(ctx context.Context, userID uuid.UUID, code string) er
 
 	valid, err := totp.ValidateCustom(code, secret, time.Now(), v.validateOpts)
 	if err != nil {
-		return fmt.Errorf("%w: %v", auth.ErrInvalidMFACode, err)
+		return fmt.Errorf("%w: %v", iam.ErrInvalidMFACode, err)
 	}
 
 	if !valid {
-		return auth.ErrInvalidMFACode
+		return iam.ErrInvalidMFACode
 	}
 
 	// Replay prevention: check if code was already used in this time window
 	currentWindow := time.Now().Unix() / int64(v.validateOpts.Period)
 	if settings.LastUsedWindow != nil && currentWindow <= *settings.LastUsedWindow {
-		return auth.ErrMFACodeAlreadyUsed
+		return iam.ErrMFACodeAlreadyUsed
 	}
 
 	now := time.Now()

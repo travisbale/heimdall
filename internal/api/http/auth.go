@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -12,17 +12,15 @@ const refreshTokenCookie = "refresh_token"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	passwordService passwordService
-	sessionService  sessionService
-	secureCookies   bool
+	authService   authService
+	secureCookies bool
 }
 
 // NewAuthHandler creates a new AuthHandler
 func NewAuthHandler(config *Config) *AuthHandler {
 	return &AuthHandler{
-		passwordService: config.PasswordService,
-		sessionService:  config.SessionService,
-		secureCookies:   config.SecureCookies(),
+		authService:   config.AuthService,
+		secureCookies: config.SecureCookies(),
 	}
 }
 
@@ -33,16 +31,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.passwordService.Login(r.Context(), req.Email, req.Password)
+	tokens, err := h.authService.AuthenticateWithPassword(r.Context(), req.Email, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidCredentials):
+		case errors.Is(err, iam.ErrInvalidCredentials):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Authentication failed"})
 
-		case errors.Is(err, auth.ErrEmailNotVerified):
+		case errors.Is(err, iam.ErrEmailNotVerified):
 			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Please verify your email address before logging in"})
 
-		case errors.Is(err, auth.ErrAccountLocked):
+		case errors.Is(err, iam.ErrAccountLocked):
 			respondJSON(w, http.StatusTooManyRequests, sdk.ErrorResponse{Error: "Too many failed login attempts. Please try again later."})
 
 		default:
@@ -84,7 +82,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.sessionService.RefreshSession(r.Context(), cookie.Value)
+	tokens, err := h.authService.RefreshSession(r.Context(), cookie.Value)
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
 		return

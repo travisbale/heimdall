@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // VerificationTokensDB manages email verification tokens (pre-authentication operation)
@@ -22,8 +22,8 @@ func NewVerificationTokensDB(db *DB) *VerificationTokensDB {
 }
 
 // CreateToken creates or replaces verification token (user_id is PK, enforces one token per user)
-func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.UserToken, error) {
-	var result *auth.UserToken
+func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*iam.UserToken, error) {
+	var result *iam.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateVerificationToken(ctx, sqlc.CreateVerificationTokenParams{
@@ -35,7 +35,7 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 			return fmt.Errorf("failed to create verification token: %w", err)
 		}
 
-		result = &auth.UserToken{
+		result = &iam.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
@@ -47,19 +47,19 @@ func (r *VerificationTokensDB) CreateToken(ctx context.Context, userID uuid.UUID
 }
 
 // GetToken retrieves token by token string (pre-authentication, no tenant context)
-func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*auth.UserToken, error) {
-	var result *auth.UserToken
+func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*iam.UserToken, error) {
+	var result *iam.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetVerificationToken(ctx, token)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrVerificationTokenNotFound
+				return iam.ErrVerificationTokenNotFound
 			}
 			return fmt.Errorf("failed to get verification token: %w", err)
 		}
 
-		result = &auth.UserToken{
+		result = &iam.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,

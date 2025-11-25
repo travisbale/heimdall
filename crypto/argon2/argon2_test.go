@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 func createTestHasher() *Hasher {
@@ -140,7 +140,7 @@ func TestVerifyPassword_WrongPassword(t *testing.T) {
 	}
 
 	err = hasher.VerifyPassword("wrongPassword", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }
@@ -162,7 +162,7 @@ func TestVerifyPassword_EmptyPassword(t *testing.T) {
 
 	// Verify with non-empty password should fail
 	err = hasher.VerifyPassword("notEmpty", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }
@@ -219,7 +219,7 @@ func TestRoundTrip_MultiplePasswords(t *testing.T) {
 
 		// Verify wrong password fails
 		err = hasher.VerifyPassword(password+"wrong", hash)
-		if err != auth.ErrInvalidCredentials {
+		if err != iam.ErrInvalidCredentials {
 			t.Errorf("password %q: expected verification to fail with wrong password", password)
 		}
 	}
@@ -242,12 +242,12 @@ func TestRoundTrip_CaseSensitivity(t *testing.T) {
 
 	// Wrong case should fail
 	err = hasher.VerifyPassword("password123", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Error("expected verification to fail with different case")
 	}
 
 	err = hasher.VerifyPassword("PASSWORD123", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Error("expected verification to fail with different case")
 	}
 }
@@ -263,13 +263,13 @@ func TestRoundTrip_WhitespaceMatters(t *testing.T) {
 
 	// Trailing space should fail
 	err = hasher.VerifyPassword("password ", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Error("expected verification to fail with trailing space")
 	}
 
 	// Leading space should fail
 	err = hasher.VerifyPassword(" password", hash)
-	if err != auth.ErrInvalidCredentials {
+	if err != iam.ErrInvalidCredentials {
 		t.Error("expected verification to fail with leading space")
 	}
 }
@@ -362,7 +362,7 @@ func TestHasher_ConstantTimeComparison(t *testing.T) {
 
 	for _, similar := range similarPasswords {
 		err := hasher.VerifyPassword(similar, hash)
-		if err != auth.ErrInvalidCredentials {
+		if err != iam.ErrInvalidCredentials {
 			t.Errorf("expected verification to fail for similar password: %s", similar)
 		}
 	}

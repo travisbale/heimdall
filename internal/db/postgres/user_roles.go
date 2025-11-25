@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // UserRolesDB provides database operations for user roles
@@ -36,17 +36,17 @@ func (u *UserRolesDB) SetUserRoles(ctx context.Context, userID uuid.UUID, roleID
 }
 
 // GetUserRoles retrieves all roles for a user
-func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*auth.Role, error) {
-	var roles []*auth.Role
+func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*iam.Role, error) {
+	var roles []*iam.Role
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		results, err := q.GetUserRoles(ctx, userID)
 		if err != nil {
 			return err
 		}
 
-		roles = make([]*auth.Role, len(results))
+		roles = make([]*iam.Role, len(results))
 		for i, result := range results {
-			roles[i] = &auth.Role{
+			roles[i] = &iam.Role{
 				ID:          result.ID,
 				Name:        result.Name,
 				Description: result.Description,

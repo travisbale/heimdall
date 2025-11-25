@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // RolesDB provides database operations for roles
@@ -20,8 +20,8 @@ func NewRolesDB(db *DB) *RolesDB {
 }
 
 // CreateRole creates a new role
-func (r *RolesDB) CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, error) {
-	var createdRole *auth.Role
+func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error) {
+	var createdRole *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
 		if err != nil {
@@ -38,7 +38,7 @@ func (r *RolesDB) CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, 
 			return err
 		}
 
-		createdRole = &auth.Role{
+		createdRole = &iam.Role{
 			ID:          result.ID,
 			Name:        result.Name,
 			Description: result.Description,
@@ -51,15 +51,15 @@ func (r *RolesDB) CreateRole(ctx context.Context, role *auth.Role) (*auth.Role, 
 }
 
 // GetRoleByID retrieves a role by ID
-func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*auth.Role, error) {
-	var role *auth.Role
+func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*iam.Role, error) {
+	var role *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		result, err := q.GetRoleByID(ctx, roleID)
 		if err != nil {
 			return err
 		}
 
-		role = &auth.Role{
+		role = &iam.Role{
 			ID:          result.ID,
 			Name:        result.Name,
 			Description: result.Description,
@@ -72,17 +72,17 @@ func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*auth.Role
 }
 
 // ListRoles lists all roles for a tenant
-func (r *RolesDB) ListRoles(ctx context.Context) ([]*auth.Role, error) {
-	var roles []*auth.Role
+func (r *RolesDB) ListRoles(ctx context.Context) ([]*iam.Role, error) {
+	var roles []*iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		results, err := q.ListRoles(ctx)
 		if err != nil {
 			return err
 		}
 
-		roles = make([]*auth.Role, len(results))
+		roles = make([]*iam.Role, len(results))
 		for i, result := range results {
-			roles[i] = &auth.Role{
+			roles[i] = &iam.Role{
 				ID:          result.ID,
 				Name:        result.Name,
 				Description: result.Description,
@@ -96,8 +96,8 @@ func (r *RolesDB) ListRoles(ctx context.Context) ([]*auth.Role, error) {
 }
 
 // UpdateRole updates a role
-func (r *RolesDB) UpdateRole(ctx context.Context, params auth.UpdateRoleParams) (*auth.Role, error) {
-	var role *auth.Role
+func (r *RolesDB) UpdateRole(ctx context.Context, params iam.UpdateRoleParams) (*iam.Role, error) {
+	var role *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		result, err := q.UpdateRole(ctx, sqlc.UpdateRoleParams{
 			ID:          params.ID,
@@ -109,7 +109,7 @@ func (r *RolesDB) UpdateRole(ctx context.Context, params auth.UpdateRoleParams) 
 			return err
 		}
 
-		role = &auth.Role{
+		role = &iam.Role{
 			ID:          result.ID,
 			Name:        result.Name,
 			Description: result.Description,

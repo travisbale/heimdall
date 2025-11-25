@@ -1,6 +1,11 @@
-package auth
+package iam
 
-import "context"
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/sdk"
+)
 
 // hasher hashes and verifies passwords and codes
 type hasher interface {
@@ -14,4 +19,10 @@ type logger interface {
 	Warn(ctx context.Context, msg string, args ...any)
 	Error(ctx context.Context, msg string, args ...any)
 	Debug(ctx context.Context, msg string, args ...any)
+}
+
+// rbacService provides role-based access control operations
+type rbacService interface {
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 }

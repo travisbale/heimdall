@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/oidc"
 	"github.com/travisbale/heimdall/sdk"
 )
@@ -12,8 +12,8 @@ import (
 // initializeSystemProviders creates OAuth/OIDC provider instances for individual logins
 // System-wide providers enable "Login with Google/GitHub" before user authentication
 // Tenant-specific providers (stored in DB) are used for enterprise SSO
-func initializeSystemProviders(ctx context.Context, config *Config) (map[sdk.OIDCProviderType]auth.OIDCProvider, error) {
-	systemProviders := make(map[sdk.OIDCProviderType]auth.OIDCProvider)
+func initializeSystemProviders(ctx context.Context, config *Config) (map[sdk.OIDCProviderType]iam.OIDCProvider, error) {
+	systemProviders := make(map[sdk.OIDCProviderType]iam.OIDCProvider)
 
 	// OAuth callback redirect URI (same for all providers)
 	redirectURI := config.PublicURL + "/v1/oauth/callback"

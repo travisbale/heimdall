@@ -70,7 +70,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		MFAService:         services.mfa,
 		OIDCService:        services.oidc,
 		RBACService:        services.rbac,
-		SessionService:     services.session,
+		AuthService:        services.auth,
 		JWTService:         services.jwt,
 		Environment:        config.Environment,
 		TrustedProxyMode:   config.TrustedProxyMode,

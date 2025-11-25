@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -70,7 +70,7 @@ func (o *OktaProvider) GetAuthorizationURL(state, codeVerifier, redirectURI stri
 }
 
 // ExchangeCode exchanges an authorization code for tokens
-func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
+func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
 	// Update redirect URI for token exchange (must match authorization)
 	if redirectURI != "" {
 		o.config.RedirectURL = redirectURI
@@ -92,7 +92,7 @@ func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, red
 		return nil, fmt.Errorf("no id_token in token response")
 	}
 
-	return &auth.OIDCTokenResponse{
+	return &iam.OIDCTokenResponse{
 		AccessToken:  token.AccessToken,
 		IDToken:      rawIDToken,
 		RefreshToken: token.RefreshToken,
@@ -101,7 +101,7 @@ func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, red
 }
 
 // GetUserInfo retrieves user information from the provider
-func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*auth.OIDCUserInfo, error) {
+func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
 	// Create an OAuth2 token source
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: accessToken,
@@ -142,7 +142,7 @@ func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*au
 		"updated_at":         claims.UpdatedAt,
 	}
 
-	result := &auth.OIDCUserInfo{
+	result := &iam.OIDCUserInfo{
 		Sub:           claims.Sub,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
@@ -159,7 +159,7 @@ func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*au
 }
 
 // ValidateIDToken validates and parses an ID token
-func (o *OktaProvider) ValidateIDToken(ctx context.Context, idToken string) (*auth.OIDCClaims, error) {
+func (o *OktaProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
 	// Verify the ID token signature and claims
 	token, err := o.verifier.Verify(ctx, idToken)
 	if err != nil {
@@ -178,7 +178,7 @@ func (o *OktaProvider) ValidateIDToken(ctx context.Context, idToken string) (*au
 		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
 	}
 
-	return &auth.OIDCClaims{
+	return &iam.OIDCClaims{
 		Sub:           token.Subject,
 		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,

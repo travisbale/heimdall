@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/identity"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // TenantsDB provides database operations for tenants
@@ -21,9 +21,9 @@ func NewTenantsDB(db *DB) *TenantsDB {
 }
 
 // BootstrapTenant creates a new tenant with initial user and System Admin role
-func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status auth.UserStatus) (*auth.Tenant, *auth.User, error) {
-	var tenant *auth.Tenant
-	var user *auth.User
+func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status iam.UserStatus) (*iam.Tenant, *iam.User, error) {
+	var tenant *iam.Tenant
+	var user *iam.User
 
 	tenantID := uuid.New()
 	ctx = identity.WithTenant(ctx, tenantID)
@@ -35,7 +35,7 @@ func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status au
 			return fmt.Errorf("failed to create tenant: %w", err)
 		}
 
-		tenant = &auth.Tenant{ID: dbTenant.ID}
+		tenant = &iam.Tenant{ID: dbTenant.ID}
 
 		// Create user with empty password
 		dbUser, err := q.CreateUser(ctx, sqlc.CreateUserParams{

@@ -1,4 +1,4 @@
-package auth
+package iam
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -724,66 +723,4 @@ func (m *mockRBACService) SetUserRoles(ctx context.Context, userID uuid.UUID, ro
 	}
 	// Mock implementation - just succeed without actually doing anything
 	return nil
-}
-
-// mockMFASettingsDB is a mock implementation of mfaSettingsDB
-type mockMFASettingsDB struct {
-	settings map[uuid.UUID]*MFASettings
-}
-
-func newMockMFASettingsDB() *mockMFASettingsDB {
-	return &mockMFASettingsDB{
-		settings: make(map[uuid.UUID]*MFASettings),
-	}
-}
-
-func (m *mockMFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*MFASettings, error) {
-	settings, ok := m.settings[userID]
-	if !ok {
-		return nil, ErrMFANotEnabled
-	}
-	return settings, nil
-}
-
-func (m *mockMFASettingsDB) Delete(ctx context.Context, userID uuid.UUID) error {
-	delete(m.settings, userID)
-	return nil
-}
-
-// mockJWTService is a mock implementation of jwtService
-type mockJWTService struct{}
-
-func newMockJWTService() *mockJWTService {
-	return &mockJWTService{}
-}
-
-func (m *mockJWTService) IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, error) {
-	return "mock_access_token", nil
-}
-
-func (m *mockJWTService) IssueMFAChallengeToken(tenantID, userID uuid.UUID) (string, error) {
-	return "mock_mfa_challenge_token", nil
-}
-
-func (m *mockJWTService) IssueRefreshToken(tenantID, userID uuid.UUID) (string, error) {
-	return "mock_refresh_token", nil
-}
-
-func (m *mockJWTService) ValidateToken(token string) (*jwt.Claims, error) {
-	return &jwt.Claims{
-		UserID:   uuid.New(),
-		TenantID: uuid.New(),
-	}, nil
-}
-
-func (m *mockJWTService) GetAccessTokenExpiration() time.Duration {
-	return time.Hour
-}
-
-func (m *mockJWTService) GetRefreshTokenExpiration() time.Duration {
-	return 24 * time.Hour
-}
-
-func (m *mockJWTService) GetMFAChallengeTokenExpiration() time.Duration {
-	return 5 * time.Minute
 }

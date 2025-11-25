@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -46,7 +46,7 @@ func (h *RBACHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role := &auth.Role{
+	role := &iam.Role{
 		Name:        req.Name,
 		Description: req.Description,
 		MFARequired: req.MFARequired,
@@ -75,7 +75,7 @@ func (h *RBACHandler) GetRole(w http.ResponseWriter, r *http.Request) {
 	role, err := h.rbacService.GetRole(r.Context(), req.RoleID)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrRoleNotFound):
+		case errors.Is(err, iam.ErrRoleNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "Role not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get role"})
@@ -119,7 +119,7 @@ func (h *RBACHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Support partial updates using pointer fields
-	params := auth.UpdateRoleParams{
+	params := iam.UpdateRoleParams{
 		ID:          req.RoleID,
 		Name:        req.Name,
 		Description: req.Description,
@@ -129,7 +129,7 @@ func (h *RBACHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	role, err := h.rbacService.UpdateRole(r.Context(), params)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrRoleNotFound):
+		case errors.Is(err, iam.ErrRoleNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "Role not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to update role"})
@@ -153,7 +153,7 @@ func (h *RBACHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.rbacService.DeleteRole(r.Context(), req.RoleID); err != nil {
 		switch {
-		case errors.Is(err, auth.ErrRoleNotFound):
+		case errors.Is(err, iam.ErrRoleNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "Role not found"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to delete role"})
@@ -277,9 +277,9 @@ func (h *RBACHandler) SetDirectPermissions(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Convert SDK permissions to auth permissions
-	authPerms := make([]auth.DirectPermission, len(req.Permissions))
+	authPerms := make([]iam.DirectPermission, len(req.Permissions))
 	for i, p := range req.Permissions {
-		authPerms[i] = auth.DirectPermission{
+		authPerms[i] = iam.DirectPermission{
 			PermissionID: p.PermissionID,
 			Effect:       p.Effect,
 		}
@@ -323,8 +323,8 @@ func (h *RBACHandler) GetDirectPermissions(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// toSDKRole converts an auth.Role to sdk.Role
-func toSDKRole(role *auth.Role) sdk.Role {
+// toSDKRole converts an iam.Role to sdk.Role
+func toSDKRole(role *iam.Role) sdk.Role {
 	return sdk.Role{
 		ID:          role.ID,
 		Name:        role.Name,
@@ -333,8 +333,8 @@ func toSDKRole(role *auth.Role) sdk.Role {
 	}
 }
 
-// toSDKPermission converts an auth.Permission to sdk.Permission
-func toSDKPermission(perm *auth.Permission) sdk.Permission {
+// toSDKPermission converts an iam.Permission to sdk.Permission
+func toSDKPermission(perm *iam.Permission) sdk.Permission {
 	return sdk.Permission{
 		ID:          perm.ID,
 		Name:        perm.Name,

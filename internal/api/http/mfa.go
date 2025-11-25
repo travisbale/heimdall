@@ -5,15 +5,15 @@ import (
 	"net/http"
 
 	"github.com/travisbale/heimdall/identity"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
 // MFAHandler handles MFA HTTP requests
 type MFAHandler struct {
 	mfaService    mfaService
-	jwtService    jwtService
+	authService   authService
 	secureCookies bool
 	logger        logger
 }
@@ -22,7 +22,7 @@ type MFAHandler struct {
 func NewMFAHandler(config *Config) *MFAHandler {
 	return &MFAHandler{
 		mfaService:    config.MFAService,
-		jwtService:    config.JWTService,
+		authService:   config.AuthService,
 		secureCookies: config.SecureCookies(),
 		logger:        config.Logger,
 	}
@@ -39,7 +39,7 @@ func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	enrollment, err := h.mfaService.SetupMFA(r.Context(), userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrMFAAlreadyEnabled):
+		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
 		default:
 			h.logger.Error(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
@@ -71,11 +71,11 @@ func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
 	err = h.mfaService.EnableMFA(r.Context(), userID, req.Code)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidMFACode):
+		case errors.Is(err, iam.ErrInvalidMFACode):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid MFA code"})
-		case errors.Is(err, auth.ErrMFAAlreadyEnabled):
+		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
-		case errors.Is(err, auth.ErrMFANotEnabled):
+		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA setup not found. Please start MFA setup first."})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to enable MFA"})
@@ -102,13 +102,13 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 	err = h.mfaService.DisableMFA(r.Context(), userID, req.Password, req.Code)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidCredentials):
+		case errors.Is(err, iam.ErrInvalidCredentials):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid password"})
-		case errors.Is(err, auth.ErrInvalidMFACode), errors.Is(err, auth.ErrInvalidBackupCode):
+		case errors.Is(err, iam.ErrInvalidMFACode), errors.Is(err, iam.ErrInvalidBackupCode):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid MFA code or backup code"})
-		case errors.Is(err, auth.ErrMFACodeAlreadyUsed):
+		case errors.Is(err, iam.ErrMFACodeAlreadyUsed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "This code has already been used"})
-		case errors.Is(err, auth.ErrMFANotEnabled):
+		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA is not enabled"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to disable MFA"})
@@ -155,9 +155,9 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 	codes, err := h.mfaService.RegenerateBackupCodes(r.Context(), userID, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidCredentials):
+		case errors.Is(err, iam.ErrInvalidCredentials):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid password"})
-		case errors.Is(err, auth.ErrMFANotEnabled):
+		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA is not enabled"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to regenerate backup codes"})
@@ -177,21 +177,21 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.mfaService.VerifyMFACode(r.Context(), req.ChallengeToken, req.Code)
+	tokens, err := h.authService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code)
 	if err != nil {
 		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
-		case errors.Is(err, auth.ErrInvalidChallengeToken):
+		case errors.Is(err, iam.ErrInvalidChallengeToken):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired challenge token"})
-		case errors.Is(err, auth.ErrInvalidMFACode):
+		case errors.Is(err, iam.ErrInvalidMFACode):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid MFA code"})
-		case errors.Is(err, auth.ErrMFACodeAlreadyUsed):
+		case errors.Is(err, iam.ErrMFACodeAlreadyUsed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "This code has already been used"})
-		case errors.Is(err, auth.ErrInvalidBackupCode):
+		case errors.Is(err, iam.ErrInvalidBackupCode):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid backup code"})
-		case errors.Is(err, auth.ErrBackupCodeAlreadyUsed):
+		case errors.Is(err, iam.ErrBackupCodeAlreadyUsed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "This backup code has already been used"})
-		case errors.Is(err, auth.ErrMFANotEnabled):
+		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "MFA is not enabled"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to verify MFA"})

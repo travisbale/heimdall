@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 
 	"golang.org/x/oauth2"
 )
@@ -60,7 +60,7 @@ func (g *GitHubProvider) GetAuthorizationURL(state, codeVerifier, redirectURI st
 }
 
 // ExchangeCode exchanges an authorization code for tokens
-func (g *GitHubProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.OIDCTokenResponse, error) {
+func (g *GitHubProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
 	// Update redirect URI for token exchange (must match authorization)
 	if redirectURI != "" {
 		g.config.RedirectURL = redirectURI
@@ -76,7 +76,7 @@ func (g *GitHubProvider) ExchangeCode(ctx context.Context, code, codeVerifier, r
 		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
 
-	return &auth.OIDCTokenResponse{
+	return &iam.OIDCTokenResponse{
 		AccessToken:  token.AccessToken,
 		IDToken:      "", // GitHub doesn't provide ID tokens
 		RefreshToken: token.RefreshToken,
@@ -85,7 +85,7 @@ func (g *GitHubProvider) ExchangeCode(ctx context.Context, code, codeVerifier, r
 }
 
 // GetUserInfo retrieves user information from GitHub's API
-func (g *GitHubProvider) GetUserInfo(ctx context.Context, accessToken string) (*auth.OIDCUserInfo, error) {
+func (g *GitHubProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
 	// Get user profile
 	user, err := g.getGitHubUser(ctx, accessToken)
 	if err != nil {
@@ -109,7 +109,7 @@ func (g *GitHubProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 		"created_at":   user.CreatedAt,
 	}
 
-	result := &auth.OIDCUserInfo{
+	result := &iam.OIDCUserInfo{
 		Sub:           fmt.Sprintf("%d", user.ID), // GitHub uses numeric IDs
 		Email:         email,
 		EmailVerified: emailVerified,
@@ -127,7 +127,7 @@ func (g *GitHubProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 
 // ValidateIDToken validates and parses an ID token
 // Note: GitHub doesn't support OIDC ID tokens, so this returns an error
-func (g *GitHubProvider) ValidateIDToken(ctx context.Context, idToken string) (*auth.OIDCClaims, error) {
+func (g *GitHubProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
 	return nil, fmt.Errorf("GitHub does not support OIDC ID tokens")
 }
 

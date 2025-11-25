@@ -1,4 +1,4 @@
-package auth
+package iam
 
 import (
 	"context"
@@ -61,7 +61,7 @@ func TestLogin(t *testing.T) {
 		}
 		addUserToMockDB(f.userDB, user)
 
-		loggedInUser, err := f.service.Authenticate(ctx, "login@example.com", "correctpassword")
+		loggedInUser, err := f.service.VerifyCredentials(ctx, "login@example.com", "correctpassword")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -92,7 +92,7 @@ func TestLogin(t *testing.T) {
 		}
 		addUserToMockDB(f.userDB, user)
 
-		_, err := f.service.Authenticate(ctx, "login@example.com", "wrongpassword")
+		_, err := f.service.VerifyCredentials(ctx, "login@example.com", "wrongpassword")
 		if !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("expected ErrInvalidCredentials, got %v", err)
 		}
@@ -107,7 +107,7 @@ func TestLogin(t *testing.T) {
 		f := newPasswordServiceTestFixture()
 		ctx := context.Background()
 
-		_, err := f.service.Authenticate(ctx, "nonexistent@example.com", "password")
+		_, err := f.service.VerifyCredentials(ctx, "nonexistent@example.com", "password")
 		if !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("expected ErrInvalidCredentials, got %v", err)
 		}
@@ -125,7 +125,7 @@ func TestLogin(t *testing.T) {
 		f.loginAttempts.locked = true
 		f.loginAttempts.lockedUntil = time.Now().Add(30 * time.Minute)
 
-		_, err := f.service.Authenticate(ctx, "locked@example.com", "password")
+		_, err := f.service.VerifyCredentials(ctx, "locked@example.com", "password")
 		if !errors.Is(err, ErrAccountLocked) {
 			t.Errorf("expected ErrAccountLocked, got %v", err)
 		}
@@ -147,7 +147,7 @@ func TestLogin(t *testing.T) {
 		}
 		addUserToMockDB(f.userDB, user)
 
-		_, err := f.service.Authenticate(ctx, "unverified@example.com", "password")
+		_, err := f.service.VerifyCredentials(ctx, "unverified@example.com", "password")
 		if !errors.Is(err, ErrEmailNotVerified) {
 			t.Errorf("expected ErrEmailNotVerified, got %v", err)
 		}

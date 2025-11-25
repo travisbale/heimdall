@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/identity"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // OIDCProvidersDB manages tenant-specific OIDC provider configs with encrypted secrets
@@ -27,8 +27,8 @@ func NewOIDCProvidersDB(db *DB, cipher *aes.Cipher) *OIDCProvidersDB {
 }
 
 // CreateOIDCProvider stores provider config with AES-256-GCM encrypted client secret
-func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth.OIDCProviderConfig) (*auth.OIDCProviderConfig, error) {
-	var result *auth.OIDCProviderConfig
+func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *iam.OIDCProviderConfig) (*iam.OIDCProviderConfig, error) {
+	var result *iam.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
@@ -71,14 +71,14 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *auth
 }
 
 // GetOIDCProviderByID retrieves provider by ID with optional tenant validation
-func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*auth.OIDCProviderConfig, error) {
-	var result *auth.OIDCProviderConfig
+func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*iam.OIDCProviderConfig, error) {
+	var result *iam.OIDCProviderConfig
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbProvider, err := q.GetOIDCProvider(ctx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrOIDCProviderNotFound
+				return iam.ErrOIDCProviderNotFound
 			}
 			return fmt.Errorf("failed to get oauth provider by id: %w", err)
 		}
@@ -86,7 +86,7 @@ func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID)
 		// Tenant validation if context has tenant
 		if tenantID, err := identity.GetTenant(ctx); err == nil {
 			if dbProvider.TenantID != tenantID {
-				return auth.ErrOIDCProviderNotFound
+				return iam.ErrOIDCProviderNotFound
 			}
 		}
 
@@ -98,8 +98,8 @@ func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID)
 }
 
 // ListOIDCProviders lists all enabled OAuth providers for the tenant
-func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*auth.OIDCProviderConfig, error) {
-	var result []*auth.OIDCProviderConfig
+func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*iam.OIDCProviderConfig, error) {
+	var result []*iam.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		tenantID, err := identity.GetTenant(ctx)
@@ -112,7 +112,7 @@ func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*auth.OIDCPr
 			return fmt.Errorf("failed to list oauth providers: %w", err)
 		}
 
-		result = make([]*auth.OIDCProviderConfig, len(dbProviders))
+		result = make([]*iam.OIDCProviderConfig, len(dbProviders))
 		for i, dbProvider := range dbProviders {
 			provider, err := o.convertOIDCProviderToDomain(dbProvider)
 			if err != nil {
@@ -128,8 +128,8 @@ func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*auth.OIDCPr
 
 // UpdateOIDCProvider updates an OAuth provider
 // Fields in params that are pointers (nil) or empty slices will not be updated (COALESCE in SQL)
-func (o *OIDCProvidersDB) UpdateOIDCProvider(ctx context.Context, params *auth.UpdateOIDCProviderParams) (*auth.OIDCProviderConfig, error) {
-	var result *auth.OIDCProviderConfig
+func (o *OIDCProvidersDB) UpdateOIDCProvider(ctx context.Context, params *iam.UpdateOIDCProviderParams) (*iam.OIDCProviderConfig, error) {
+	var result *iam.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		// Encrypt client secret if provided
@@ -156,7 +156,7 @@ func (o *OIDCProvidersDB) UpdateOIDCProvider(ctx context.Context, params *auth.U
 		dbProvider, err := q.UpdateOIDCProvider(ctx, sqlcParams)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrOIDCProviderNotFound
+				return iam.ErrOIDCProviderNotFound
 			}
 			return fmt.Errorf("failed to update oauth provider: %w", err)
 		}
@@ -181,8 +181,8 @@ func (o *OIDCProvidersDB) DeleteOIDCProviderByID(ctx context.Context, id uuid.UU
 
 // GetOIDCProvidersByDomain retrieves all OAuth providers configured for an email domain
 // This is used for SSO discovery during login (cross-tenant, pre-authentication)
-func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*auth.OIDCProviderConfig, error) {
-	var result []*auth.OIDCProviderConfig
+func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*iam.OIDCProviderConfig, error) {
+	var result []*iam.OIDCProviderConfig
 
 	// Domain-based lookup doesn't use tenant context (pre-authentication)
 	// Uses WithTransaction to bypass RLS and search across all tenants
@@ -192,7 +192,7 @@ func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain s
 			return fmt.Errorf("failed to get oauth providers by domain: %w", err)
 		}
 
-		result = make([]*auth.OIDCProviderConfig, len(dbProviders))
+		result = make([]*iam.OIDCProviderConfig, len(dbProviders))
 		for i, dbProvider := range dbProviders {
 			provider, err := o.convertOIDCProviderToDomain(dbProvider)
 			if err != nil {
@@ -207,14 +207,14 @@ func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain s
 }
 
 // convertOIDCProviderToDomain converts a database OAuthProvider to a domain OAuthProvider
-func (o *OIDCProvidersDB) convertOIDCProviderToDomain(dbProvider sqlc.OidcProvider) (*auth.OIDCProviderConfig, error) {
+func (o *OIDCProvidersDB) convertOIDCProviderToDomain(dbProvider sqlc.OidcProvider) (*iam.OIDCProviderConfig, error) {
 	// Decrypt the client secret
 	decryptedSecret, err := o.cipher.Decrypt(dbProvider.ClientSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt client secret: %w", err)
 	}
 
-	return &auth.OIDCProviderConfig{
+	return &iam.OIDCProviderConfig{
 		ID:                       dbProvider.ID,
 		TenantID:                 dbProvider.TenantID,
 		ProviderName:             dbProvider.ProviderName,

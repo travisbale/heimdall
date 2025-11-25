@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // PasswordResetTokensDB manages password reset tokens (pre-authentication operation)
@@ -22,8 +22,8 @@ func NewPasswordResetTokensDB(db *DB) *PasswordResetTokensDB {
 }
 
 // CreateToken creates or replaces reset token (user_id is PK, enforces one token per user)
-func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*auth.UserToken, error) {
-	var result *auth.UserToken
+func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*iam.UserToken, error) {
+	var result *iam.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreatePasswordResetToken(ctx, sqlc.CreatePasswordResetTokenParams{
@@ -35,7 +35,7 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 			return fmt.Errorf("failed to create password reset token: %w", err)
 		}
 
-		result = &auth.UserToken{
+		result = &iam.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,
@@ -47,19 +47,19 @@ func (r *PasswordResetTokensDB) CreateToken(ctx context.Context, userID uuid.UUI
 }
 
 // GetToken retrieves token by token string (pre-authentication, no tenant context)
-func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*auth.UserToken, error) {
-	var result *auth.UserToken
+func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*iam.UserToken, error) {
+	var result *iam.UserToken
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetPasswordResetToken(ctx, token)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrPasswordResetTokenNotFound
+				return iam.ErrPasswordResetTokenNotFound
 			}
 			return fmt.Errorf("failed to get password reset token: %w", err)
 		}
 
-		result = &auth.UserToken{
+		result = &iam.UserToken{
 			UserID:    row.UserID,
 			Token:     row.Token,
 			ExpiresAt: row.ExpiresAt,

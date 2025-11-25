@@ -1,4 +1,4 @@
-package auth
+package iam
 
 import (
 	"context"
@@ -24,7 +24,6 @@ type PasswordService struct {
 	passwordResetTokenDB tokenDB
 	emailClient          emailClient
 	loginAttemptsService loginAttemptsService
-	sessionService       *SessionService
 	logger               logger
 }
 
@@ -35,7 +34,6 @@ type PasswordServiceConfig struct {
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
 	LoginAttemptsService loginAttemptsService
-	SessionService       *SessionService
 	Logger               logger
 }
 
@@ -47,13 +45,12 @@ func NewPasswordService(config *PasswordServiceConfig) *PasswordService {
 		passwordResetTokenDB: config.PasswordResetTokenDB,
 		emailClient:          config.EmailClient,
 		loginAttemptsService: config.LoginAttemptsService,
-		sessionService:       config.SessionService,
 		logger:               config.Logger,
 	}
 }
 
-// Authenticate verifies user credentials and returns the active user account
-func (s *PasswordService) Authenticate(ctx context.Context, email, password string) (*User, error) {
+// VerifyCredentials verifies user credentials and returns the active user account
+func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password string) (*User, error) {
 	if locked, _, err := s.loginAttemptsService.IsAccountLocked(ctx, email); err != nil {
 		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
 	} else if locked {
@@ -104,17 +101,6 @@ func (s *PasswordService) Authenticate(ctx context.Context, email, password stri
 	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
 
 	return user, nil
-}
-
-// Login authenticates user credentials and creates a session
-func (s *PasswordService) Login(ctx context.Context, email, password string) (*SessionTokens, error) {
-	user, err := s.Authenticate(ctx, email, password)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if user requires MFA during session creation
-	return s.sessionService.CreateSession(ctx, user.TenantID, user.ID, true)
 }
 
 // InitiatePasswordReset generates a password reset token and sends a reset email

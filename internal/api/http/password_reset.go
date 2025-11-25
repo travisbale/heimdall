@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -44,7 +44,7 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 	err := h.passwordService.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrPasswordResetTokenNotFound):
+		case errors.Is(err, iam.ErrPasswordResetTokenNotFound):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid or expired reset token"})
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to reset password"})

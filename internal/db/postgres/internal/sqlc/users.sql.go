@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -24,10 +24,10 @@ INSERT INTO users (
 `
 
 type CreateUserParams struct {
-	TenantID     uuid.UUID       `json:"tenant_id"`
-	Email        string          `json:"email"`
-	PasswordHash string          `json:"password_hash"`
-	Status       auth.UserStatus `json:"status"`
+	TenantID     uuid.UUID      `json:"tenant_id"`
+	Email        string         `json:"email"`
+	PasswordHash string         `json:"password_hash"`
+	Status       iam.UserStatus `json:"status"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -150,9 +150,9 @@ RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, l
 `
 
 type UpdateUserParams struct {
-	PasswordHash *string          `json:"password_hash"`
-	Status       *auth.UserStatus `json:"status"`
-	ID           uuid.UUID        `json:"id"`
+	PasswordHash *string         `json:"password_hash"`
+	Status       *iam.UserStatus `json:"status"`
+	ID           uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {

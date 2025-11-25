@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // OIDCSessionsDB manages OAuth flow sessions (state, PKCE, provider tracking)
@@ -21,8 +21,8 @@ func NewOIDCSessionsDB(db *DB) *OIDCSessionsDB {
 }
 
 // CreateOIDCSession creates temporary session for OAuth flow (CSRF protection via state)
-func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OIDCSession) (*auth.OIDCSession, error) {
-	var result *auth.OIDCSession
+func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *iam.OIDCSession) (*iam.OIDCSession, error) {
+	var result *iam.OIDCSession
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbSession, err := q.CreateOIDCSession(ctx, sqlc.CreateOIDCSessionParams{
@@ -46,14 +46,14 @@ func (o *OIDCSessionsDB) CreateOIDCSession(ctx context.Context, session *auth.OI
 }
 
 // GetOIDCSessionByState retrieves session by state parameter (validates CSRF token)
-func (o *OIDCSessionsDB) GetOIDCSessionByState(ctx context.Context, state string) (*auth.OIDCSession, error) {
-	var result *auth.OIDCSession
+func (o *OIDCSessionsDB) GetOIDCSessionByState(ctx context.Context, state string) (*iam.OIDCSession, error) {
+	var result *iam.OIDCSession
 
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbSession, err := q.GetOIDCSessionByState(ctx, state)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrOIDCSessionNotFound
+				return iam.ErrOIDCSessionNotFound
 			}
 			return fmt.Errorf("failed to get oauth session by state: %w", err)
 		}
@@ -88,8 +88,8 @@ func (o *OIDCSessionsDB) DeleteExpiredOIDCSessions(ctx context.Context) error {
 }
 
 // convertOIDCSessionToDomain converts a database OAuthSession to a domain OAuthSession
-func convertOIDCSessionToDomain(dbSession sqlc.OidcSession) *auth.OIDCSession {
-	return &auth.OIDCSession{
+func convertOIDCSessionToDomain(dbSession sqlc.OidcSession) *iam.OIDCSession {
+	return &iam.OIDCSession{
 		ID:             dbSession.ID,
 		State:          dbSession.State,
 		CodeVerifier:   dbSession.CodeVerifier,

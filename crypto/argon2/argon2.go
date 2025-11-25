@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/travisbale/heimdall/internal/auth"
+	"github.com/travisbale/heimdall/internal/iam"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -74,5 +74,5 @@ func compareHashAndPassword(password, encodedHash string) error {
 		return nil
 	}
 
-	return auth.ErrInvalidCredentials
+	return iam.ErrInvalidCredentials
 }

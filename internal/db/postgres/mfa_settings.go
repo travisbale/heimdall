@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/internal/auth"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // MFASettingsDB manages MFA settings (authenticated operations)
@@ -22,8 +22,8 @@ func NewMFASettingsDB(db *DB) *MFASettingsDB {
 }
 
 // Create creates MFA settings for a user
-func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*auth.MFASettings, error) {
-	var result *auth.MFASettings
+func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*iam.MFASettings, error) {
+	var result *iam.MFASettings
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateMFASettings(ctx, sqlc.CreateMFASettingsParams{
@@ -34,7 +34,7 @@ func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedS
 			return fmt.Errorf("failed to create MFA settings: %w", err)
 		}
 
-		result = &auth.MFASettings{
+		result = &iam.MFASettings{
 			UserID:         row.UserID,
 			TOTPSecret:     row.TotpSecret,
 			LastUsedWindow: row.LastUsedWindow,
@@ -48,19 +48,19 @@ func (r *MFASettingsDB) Create(ctx context.Context, userID uuid.UUID, encryptedS
 }
 
 // GetByUserID retrieves MFA settings by user ID
-func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*auth.MFASettings, error) {
-	var result *auth.MFASettings
+func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*iam.MFASettings, error) {
+	var result *iam.MFASettings
 
 	err := r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetMFASettingsByUserID(ctx, userID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return auth.ErrMFANotEnabled
+				return iam.ErrMFANotEnabled
 			}
 			return fmt.Errorf("failed to get MFA settings: %w", err)
 		}
 
-		result = &auth.MFASettings{
+		result = &iam.MFASettings{
 			UserID:         row.UserID,
 			TOTPSecret:     row.TotpSecret,
 			LastUsedWindow: row.LastUsedWindow,
@@ -74,7 +74,7 @@ func (r *MFASettingsDB) GetByUserID(ctx context.Context, userID uuid.UUID) (*aut
 }
 
 // Update updates MFA settings
-func (r *MFASettingsDB) Update(ctx context.Context, settings *auth.MFASettings) error {
+func (r *MFASettingsDB) Update(ctx context.Context, settings *iam.MFASettings) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.UpdateMFASettings(ctx, sqlc.UpdateMFASettingsParams{
 			UserID:         settings.UserID,
