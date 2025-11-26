@@ -45,6 +45,7 @@ type jwtService interface {
 type sessionStorageService interface {
 	StoreSession(ctx context.Context, rt *RefreshToken) error
 	ValidateSession(ctx context.Context, refreshToken string) (*RefreshToken, error)
+	RotateSession(ctx context.Context, refreshToken string) (*RefreshToken, error)
 	RevokeSessionByToken(ctx context.Context, refreshToken string) error
 }
 
@@ -133,24 +134,26 @@ func (s *AuthService) AuthenticateWithMFA(ctx context.Context, challengeToken, c
 	return s.createSession(ctx, claims.TenantID, claims.UserID)
 }
 
-// RefreshSession validates a refresh token and generates new session tokens
+// RefreshSession validates a refresh token, rotates it, and generates new session tokens.
+// Token rotation: old token is revoked, new token is issued with same family_id.
+// If a revoked token is reused, it's detected as theft and entire family is revoked.
 func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (*SessionTokens, error) {
 	claims, err := s.jwtService.ValidateToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired refresh token: %w", err)
 	}
 
-	// Validate session in database (check not revoked)
-	_, err = s.sessionService.ValidateSession(ctx, refreshToken)
-	if err != nil {
-		s.logger.InfoContext(ctx, events.SessionValidationFailed, "user_id", claims.UserID, "error", err)
-		return nil, ErrSessionRevoked
-	}
-
 	// Set tenant context from token for RLS-protected operations
 	ctx = identity.WithTenant(ctx, claims.TenantID)
 
-	return s.createSession(ctx, claims.TenantID, claims.UserID)
+	oldSession, err := s.sessionService.RotateSession(ctx, refreshToken)
+	if err != nil {
+		s.logger.InfoContext(ctx, events.SessionValidationFailed, "error", err)
+		return nil, ErrSessionRevoked
+	}
+
+	// Create new session with same family_id (continues the token chain)
+	return s.createSessionFamily(ctx, oldSession.FamilyID, claims.TenantID, claims.UserID)
 }
 
 // SetupRequiredMFA validates the setup token and initiates MFA enrollment
@@ -213,7 +216,7 @@ func (s *AuthService) issueMFASetupChallenge(tenantID, userID uuid.UUID) (*Sessi
 
 // completeAuthentication checks MFA status and either issues tokens or requires MFA
 func (s *AuthService) completeAuthentication(ctx context.Context, user *User) (*SessionTokens, error) {
-	// Set tenant context for RLS-protected operations (MFA check, role check, scopes)
+	// Set tenant context for RLS-protected operations
 	ctx = identity.WithTenant(ctx, user.TenantID)
 
 	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
@@ -239,8 +242,14 @@ func (s *AuthService) completeAuthentication(ctx context.Context, user *User) (*
 	return s.createSession(ctx, user.TenantID, user.ID)
 }
 
-// createSession issues access and refresh tokens for a fully authenticated user
+// createSession issues access and refresh tokens for a fully authenticated user (new login)
 func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.UUID) (*SessionTokens, error) {
+	// New login starts a new token family
+	return s.createSessionFamily(ctx, uuid.New(), tenantID, userID)
+}
+
+// createSessionFamily issues tokens with a specific family_id (for token rotation)
+func (s *AuthService) createSessionFamily(ctx context.Context, familyID, tenantID, userID uuid.UUID) (*SessionTokens, error) {
 	scopes, err := s.rbacService.GetUserScopes(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve user scopes: %w", err)
@@ -256,16 +265,17 @@ func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.U
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Store session in database for tracking and revocation
 	rt := &RefreshToken{
 		UserID:    userID,
 		TenantID:  tenantID,
 		TokenHash: token.Hash(refreshToken),
+		FamilyID:  familyID,
 		UserAgent: identity.GetUserAgent(ctx),
 		IPAddress: identity.GetIPAddress(ctx),
 		ExpiresAt: time.Now().Add(refreshExpiration),
 	}
 
+	// Store session in database for tracking and revocation
 	if err := s.sessionService.StoreSession(ctx, rt); err != nil {
 		return nil, fmt.Errorf("failed to store session: %w", err)
 	}
@@ -280,5 +290,12 @@ func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.U
 
 // Logout revokes the session associated with the given refresh token
 func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	// Validate token to get tenant context for RLS
+	claims, err := s.jwtService.ValidateToken(refreshToken)
+	if err != nil {
+		return fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	ctx = identity.WithTenant(ctx, claims.TenantID)
 	return s.sessionService.RevokeSessionByToken(ctx, refreshToken)
 }

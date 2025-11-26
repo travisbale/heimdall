@@ -13,15 +13,16 @@ import (
 )
 
 const createRefreshToken = `-- name: CreateRefreshToken :one
-INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, user_agent, ip_address, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, tenant_id, token_hash, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at
+INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, family_id, user_agent, ip_address, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, user_id, tenant_id, token_hash, family_id, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at
 `
 
 type CreateRefreshTokenParams struct {
 	UserID    uuid.UUID `json:"user_id"`
 	TenantID  uuid.UUID `json:"tenant_id"`
 	TokenHash string    `json:"token_hash"`
+	FamilyID  uuid.UUID `json:"family_id"`
 	UserAgent string    `json:"user_agent"`
 	IpAddress string    `json:"ip_address"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -32,6 +33,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		arg.UserID,
 		arg.TenantID,
 		arg.TokenHash,
+		arg.FamilyID,
 		arg.UserAgent,
 		arg.IpAddress,
 		arg.ExpiresAt,
@@ -42,6 +44,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		&i.UserID,
 		&i.TenantID,
 		&i.TokenHash,
+		&i.FamilyID,
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.CreatedAt,
@@ -62,7 +65,7 @@ func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context) error {
 }
 
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
-SELECT id, user_id, tenant_id, token_hash, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at FROM refresh_tokens
+SELECT id, user_id, tenant_id, token_hash, family_id, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at FROM refresh_tokens
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
 `
 
@@ -74,6 +77,32 @@ func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (
 		&i.UserID,
 		&i.TenantID,
 		&i.TokenHash,
+		&i.FamilyID,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const getRefreshTokenByHashIncludingRevoked = `-- name: GetRefreshTokenByHashIncludingRevoked :one
+SELECT id, user_id, tenant_id, token_hash, family_id, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at FROM refresh_tokens
+WHERE token_hash = $1 AND expires_at > now()
+`
+
+// Used for token rotation reuse detection - returns token even if revoked
+func (q *Queries) GetRefreshTokenByHashIncludingRevoked(ctx context.Context, tokenHash string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshTokenByHashIncludingRevoked, tokenHash)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TenantID,
+		&i.TokenHash,
+		&i.FamilyID,
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.CreatedAt,
@@ -85,7 +114,7 @@ func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (
 }
 
 const listUserRefreshTokens = `-- name: ListUserRefreshTokens :many
-SELECT id, user_id, tenant_id, token_hash, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at FROM refresh_tokens
+SELECT id, user_id, tenant_id, token_hash, family_id, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at FROM refresh_tokens
 WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
 ORDER BY last_used_at DESC
 `
@@ -104,6 +133,7 @@ func (q *Queries) ListUserRefreshTokens(ctx context.Context, userID uuid.UUID) (
 			&i.UserID,
 			&i.TenantID,
 			&i.TokenHash,
+			&i.FamilyID,
 			&i.UserAgent,
 			&i.IpAddress,
 			&i.CreatedAt,
@@ -145,6 +175,16 @@ UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1 AND revoked_a
 
 func (q *Queries) RevokeRefreshTokenByHash(ctx context.Context, tokenHash string) error {
 	_, err := q.db.Exec(ctx, revokeRefreshTokenByHash, tokenHash)
+	return err
+}
+
+const revokeRefreshTokenFamily = `-- name: RevokeRefreshTokenFamily :exec
+UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL
+`
+
+// Revokes all tokens in a family (used when token reuse is detected)
+func (q *Queries) RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, revokeRefreshTokenFamily, familyID)
 	return err
 }
 

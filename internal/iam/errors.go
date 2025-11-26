@@ -51,3 +51,4 @@ var ErrInvalidSetupToken = errors.New("invalid or expired setup token")
 // Session management errors
 var ErrSessionNotFound = errors.New("session not found or expired")
 var ErrSessionRevoked = errors.New("session has been revoked")
+var ErrTokenReused = errors.New("refresh token reuse detected")

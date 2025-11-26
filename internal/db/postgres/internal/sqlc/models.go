@@ -277,6 +277,7 @@ type RefreshToken struct {
 	UserID     uuid.UUID  `json:"user_id"`
 	TenantID   uuid.UUID  `json:"tenant_id"`
 	TokenHash  string     `json:"token_hash"`
+	FamilyID   uuid.UUID  `json:"family_id"`
 	UserAgent  string     `json:"user_agent"`
 	IpAddress  string     `json:"ip_address"`
 	CreatedAt  time.Time  `json:"created_at"`

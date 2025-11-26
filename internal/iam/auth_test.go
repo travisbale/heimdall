@@ -166,8 +166,10 @@ func (m *mockJWTService) ValidateMFASetupToken(token string) (*jwt.Claims, error
 type mockSessionStorageService struct {
 	storeErr       error
 	validateErr    error
+	rotateErr      error
 	revokeErr      error
 	validatedToken *RefreshToken
+	rotatedToken   *RefreshToken
 }
 
 func (m *mockSessionStorageService) StoreSession(ctx context.Context, rt *RefreshToken) error {
@@ -179,6 +181,13 @@ func (m *mockSessionStorageService) ValidateSession(ctx context.Context, refresh
 		return nil, m.validateErr
 	}
 	return m.validatedToken, nil
+}
+
+func (m *mockSessionStorageService) RotateSession(ctx context.Context, refreshToken string) (*RefreshToken, error) {
+	if m.rotateErr != nil {
+		return nil, m.rotateErr
+	}
+	return m.rotatedToken, nil
 }
 
 func (m *mockSessionStorageService) RevokeSessionByToken(ctx context.Context, refreshToken string) error {
@@ -459,7 +468,13 @@ func TestRefreshSession(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
+		familyID := uuid.New()
 		f.jwtService.refreshClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.sessionService.rotatedToken = &RefreshToken{
+			UserID:   userID,
+			TenantID: tenantID,
+			FamilyID: familyID,
+		}
 
 		tokens, err := f.service.RefreshSession(ctx, "refresh_token")
 		if err != nil {
@@ -483,6 +498,24 @@ func TestRefreshSession(t *testing.T) {
 		_, err := f.service.RefreshSession(ctx, "invalid_refresh_token")
 		if err == nil {
 			t.Error("expected error for invalid refresh token")
+		}
+	})
+
+	t.Run("TokenReuseDetected", func(t *testing.T) {
+		f := newAuthServiceTestFixture()
+		ctx := context.Background()
+
+		userID := uuid.New()
+		tenantID := uuid.New()
+		f.jwtService.refreshClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.sessionService.rotateErr = ErrTokenReused
+
+		_, err := f.service.RefreshSession(ctx, "reused_token")
+		if err == nil {
+			t.Error("expected error for reused token")
+		}
+		if !errors.Is(err, ErrSessionRevoked) {
+			t.Errorf("expected ErrSessionRevoked, got %v", err)
 		}
 	})
 }

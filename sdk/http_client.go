@@ -36,6 +36,20 @@ func WithHTTPClient(httpClient *http.Client) Option {
 	}
 }
 
+// WithCookieJar configures the client with a specific cookie jar.
+// Useful for tests that need to inspect cookies (e.g., capturing refresh tokens).
+func WithCookieJar(jar *cookiejar.Jar) Option {
+	return func(c *HTTPClient) {
+		c.httpClient = &http.Client{
+			Jar:     jar,
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{},
+			},
+		}
+	}
+}
+
 // WithInsecureSkipVerify configures the client to skip TLS certificate verification
 // This is useful for development with self-signed certificates
 func WithInsecureSkipVerify() Option {

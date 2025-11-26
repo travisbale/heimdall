@@ -63,4 +63,5 @@ const (
 	SessionValidationFailed = "session_validation_failed"
 	SessionRevoked          = "session_revoked"
 	AllSessionsRevoked      = "all_sessions_revoked"
+	TokenReuseDetected      = "token_reuse_detected"
 )

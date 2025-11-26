@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
+	"github.com/travisbale/heimdall/internal/events"
 )
 
 // SessionTokens contains all tokens issued for a user session
@@ -35,10 +36,12 @@ func (s *SessionTokens) RequiresMFASetup() bool {
 type refreshTokenDB interface {
 	Create(ctx context.Context, token *RefreshToken) (*RefreshToken, error)
 	GetByHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
+	GetByHashIncludingRevoked(ctx context.Context, tokenHash string) (*RefreshToken, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*RefreshToken, error)
 	UpdateLastUsed(ctx context.Context, id uuid.UUID) error
 	RevokeByID(ctx context.Context, id uuid.UUID) error
 	RevokeByHash(ctx context.Context, tokenHash string) error
+	RevokeByFamilyID(ctx context.Context, familyID uuid.UUID) error
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteExpired(ctx context.Context) error
 }
@@ -86,6 +89,38 @@ func (s *SessionService) ValidateSession(ctx context.Context, refreshToken strin
 	if err := s.refreshTokenDB.UpdateLastUsed(ctx, storedToken.ID); err != nil {
 		s.logger.ErrorContext(ctx, "failed to update session last used", "error", err, "session_id", storedToken.ID)
 		// Non-fatal: continue even if update fails
+	}
+
+	return storedToken, nil
+}
+
+// RotateSession validates a refresh token and revokes it for rotation.
+// Returns the old token's metadata (including FamilyID) for creating the new token.
+func (s *SessionService) RotateSession(ctx context.Context, refreshToken string) (*RefreshToken, error) {
+	tokenHash := token.Hash(refreshToken)
+
+	// Get token including revoked ones for reuse detection
+	storedToken, err := s.refreshTokenDB.GetByHashIncludingRevoked(ctx, tokenHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// REUSE DETECTION: If token already revoked, it's being replayed (theft)
+	if storedToken.RevokedAt != nil {
+		s.logger.WarnContext(ctx, events.TokenReuseDetected, "family_id", storedToken.FamilyID)
+
+		// Revoke entire token family to invalidate attacker's tokens too
+		if err := s.refreshTokenDB.RevokeByFamilyID(ctx, storedToken.FamilyID); err != nil {
+			s.logger.ErrorContext(ctx, "failed to revoke token family", "error", err, "family_id", storedToken.FamilyID)
+		}
+
+		return nil, ErrTokenReused
+	}
+
+	// Revoke old token (rotation) - this makes it detectable if reused
+	if err := s.refreshTokenDB.RevokeByHash(ctx, tokenHash); err != nil {
+		s.logger.ErrorContext(ctx, "failed to revoke rotated token", "error", err)
+		// Continue anyway - token validation already passed
 	}
 
 	return storedToken, nil

@@ -250,6 +250,7 @@ type RefreshToken struct {
 	UserID     uuid.UUID
 	TenantID   uuid.UUID
 	TokenHash  string
+	FamilyID   uuid.UUID // Token family for rotation tracking
 	UserAgent  string
 	IPAddress  string
 	CreatedAt  time.Time

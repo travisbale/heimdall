@@ -14,6 +14,9 @@ CREATE TABLE refresh_tokens (
     -- SHA-256 hash of the JWT refresh token (never store raw tokens)
     token_hash TEXT NOT NULL UNIQUE,
 
+    -- Token family for rotation tracking (all tokens from same login share this ID)
+    family_id UUID NOT NULL,
+
     -- Session metadata for display and security
     user_agent TEXT NOT NULL,
     ip_address TEXT NOT NULL,
@@ -36,34 +39,14 @@ CREATE INDEX idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 -- Index for cleanup job
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 
--- Enable RLS (JOIN-based pattern like mfa_settings)
+-- Index for family revocation (token rotation reuse detection)
+CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
+
+-- Enable RLS
 ALTER TABLE refresh_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE refresh_tokens FORCE ROW LEVEL SECURITY;
 
--- SELECT: Allow with or without tenant context
--- Without context (pre-auth): token validation during refresh
--- With context (post-auth): list user's sessions
-CREATE POLICY refresh_tokens_select_policy ON refresh_tokens FOR SELECT
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE EXISTS (SELECT 1 FROM users WHERE users.id = refresh_tokens.user_id)
-        END
-    );
-
--- INSERT: Allow with or without tenant context (login creates tokens)
-CREATE POLICY refresh_tokens_insert_policy ON refresh_tokens FOR INSERT
-    WITH CHECK (user_id IS NOT NULL AND tenant_id IS NOT NULL);
-
--- UPDATE: Allow with or without tenant context (refresh updates last_used_at, logout sets revoked_at)
-CREATE POLICY refresh_tokens_update_policy ON refresh_tokens FOR UPDATE
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE EXISTS (SELECT 1 FROM users WHERE users.id = refresh_tokens.user_id)
-        END
-    );
-
--- DELETE: Cleanup job runs without tenant context
-CREATE POLICY refresh_tokens_delete_policy ON refresh_tokens FOR DELETE
-    USING (true);
+-- Strict tenant isolation - all operations require tenant context
+CREATE POLICY tenant_isolation_policy ON refresh_tokens FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
