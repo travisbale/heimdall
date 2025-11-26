@@ -29,13 +29,24 @@ type authService interface {
 	RefreshSession(ctx context.Context, refreshToken string) (*iam.SessionTokens, error)
 	SetupRequiredMFA(ctx context.Context, setupToken string) (*iam.MFAEnrollment, error)
 	EnableRequiredMFA(ctx context.Context, setupToken, code string) (*iam.SessionTokens, error)
+	Logout(ctx context.Context, refreshToken string) error
 }
 
-// oidcService defines the interface for OIDC/OAuth operations
-type oidcService interface {
+// sessionService defines the interface for session management operations
+type sessionService interface {
+	ListSessions(ctx context.Context, userID uuid.UUID) ([]*iam.RefreshToken, error)
+	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllSessions(ctx context.Context, userID uuid.UUID) error
+}
+
+// oidcAuthService defines the interface for OIDC/OAuth authentication operations
+type oidcAuthService interface {
 	StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error)
 	StartSSOLogin(ctx context.Context, email string) (string, error)
+}
 
+// oidcProviderService defines the interface for OIDC provider CRUD operations
+type oidcProviderService interface {
 	CreateOIDCProvider(ctx context.Context, provider *iam.OIDCProviderConfig, accessToken string) (*iam.OIDCProviderConfig, error)
 	GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*iam.OIDCProviderConfig, error)
 	ListOIDCProviders(ctx context.Context) ([]*iam.OIDCProviderConfig, error)

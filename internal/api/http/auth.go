@@ -54,6 +54,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // Logout handles user logout by revoking tokens
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(refreshTokenCookie)
+	if err != nil {
+		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
+		return
+	}
+
+	if err := h.authService.Logout(r.Context(), cookie.Value); err != nil {
+		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke session"})
+		return
+	}
+
 	// Construct cookie path using X-Forwarded-Prefix if available
 	prefix := r.Header.Get("X-Forwarded-Prefix")
 	cookiePath := prefix + sdk.RouteV1Refresh

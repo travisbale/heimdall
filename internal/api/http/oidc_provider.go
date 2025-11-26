@@ -38,13 +38,13 @@ func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
 
 // OIDCProvidersHandler handles tenant-specific OIDC provider CRUD operations for corporate SSO
 type OIDCProvidersHandler struct {
-	oidcService oidcService
+	oidcProviderService oidcProviderService
 }
 
 // NewOIDCProvidersHandler creates a new OIDC providers handler
 func NewOIDCProvidersHandler(config *Config) *OIDCProvidersHandler {
 	return &OIDCProvidersHandler{
-		oidcService: config.OIDCService,
+		oidcProviderService: config.OIDCProviderService,
 	}
 }
 
@@ -67,7 +67,7 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 		RequireEmailVerification: req.RequireEmailVerification,
 	}
 
-	result, err := h.oidcService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
+	result, err := h.oidcProviderService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCDiscoveryFailed):
@@ -99,7 +99,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	provider, err := h.oidcService.GetOIDCProvider(r.Context(), req.ProviderID)
+	provider, err := h.oidcProviderService.GetOIDCProvider(r.Context(), req.ProviderID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):
@@ -115,7 +115,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 
 // ListOIDCProviders lists all OAuth providers for the tenant
 func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
-	providers, err := h.oidcService.ListOIDCProviders(r.Context())
+	providers, err := h.oidcProviderService.ListOIDCProviders(r.Context())
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to list OAuth providers"})
 		return
@@ -157,7 +157,7 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 		RequireEmailVerification: req.RequireEmailVerification,
 	}
 
-	result, err := h.oidcService.UpdateOIDCProvider(r.Context(), params)
+	result, err := h.oidcProviderService.UpdateOIDCProvider(r.Context(), params)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):
@@ -182,7 +182,7 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 		return
 	}
 
-	err := h.oidcService.DeleteOIDCProvider(r.Context(), req.ProviderID)
+	err := h.oidcProviderService.DeleteOIDCProvider(r.Context(), req.ProviderID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):

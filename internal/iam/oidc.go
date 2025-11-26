@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // defaultOIDCScopes are the standard OIDC scopes requested by default
@@ -67,56 +66,4 @@ type OIDCProvider interface {
 
 	// ValidateIDToken validates and parses an ID token
 	ValidateIDToken(ctx context.Context, idToken string) (*OIDCClaims, error)
-}
-
-// OIDCServiceConfig holds the dependencies for creating an OIDCService
-type OIDCServiceConfig struct {
-	OIDCProviderDB     oidcProviderDB
-	OIDCLinkDB         oidcLinkDB
-	OIDCSessionDB      oidcSessionDB
-	UserDB             userDB
-	TenantsDB          tenantsDB
-	RBACService        rbacService
-	SystemProviders    map[sdk.OIDCProviderType]OIDCProvider // System-wide providers for public login (from env vars)
-	RegistrationClient oidcRegistrationClient                // Client for OIDC discovery and dynamic registration
-	ProviderFactory    oidcProviderFactory                   // Factory for creating provider instances
-	PublicURL          string
-	Logger             logger
-}
-
-// OIDCService handles OIDC business logic
-type OIDCService struct {
-	oidcProviderDB     oidcProviderDB
-	oidcLinkDB         oidcLinkDB
-	oidcSessionDB      oidcSessionDB
-	userDB             userDB
-	tenantsDB          tenantsDB
-	rbacService        rbacService
-	systemProviders    map[sdk.OIDCProviderType]OIDCProvider // System-wide providers for public login
-	registrationClient oidcRegistrationClient
-	providerFactory    oidcProviderFactory
-	publicURL          string
-	logger             logger
-}
-
-// NewOIDCService creates a new OIDC service
-func NewOIDCService(config *OIDCServiceConfig) *OIDCService {
-	return &OIDCService{
-		oidcProviderDB:     config.OIDCProviderDB,
-		oidcLinkDB:         config.OIDCLinkDB,
-		oidcSessionDB:      config.OIDCSessionDB,
-		userDB:             config.UserDB,
-		tenantsDB:          config.TenantsDB,
-		rbacService:        config.RBACService,
-		systemProviders:    config.SystemProviders,
-		registrationClient: config.RegistrationClient,
-		providerFactory:    config.ProviderFactory,
-		publicURL:          config.PublicURL,
-		logger:             config.Logger,
-	}
-}
-
-// getCallbackURL returns the full OAuth callback URL
-func (s *OIDCService) getCallbackURL() string {
-	return s.publicURL + sdk.RouteV1OAuthCallback
 }

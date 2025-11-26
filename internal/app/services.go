@@ -19,10 +19,12 @@ type services struct {
 	user          *iam.UserService
 	password      *iam.PasswordService
 	mfa           *iam.MFAService
-	oidc          *iam.OIDCService
+	oidcAuth      *iam.OIDCAuthService
+	oidcProvider  *iam.OIDCProviderService
 	rbac          *iam.RBACService
 	loginAttempts *iam.LoginAttemptsService
 	auth          *iam.AuthService
+	session       *iam.SessionService
 	jwt           *jwt.Service
 }
 
@@ -66,19 +68,26 @@ func initializeServices(
 		Logger:            clog.New("rbac_service"),
 	})
 
-	// OIDC service for OAuth/SSO authentication
-	oidcService := iam.NewOIDCService(&iam.OIDCServiceConfig{
+	// OIDC provider service for provider CRUD operations
+	oidcProviderService := iam.NewOIDCProviderService(&iam.OIDCProviderServiceConfig{
 		OIDCProviderDB:     dbs.oidcProviders,
-		OIDCLinkDB:         dbs.oidcLinks,
-		OIDCSessionDB:      dbs.oidcSessions,
-		UserDB:             dbs.users,
-		TenantsDB:          dbs.tenants,
-		RBACService:        rbacService,
-		SystemProviders:    systemProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
-		Logger:             clog.New("oidc_service"),
+		Logger:             clog.New("oidc_provider_service"),
+	})
+
+	// OIDC auth service for OAuth/SSO authentication flows
+	oidcAuthService := iam.NewOIDCAuthService(&iam.OIDCAuthServiceConfig{
+		OIDCProviderService: oidcProviderService,
+		OIDCLinkDB:          dbs.oidcLinks,
+		OIDCSessionDB:       dbs.oidcSessions,
+		UserDB:              dbs.users,
+		TenantsDB:           dbs.tenants,
+		SystemProviders:     systemProviders,
+		ProviderFactory:     oidc.NewProviderFactory(),
+		PublicURL:           config.PublicURL,
+		Logger:              clog.New("oidc_auth_service"),
 	})
 
 	// Password service for password authentication
@@ -98,7 +107,7 @@ func initializeServices(
 		Hasher:              passwordHasher,
 		EmailClient:         emailClient,
 		VerificationTokenDB: dbs.verificationTokens,
-		OIDCService:         oidcService,
+		OIDCService:         oidcProviderService,
 		RBACService:         rbacService,
 		Logger:              clog.New("user_service"),
 	})
@@ -113,14 +122,21 @@ func initializeServices(
 		Logger:        clog.New("mfa_service"),
 	})
 
+	// Session service for refresh token storage and management
+	sessionService := iam.NewSessionService(&iam.SessionServiceConfig{
+		RefreshTokenDB: dbs.refreshTokens,
+		Logger:         clog.New("session_service"),
+	})
+
 	// Auth service orchestrates authentication flows
 	authService := iam.NewAuthService(&iam.AuthServiceConfig{
 		PasswordService: passwordService,
-		OIDCService:     oidcService,
+		OIDCService:     oidcAuthService,
 		UserService:     userService,
 		MFAService:      mfaService,
 		RBACService:     rbacService,
 		JWTService:      jwtService,
+		SessionService:  sessionService,
 		Logger:          clog.New("auth_service"),
 	})
 
@@ -128,10 +144,12 @@ func initializeServices(
 		user:          userService,
 		password:      passwordService,
 		mfa:           mfaService,
-		oidc:          oidcService,
+		oidcAuth:      oidcAuthService,
+		oidcProvider:  oidcProviderService,
 		rbac:          rbacService,
 		loginAttempts: loginAttemptsService,
 		auth:          authService,
+		session:       sessionService,
 		jwt:           jwtService,
 	}, nil
 }

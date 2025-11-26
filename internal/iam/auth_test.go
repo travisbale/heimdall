@@ -163,6 +163,28 @@ func (m *mockJWTService) ValidateMFASetupToken(token string) (*jwt.Claims, error
 	return m.mfaSetupClaims, nil
 }
 
+type mockSessionStorageService struct {
+	storeErr       error
+	validateErr    error
+	revokeErr      error
+	validatedToken *RefreshToken
+}
+
+func (m *mockSessionStorageService) StoreSession(ctx context.Context, rt *RefreshToken) error {
+	return m.storeErr
+}
+
+func (m *mockSessionStorageService) ValidateSession(ctx context.Context, refreshToken string) (*RefreshToken, error) {
+	if m.validateErr != nil {
+		return nil, m.validateErr
+	}
+	return m.validatedToken, nil
+}
+
+func (m *mockSessionStorageService) RevokeSessionByToken(ctx context.Context, refreshToken string) error {
+	return m.revokeErr
+}
+
 // Test fixture
 
 type authServiceTestFixture struct {
@@ -173,6 +195,7 @@ type authServiceTestFixture struct {
 	mfaService      *mockMFAVerificationService
 	rbacService     *mockRBACService
 	jwtService      *mockJWTService
+	sessionService  *mockSessionStorageService
 }
 
 func newAuthServiceTestFixture() *authServiceTestFixture {
@@ -182,6 +205,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 	mfaService := &mockMFAVerificationService{}
 	rbacService := newMockRBACService()
 	jwtService := newMockJWTService()
+	sessionService := &mockSessionStorageService{}
 
 	service := NewAuthService(&AuthServiceConfig{
 		PasswordService: passwordService,
@@ -190,6 +214,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 		MFAService:      mfaService,
 		RBACService:     rbacService,
 		JWTService:      jwtService,
+		SessionService:  sessionService,
 		Logger:          &mockLogger{},
 	})
 
@@ -201,6 +226,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 		mfaService:      mfaService,
 		rbacService:     rbacService,
 		jwtService:      jwtService,
+		sessionService:  sessionService,
 	}
 }
 

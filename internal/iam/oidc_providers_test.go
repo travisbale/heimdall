@@ -15,7 +15,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 		provider := testProviderConfig(tenantID, "newdomain.com")
 		provider.ProviderName = "New Provider"
 
-		result, err := f.service.CreateOIDCProvider(context.Background(), provider, "")
+		result, err := f.providerService.CreateOIDCProvider(context.Background(), provider, "")
 		if err != nil {
 			t.Fatalf("CreateOIDCProvider failed: %v", err)
 		}
@@ -33,7 +33,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 		provider := testProviderConfig(tenantID, "test.com")
 		provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-		result, err := f.service.GetOIDCProvider(context.Background(), provider.ID)
+		result, err := f.providerService.GetOIDCProvider(context.Background(), provider.ID)
 		if err != nil {
 			t.Fatalf("GetOIDCProvider failed: %v", err)
 		}
@@ -45,7 +45,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 	t.Run("GetNotFound", func(t *testing.T) {
 		f := newTestFixture(nil, nil)
 
-		_, err := f.service.GetOIDCProvider(context.Background(), uuid.New())
+		_, err := f.providerService.GetOIDCProvider(context.Background(), uuid.New())
 		if !errors.Is(err, ErrOIDCProviderNotFound) {
 			t.Errorf("expected ErrOIDCProviderNotFound, got: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 			ProviderName: &newName,
 		}
 
-		result, err := f.service.UpdateOIDCProvider(context.Background(), params)
+		result, err := f.providerService.UpdateOIDCProvider(context.Background(), params)
 		if err != nil {
 			t.Fatalf("UpdateOIDCProvider failed: %v", err)
 		}
@@ -79,12 +79,12 @@ func TestOIDCProviderCRUD(t *testing.T) {
 		provider := testProviderConfig(tenantID, "test.com")
 		provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-		err := f.service.DeleteOIDCProvider(context.Background(), provider.ID)
+		err := f.providerService.DeleteOIDCProvider(context.Background(), provider.ID)
 		if err != nil {
 			t.Fatalf("DeleteOIDCProvider failed: %v", err)
 		}
 
-		_, err = f.service.GetOIDCProvider(context.Background(), provider.ID)
+		_, err = f.providerService.GetOIDCProvider(context.Background(), provider.ID)
 		if !errors.Is(err, ErrOIDCProviderNotFound) {
 			t.Error("provider should be deleted")
 		}
@@ -99,7 +99,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 			f.providerDB.CreateOIDCProvider(context.Background(), provider)
 		}
 
-		providers, err := f.service.ListOIDCProviders(context.Background())
+		providers, err := f.providerService.ListOIDCProviders(context.Background())
 		if err != nil {
 			t.Fatalf("ListOIDCProviders failed: %v", err)
 		}

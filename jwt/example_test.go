@@ -39,7 +39,7 @@ func Example_structBasedAPI() {
 	// Protected endpoints
 	r.Route("/api", func(r chi.Router) {
 		// Endpoint requiring only authentication (no specific scopes)
-		r.With(jwtMiddleware.Authenticate()).Get("/profile", func(w http.ResponseWriter, r *http.Request) {
+		r.With(jwtMiddleware.Authenticate).Get("/profile", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"user":"..."}`))
 		})
 

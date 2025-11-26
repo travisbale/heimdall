@@ -22,6 +22,7 @@ type databases struct {
 	userPermissions     *postgres.UserPermissionsDB
 	mfaSettings         *postgres.MFASettingsDB
 	mfaBackupCodes      *postgres.MFABackupCodesDB
+	refreshTokens       *postgres.RefreshTokensDB
 }
 
 // initializeDatabases creates all database access layer instances
@@ -42,5 +43,6 @@ func initializeDatabases(db *postgres.DB, cipher *aes.Cipher) *databases {
 		userPermissions:     postgres.NewUserPermissionsDB(db),
 		mfaSettings:         postgres.NewMFASettingsDB(db),
 		mfaBackupCodes:      postgres.NewMFABackupCodesDB(db),
+		refreshTokens:       postgres.NewRefreshTokensDB(db),
 	}
 }

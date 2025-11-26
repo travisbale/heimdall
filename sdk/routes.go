@@ -6,7 +6,6 @@ const (
 
 	// Authentication endpoints
 	RouteV1Login          = "/v1/login"
-	RouteV1Logout         = "/v1/logout"
 	RouteV1Refresh        = "/v1/refresh"
 	RouteV1Register       = "/v1/register"
 	RouteV1VerifyEmail    = "/v1/verify-email"
@@ -53,4 +52,8 @@ const (
 	// Required MFA setup endpoints (unauthenticated, uses setup token)
 	RouteV1MFARequiredSetup  = "/v1/mfa/required-setup"  // Start MFA setup when role requires it
 	RouteV1MFARequiredEnable = "/v1/mfa/required-enable" // Enable MFA and complete login
+
+	// Session management endpoints (authenticated)
+	RouteV1Sessions    = "/v1/sessions"             // List active sessions, revoke all
+	RouteV1SessionByID = "/v1/sessions/{sessionID}" // Revoke specific session
 )

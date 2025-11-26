@@ -13,6 +13,7 @@ const (
 	userIDContextKey   contextKey = "user_id"
 	tenantIDContextKey contextKey = "tenant_id"
 	ipAddressKey       contextKey = "ip_address"
+	userAgentKey       contextKey = "user_agent"
 )
 
 var ErrNoUserInContext = errors.New("no user ID found in context")
@@ -79,4 +80,20 @@ func GetIPAddress(ctx context.Context) string {
 		return ""
 	}
 	return ipAddress
+}
+
+// WithUserAgent adds the User-Agent header value to the context
+// Used by HTTP middleware for session tracking
+func WithUserAgent(ctx context.Context, userAgent string) context.Context {
+	return context.WithValue(ctx, userAgentKey, userAgent)
+}
+
+// GetUserAgent retrieves the User-Agent from the context
+// Returns empty string if no User-Agent is set
+func GetUserAgent(ctx context.Context) string {
+	userAgent, ok := ctx.Value(userAgentKey).(string)
+	if !ok {
+		return ""
+	}
+	return userAgent
 }

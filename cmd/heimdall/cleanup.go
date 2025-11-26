@@ -31,6 +31,7 @@ var cleanupCmd = &cli.Command{
 		oidcSessionsDB := postgres.NewOIDCSessionsDB(db)
 		verificationTokensDB := postgres.NewVerificationTokensDB(db)
 		passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
+		refreshTokensDB := postgres.NewRefreshTokensDB(db)
 
 		fmt.Println("Deleting expired database records...")
 
@@ -58,6 +59,12 @@ var cleanupCmd = &cli.Command{
 			return fmt.Errorf("failed to delete expired password reset tokens: %w", err)
 		}
 		fmt.Println("Deleted expired password reset tokens")
+
+		// Remove expired and old revoked refresh tokens
+		if err := refreshTokensDB.DeleteExpired(ctx); err != nil {
+			return fmt.Errorf("failed to delete expired refresh tokens: %w", err)
+		}
+		fmt.Println("Deleted expired refresh tokens")
 
 		fmt.Println("Database cleanup completed successfully")
 		return nil

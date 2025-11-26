@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/jwt"
@@ -41,6 +42,12 @@ type jwtService interface {
 	ValidateToken(token string) (*jwt.Claims, error)
 }
 
+type sessionStorageService interface {
+	StoreSession(ctx context.Context, rt *RefreshToken) error
+	ValidateSession(ctx context.Context, refreshToken string) (*RefreshToken, error)
+	RevokeSessionByToken(ctx context.Context, refreshToken string) error
+}
+
 // AuthService orchestrates authentication flows
 type AuthService struct {
 	passwordService passwordService
@@ -49,6 +56,7 @@ type AuthService struct {
 	mfaService      mfaVerificationService
 	rbacService     rbacService
 	jwtService      jwtService
+	sessionService  sessionStorageService
 	logger          logger
 }
 
@@ -60,6 +68,7 @@ type AuthServiceConfig struct {
 	MFAService      mfaVerificationService
 	RBACService     rbacService
 	JWTService      jwtService
+	SessionService  sessionStorageService
 	Logger          logger
 }
 
@@ -72,6 +81,7 @@ func NewAuthService(config *AuthServiceConfig) *AuthService {
 		mfaService:      config.MFAService,
 		rbacService:     config.RBACService,
 		jwtService:      config.JWTService,
+		sessionService:  config.SessionService,
 		logger:          config.Logger,
 	}
 }
@@ -128,6 +138,13 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	claims, err := s.jwtService.ValidateToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired refresh token: %w", err)
+	}
+
+	// Validate session in database (check not revoked)
+	_, err = s.sessionService.ValidateSession(ctx, refreshToken)
+	if err != nil {
+		s.logger.Info(ctx, events.SessionValidationFailed, "user_id", claims.UserID, "error", err)
+		return nil, ErrSessionRevoked
 	}
 
 	// Set tenant context from token for RLS-protected operations
@@ -239,10 +256,29 @@ func (s *AuthService) createSession(ctx context.Context, tenantID, userID uuid.U
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	// Store session in database for tracking and revocation
+	rt := &RefreshToken{
+		UserID:    userID,
+		TenantID:  tenantID,
+		TokenHash: token.Hash(refreshToken),
+		UserAgent: identity.GetUserAgent(ctx),
+		IPAddress: identity.GetIPAddress(ctx),
+		ExpiresAt: time.Now().Add(refreshExpiration),
+	}
+
+	if err := s.sessionService.StoreSession(ctx, rt); err != nil {
+		return nil, fmt.Errorf("failed to store session: %w", err)
+	}
+
 	return &SessionTokens{
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
 		AccessExpiration:  accessExpiration,
 		RefreshExpiration: refreshExpiration,
 	}, nil
+}
+
+// Logout revokes the session associated with the given refresh token
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	return s.sessionService.RevokeSessionByToken(ctx, refreshToken)
 }

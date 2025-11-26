@@ -6,19 +6,72 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
 )
 
+// oidcProviderLookup defines the provider lookup methods needed by OIDCAuthService
+type oidcProviderLookup interface {
+	GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*OIDCProviderConfig, error)
+	GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*OIDCProviderConfig, error)
+}
+
+// OIDCAuthServiceConfig holds the dependencies for creating an OIDCAuthService
+type OIDCAuthServiceConfig struct {
+	OIDCProviderService oidcProviderLookup
+	OIDCLinkDB          oidcLinkDB
+	OIDCSessionDB       oidcSessionDB
+	UserDB              userDB
+	TenantsDB           tenantsDB
+	SystemProviders     map[sdk.OIDCProviderType]OIDCProvider
+	ProviderFactory     oidcProviderFactory
+	PublicURL           string
+	Logger              logger
+}
+
+// OIDCAuthService handles OAuth/SSO authentication flows
+type OIDCAuthService struct {
+	oidcProviderService oidcProviderLookup
+	oidcLinkDB          oidcLinkDB
+	oidcSessionDB       oidcSessionDB
+	userDB              userDB
+	tenantsDB           tenantsDB
+	systemProviders     map[sdk.OIDCProviderType]OIDCProvider
+	providerFactory     oidcProviderFactory
+	publicURL           string
+	logger              logger
+}
+
+// NewOIDCAuthService creates a new OIDCAuthService
+func NewOIDCAuthService(config *OIDCAuthServiceConfig) *OIDCAuthService {
+	return &OIDCAuthService{
+		oidcProviderService: config.OIDCProviderService,
+		oidcLinkDB:          config.OIDCLinkDB,
+		oidcSessionDB:       config.OIDCSessionDB,
+		userDB:              config.UserDB,
+		tenantsDB:           config.TenantsDB,
+		systemProviders:     config.SystemProviders,
+		providerFactory:     config.ProviderFactory,
+		publicURL:           config.PublicURL,
+		logger:              config.Logger,
+	}
+}
+
+// getCallbackURL returns the full OAuth callback URL
+func (s *OIDCAuthService) getCallbackURL() string {
+	return s.publicURL + sdk.RouteV1OAuthCallback
+}
+
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)
-func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, error) {
+func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (string, error) {
 	domain, err := extractEmailDomain(email)
 	if err != nil {
 		return "", fmt.Errorf("invalid email format: %w", err)
 	}
 
-	providerConfigs, err := s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
+	providerConfigs, err := s.oidcProviderService.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup SSO provider: %w", err)
 	}
@@ -79,7 +132,7 @@ func (s *OIDCService) StartSSOLogin(ctx context.Context, email string) (string, 
 }
 
 // StartOIDCLogin initiates an OIDC login flow for individual OAuth registration
-func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error) {
+func (s *OIDCAuthService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error) {
 	// Use system-wide provider for individual OAuth registration
 	oidcProvider, ok := s.systemProviders[providerType]
 	if !ok {
@@ -123,7 +176,7 @@ func (s *OIDCService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCP
 }
 
 // ProcessCallback processes the OAuth callback and authenticates the user
-func (s *OIDCService) ProcessCallback(ctx context.Context, state, code string) (*User, error) {
+func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code string) (*User, error) {
 	// Get the OIDC session by state
 	session, err := s.oidcSessionDB.GetOIDCSessionByState(ctx, state)
 	if err != nil {
@@ -160,9 +213,9 @@ func (s *OIDCService) ProcessCallback(ctx context.Context, state, code string) (
 }
 
 // handleSSOCallback processes corporate SSO callbacks
-func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
+func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
 	// Get tenant-specific provider configuration
-	providerConfig, err := s.oidcProviderDB.GetOIDCProviderByID(ctx, *session.OIDCProviderID)
+	providerConfig, err := s.oidcProviderService.GetOIDCProvider(ctx, *session.OIDCProviderID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get tenant OIDC provider: %w", err)
 	}
@@ -206,7 +259,7 @@ func (s *OIDCService) handleSSOCallback(ctx context.Context, session *OIDCSessio
 }
 
 // handleExistingSSOUser processes login for users with existing SSO links
-func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
+func (s *OIDCAuthService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
 	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
 		s.logger.Error(ctx, "failed to update OIDC link last used", "error", err)
 	}
@@ -223,7 +276,7 @@ func (s *OIDCService) handleExistingSSOUser(ctx context.Context, link *OIDCLink)
 }
 
 // autoProvisionSSOUser creates or links a user account during SSO login
-func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *OIDCProviderConfig, oidcProvider OIDCProvider, idToken string, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
+func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConfig *OIDCProviderConfig, oidcProvider OIDCProvider, idToken string, userInfo *OIDCUserInfo) (*User, *OIDCLink, error) {
 	if !providerConfig.AutoCreateUsers {
 		return nil, nil, ErrAutoProvisioningDisabled
 	}
@@ -280,7 +333,7 @@ func (s *OIDCService) autoProvisionSSOUser(ctx context.Context, providerConfig *
 }
 
 // handleIndividualOAuthCallback processes individual OAuth callbacks
-func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session *OIDCSession, code string) (*User, error) {
+func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, session *OIDCSession, code string) (*User, error) {
 	// Get system-wide provider
 	oidcProvider, ok := s.systemProviders[*session.ProviderType]
 	if !ok {
@@ -328,7 +381,7 @@ func (s *OIDCService) handleIndividualOAuthCallback(ctx context.Context, session
 }
 
 // verifyEmailVerified checks that the user's email is verified by the provider
-func (s *OIDCService) verifyEmailVerified(ctx context.Context, provider OIDCProvider, idToken string, userInfo *OIDCUserInfo) error {
+func (s *OIDCAuthService) verifyEmailVerified(ctx context.Context, provider OIDCProvider, idToken string, userInfo *OIDCUserInfo) error {
 	var emailVerified bool
 
 	// Try to get email verification status from ID token if available

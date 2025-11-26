@@ -57,3 +57,10 @@ const (
 	BackupCodeUsed         = "backup_code_used"
 	BackupCodesRegenerated = "backup_codes_regenerated"
 )
+
+// Session Management Events
+const (
+	SessionValidationFailed = "session_validation_failed"
+	SessionRevoked          = "session_revoked"
+	AllSessionsRevoked      = "all_sessions_revoked"
+)

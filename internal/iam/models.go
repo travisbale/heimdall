@@ -243,3 +243,17 @@ type MFAStatus struct {
 	VerifiedAt           *time.Time
 	BackupCodesRemaining int
 }
+
+// RefreshToken represents a stored session for session management
+type RefreshToken struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	TenantID   uuid.UUID
+	TokenHash  string
+	UserAgent  string
+	IPAddress  string
+	CreatedAt  time.Time
+	LastUsedAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+}

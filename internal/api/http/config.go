@@ -21,19 +21,21 @@ type jwtValidator interface {
 }
 
 type Config struct {
-	Address            string
-	Database           database
-	UserService        userService
-	PasswordService    passwordService
-	MFAService         mfaService
-	OIDCService        oidcService
-	RBACService        rbacService
-	AuthService        authService
-	JWTValidator       jwtValidator
-	Environment        string
-	TrustedProxyMode   bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
-	CORSAllowedOrigins []string
-	Logger             logger
+	Address             string
+	Database            database
+	UserService         userService
+	PasswordService     passwordService
+	MFAService          mfaService
+	OIDCAuthService     oidcAuthService
+	OIDCProviderService oidcProviderService
+	RBACService         rbacService
+	AuthService         authService
+	SessionService      sessionService
+	JWTValidator        jwtValidator
+	Environment         string
+	TrustedProxyMode    bool // Enable when behind trusted reverse proxy (nginx, cloudflare, etc)
+	CORSAllowedOrigins  []string
+	Logger              logger
 }
 
 func (c *Config) SecureCookies() bool {

@@ -26,9 +26,11 @@ func NewServer(config *Config) *Server {
 	oidcProvidersHandler := NewOIDCProvidersHandler(config)
 	rbacHandler := NewRBACHandler(config)
 	mfaHandler := NewMFAHandler(config)
+	sessionsHandler := NewSessionsHandler(config)
 
 	// Create JWT middleware
 	jwtMiddleware := jwt.NewHTTPMiddleware(config.JWTValidator)
+	auth := jwtMiddleware.Authenticate
 	require := jwtMiddleware.RequireScope
 
 	r := chi.NewRouter()
@@ -37,6 +39,9 @@ func NewServer(config *Config) *Server {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
 	r.Use(middleware.ClientIP(config.TrustedProxyMode))
+	r.Use(middleware.UserAgent)
+
+	// Set the logging middleware last so context is enriched
 	r.Use(middleware.Logger(config.Logger))
 
 	// CORS enabled only when origins specified (browser-based clients require this)
@@ -74,8 +79,8 @@ func NewServer(config *Config) *Server {
 		}
 
 		r.Post(sdk.RouteV1Login, authHandler.Login)
-		r.Post(sdk.RouteV1Logout, authHandler.Logout)
 		r.Post(sdk.RouteV1Refresh, authHandler.RefreshToken)
+		r.Delete(sdk.RouteV1Refresh, authHandler.Logout)
 
 		r.Post(sdk.RouteV1ForgotPassword, passwordResetHandler.ForgotPassword)
 		r.Post(sdk.RouteV1ResetPassword, passwordResetHandler.ResetPassword)
@@ -121,11 +126,16 @@ func NewServer(config *Config) *Server {
 	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
 
 	// MFA management endpoints
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFASetup, mfaHandler.Setup)
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFAEnable, mfaHandler.Enable)
-	r.With(jwtMiddleware.Authenticate()).Delete(sdk.RouteV1MFADisable, mfaHandler.Disable)
-	r.With(jwtMiddleware.Authenticate()).Get(sdk.RouteV1MFAStatus, mfaHandler.Status)
-	r.With(jwtMiddleware.Authenticate()).Post(sdk.RouteV1MFARegenerateCodes, mfaHandler.RegenerateCodes)
+	r.With(auth).Post(sdk.RouteV1MFASetup, mfaHandler.Setup)
+	r.With(auth).Post(sdk.RouteV1MFAEnable, mfaHandler.Enable)
+	r.With(auth).Delete(sdk.RouteV1MFADisable, mfaHandler.Disable)
+	r.With(auth).Get(sdk.RouteV1MFAStatus, mfaHandler.Status)
+	r.With(auth).Post(sdk.RouteV1MFARegenerateCodes, mfaHandler.RegenerateCodes)
+
+	// Session management endpoints
+	r.With(auth).Get(sdk.RouteV1Sessions, sessionsHandler.ListSessions)
+	r.With(auth).Delete(sdk.RouteV1Sessions, sessionsHandler.RevokeAllSessions)
+	r.With(auth).Delete(sdk.RouteV1SessionByID, sessionsHandler.RevokeSession)
 
 	return &Server{
 		&http.Server{

@@ -94,6 +94,7 @@ func (i *Issuer) issueToken(audience string, tenantID, userID uuid.UUID, scopes 
 		TenantID: tenantID,
 		Scopes:   scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.New().String(), // Unique token ID prevents hash collisions
 			Issuer:    i.issuer,
 			Subject:   userID.String(),
 			Audience:  jwt.ClaimStrings{audience},

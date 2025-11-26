@@ -63,19 +63,21 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	// Create HTTP server
 	httpServer := http.NewServer(&http.Config{
-		Address:            config.HTTPAddress,
-		Database:           db,
-		UserService:        services.user,
-		PasswordService:    services.password,
-		MFAService:         services.mfa,
-		OIDCService:        services.oidc,
-		RBACService:        services.rbac,
-		AuthService:        services.auth,
-		JWTValidator:       services.jwt,
-		Environment:        config.Environment,
-		TrustedProxyMode:   config.TrustedProxyMode,
-		CORSAllowedOrigins: config.CORSAllowedOrigins,
-		Logger:             clog.New("http"),
+		Address:             config.HTTPAddress,
+		Database:            db,
+		UserService:         services.user,
+		PasswordService:     services.password,
+		MFAService:          services.mfa,
+		OIDCAuthService:     services.oidcAuth,
+		OIDCProviderService: services.oidcProvider,
+		RBACService:         services.rbac,
+		AuthService:         services.auth,
+		SessionService:      services.session,
+		JWTValidator:        services.jwt,
+		Environment:         config.Environment,
+		TrustedProxyMode:    config.TrustedProxyMode,
+		CORSAllowedOrigins:  config.CORSAllowedOrigins,
+		Logger:              clog.New("http"),
 	})
 
 	// Create gRPC server

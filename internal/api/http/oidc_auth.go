@@ -11,16 +11,16 @@ import (
 
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
-	oidcService   oidcService
-	authService   authService
-	secureCookies bool
+	oidcAuthService oidcAuthService
+	authService     authService
+	secureCookies   bool
 }
 
 func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
 	return &OIDCAuthHandler{
-		oidcService:   config.OIDCService,
-		authService:   config.AuthService,
-		secureCookies: config.SecureCookies(),
+		oidcAuthService: config.OIDCAuthService,
+		authService:     config.AuthService,
+		secureCookies:   config.SecureCookies(),
 	}
 }
 
@@ -32,7 +32,7 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start individual OAuth login flow using system-wide provider configuration
-	authURL, err := h.oidcService.StartOIDCLogin(r.Context(), req.ProviderType)
+	authURL, err := h.oidcAuthService.StartOIDCLogin(r.Context(), req.ProviderType)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
@@ -56,7 +56,7 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start corporate SSO login flow using tenant-specific provider
-	authURL, err := h.oidcService.StartSSOLogin(r.Context(), req.Email)
+	authURL, err := h.oidcAuthService.StartSSOLogin(r.Context(), req.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):

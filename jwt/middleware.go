@@ -33,47 +33,42 @@ func NewHTTPMiddleware(validator validator) *HTTPMiddleware {
 	}
 }
 
-// Authenticate returns HTTP middleware that validates JWT tokens and authenticates users
+// Authenticate is HTTP middleware that validates JWT tokens and authenticates users
 // Extracts user ID and tenant ID from token and adds to request context for downstream handlers
-func (m *HTTPMiddleware) Authenticate() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
-				return
-			}
+func (m *HTTPMiddleware) Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+			return
+		}
 
-			// Expected format: "Bearer <token>"
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
-				return
-			}
+		// Expected format: "Bearer <token>"
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
+			return
+		}
 
-			tokenString := parts[1]
+		tokenString := parts[1]
 
-			claims, err := m.validator.ValidateToken(tokenString)
-			if err != nil {
-				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
-				return
-			}
+		claims, err := m.validator.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+			return
+		}
 
-			// Add identity context for downstream RLS enforcement
-			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
-			ctx = identity.WithUser(ctx, claims.UserID, claims.TenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
+		// Add identity context for downstream RLS enforcement
+		ctx := context.WithValue(r.Context(), claimsContextKey, claims)
+		ctx = identity.WithUser(ctx, claims.UserID, claims.TenantID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // RequireScope returns middleware that authenticates users and verifies they have all required scopes
 // Accepts one or more scopes that the user must possess to access the endpoint
 func (m *HTTPMiddleware) RequireScope(scopes ...sdk.Scope) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		// First authenticate to validate token and extract claims
-		authMiddleware := m.Authenticate()
-
 		// Then check scopes (authorization)
 		checkScopes := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, err := getClaimsFromContext(r.Context())
@@ -103,7 +98,8 @@ func (m *HTTPMiddleware) RequireScope(scopes ...sdk.Scope) func(http.Handler) ht
 			next.ServeHTTP(w, r)
 		})
 
-		return authMiddleware(checkScopes)
+		// First authenticate, then check scopes
+		return m.Authenticate(checkScopes)
 	}
 }
 

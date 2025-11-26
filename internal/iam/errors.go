@@ -47,3 +47,7 @@ var ErrInvalidBackupCode = errors.New("invalid backup code")
 var ErrBackupCodeAlreadyUsed = errors.New("backup code has already been used")
 var ErrInvalidChallengeToken = errors.New("invalid or expired challenge token")
 var ErrInvalidSetupToken = errors.New("invalid or expired setup token")
+
+// Session management errors
+var ErrSessionNotFound = errors.New("session not found or expired")
+var ErrSessionRevoked = errors.New("session has been revoked")

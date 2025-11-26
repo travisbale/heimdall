@@ -54,3 +54,13 @@ func extractIPAddress(r *http.Request, trustedProxyMode bool) string {
 
 	return r.RemoteAddr
 }
+
+// UserAgent extracts the User-Agent header and adds it to the request context
+// Used for session tracking to identify device/browser
+func UserAgent(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua := r.Header.Get("User-Agent")
+		ctx := identity.WithUserAgent(r.Context(), ua)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}

@@ -76,7 +76,7 @@ func TestMiddleware_Success(t *testing.T) {
 	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
 	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	rec := testRequest(handler, "Bearer valid-token")
 
@@ -88,7 +88,7 @@ func TestMiddleware_Success(t *testing.T) {
 func TestMiddleware_MissingAuthorizationHeader(t *testing.T) {
 	validator := newMockValidator(nil)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	rec := testRequest(handler, "")
 
@@ -100,7 +100,7 @@ func TestMiddleware_MissingAuthorizationHeader(t *testing.T) {
 func TestMiddleware_InvalidAuthorizationFormat(t *testing.T) {
 	validator := newMockValidator(nil)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	testCases := []string{
 		"InvalidFormat",
@@ -121,7 +121,7 @@ func TestMiddleware_InvalidAuthorizationFormat(t *testing.T) {
 func TestMiddleware_InvalidToken(t *testing.T) {
 	validator := newMockValidatorWithError(ErrInvalidToken)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	rec := testRequest(handler, "Bearer invalid-token")
 
@@ -134,7 +134,7 @@ func TestMiddleware_InvalidUserID(t *testing.T) {
 	// Mock validator returns error for invalid UserID (real validator would catch this)
 	validator := newMockValidatorWithError(ErrMissingClaims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	rec := testRequest(handler, "Bearer valid-token")
 
@@ -299,7 +299,7 @@ func TestAuthenticateAlone_Success(t *testing.T) {
 	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
 	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator)
-	handler := jwtMiddleware.Authenticate()(testHandler()) // Use Authenticate alone for endpoints that don't need scope checking
+	handler := jwtMiddleware.Authenticate(testHandler()) // Use Authenticate alone for endpoints that don't need scope checking
 
 	rec := testRequest(handler, "Bearer valid-token")
 
@@ -333,7 +333,7 @@ func TestHTTPMiddleware_Authenticate(t *testing.T) {
 	claims := newValidClaims(userID, tenantID, sdk.ScopeUserRead)
 	validator := newMockValidator(claims)
 	jwtMiddleware := NewHTTPMiddleware(validator) // Create middleware instance
-	handler := jwtMiddleware.Authenticate()(testHandler())
+	handler := jwtMiddleware.Authenticate(testHandler())
 
 	rec := testRequest(handler, "Bearer valid-token")
 

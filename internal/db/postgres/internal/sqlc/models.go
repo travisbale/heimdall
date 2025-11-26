@@ -272,6 +272,19 @@ type Permission struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+type RefreshToken struct {
+	ID         uuid.UUID  `json:"id"`
+	UserID     uuid.UUID  `json:"user_id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	TokenHash  string     `json:"token_hash"`
+	UserAgent  string     `json:"user_agent"`
+	IpAddress  string     `json:"ip_address"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt time.Time  `json:"last_used_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+}
+
 type Role struct {
 	ID          uuid.UUID `json:"id"`
 	TenantID    uuid.UUID `json:"tenant_id"`

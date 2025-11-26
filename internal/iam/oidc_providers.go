@@ -10,8 +10,42 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
+// OIDCProviderServiceConfig holds the dependencies for creating an OIDCProviderService
+type OIDCProviderServiceConfig struct {
+	OIDCProviderDB     oidcProviderDB
+	RegistrationClient oidcRegistrationClient
+	ProviderFactory    oidcProviderFactory
+	PublicURL          string
+	Logger             logger
+}
+
+// OIDCProviderService handles OIDC provider CRUD operations and domain checks
+type OIDCProviderService struct {
+	oidcProviderDB     oidcProviderDB
+	registrationClient oidcRegistrationClient
+	providerFactory    oidcProviderFactory
+	publicURL          string
+	logger             logger
+}
+
+// NewOIDCProviderService creates a new OIDCProviderService
+func NewOIDCProviderService(config *OIDCProviderServiceConfig) *OIDCProviderService {
+	return &OIDCProviderService{
+		oidcProviderDB:     config.OIDCProviderDB,
+		registrationClient: config.RegistrationClient,
+		providerFactory:    config.ProviderFactory,
+		publicURL:          config.PublicURL,
+		logger:             config.Logger,
+	}
+}
+
+// getCallbackURL returns the full OAuth callback URL
+func (s *OIDCProviderService) getCallbackURL() string {
+	return s.publicURL + sdk.RouteV1OAuthCallback
+}
+
 // CreateOIDCProvider creates a new OIDC provider configuration manually or dynamically
-func (s *OIDCService) CreateOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) CreateOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
 	if len(provider.Scopes) == 0 {
 		provider.Scopes = defaultOIDCScopes
 	}
@@ -26,7 +60,7 @@ func (s *OIDCService) CreateOIDCProvider(ctx context.Context, provider *OIDCProv
 }
 
 // createManualOIDCProvider handles manual OIDC provider registration
-func (s *OIDCService) createManualOIDCProvider(ctx context.Context, provider *OIDCProviderConfig) (*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) createManualOIDCProvider(ctx context.Context, provider *OIDCProviderConfig) (*OIDCProviderConfig, error) {
 	// Validate that the issuer is reachable by creating a provider instance
 	_, err := s.providerFactory.NewProvider(ctx, provider.IssuerURL, provider.ClientID, provider.ClientSecret, provider.Scopes)
 	if err != nil {
@@ -46,7 +80,7 @@ func (s *OIDCService) createManualOIDCProvider(ctx context.Context, provider *OI
 }
 
 // createDynamicOIDCProvider handles dynamic OIDC provider registration (RFC 7591)
-func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
 	// Perform OIDC discovery
 	metadata, err := s.registrationClient.Discover(ctx, provider.IssuerURL)
 	if err != nil {
@@ -96,17 +130,17 @@ func (s *OIDCService) createDynamicOIDCProvider(ctx context.Context, provider *O
 }
 
 // GetOIDCProvider retrieves an OIDC provider by ID
-func (s *OIDCService) GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) GetOIDCProvider(ctx context.Context, providerID uuid.UUID) (*OIDCProviderConfig, error) {
 	return s.oidcProviderDB.GetOIDCProviderByID(ctx, providerID)
 }
 
 // ListOIDCProviders lists all OIDC providers for a tenant
-func (s *OIDCService) ListOIDCProviders(ctx context.Context) ([]*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) ListOIDCProviders(ctx context.Context) ([]*OIDCProviderConfig, error) {
 	return s.oidcProviderDB.ListOIDCProviders(ctx)
 }
 
 // UpdateOIDCProvider updates an OIDC provider configuration
-func (s *OIDCService) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDCProviderParams) (*OIDCProviderConfig, error) {
+func (s *OIDCProviderService) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDCProviderParams) (*OIDCProviderConfig, error) {
 	provider, err := s.oidcProviderDB.UpdateOIDCProvider(ctx, params)
 	if err != nil {
 		return nil, err
@@ -119,7 +153,7 @@ func (s *OIDCService) UpdateOIDCProvider(ctx context.Context, params *UpdateOIDC
 
 // DeleteOIDCProvider deletes an OIDC provider (admin operation)
 // For dynamically registered providers, also attempts to unregister the OAuth client
-func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error {
+func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UUID) error {
 	provider, err := s.oidcProviderDB.GetOIDCProviderByID(ctx, providerID)
 	if err != nil {
 		return err
@@ -144,8 +178,13 @@ func (s *OIDCService) DeleteOIDCProvider(ctx context.Context, providerID uuid.UU
 	return nil
 }
 
+// GetOIDCProvidersByDomain retrieves OIDC providers by domain
+func (s *OIDCProviderService) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*OIDCProviderConfig, error) {
+	return s.oidcProviderDB.GetOIDCProvidersByDomain(ctx, domain)
+}
+
 // IsSSORequired verifies if SSO login is required for the email domain
-func (s *OIDCService) IsSSORequired(ctx context.Context, email string) (bool, error) {
+func (s *OIDCProviderService) IsSSORequired(ctx context.Context, email string) (bool, error) {
 	domain, err := extractEmailDomain(email)
 	if err != nil {
 		return false, fmt.Errorf("invalid email format: %w", err)

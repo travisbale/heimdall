@@ -20,7 +20,7 @@ func TestStartSSOLogin_Success(t *testing.T) {
 	provider := testProviderConfig(tenantID, "example.com")
 	provider, _ = f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	authURL, err := f.service.StartSSOLogin(context.Background(), "user@example.com")
+	authURL, err := f.authService.StartSSOLogin(context.Background(), "user@example.com")
 	if err != nil {
 		t.Fatalf("StartSSOLogin failed: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestStartSSOLogin_Success(t *testing.T) {
 func TestStartSSOLogin_DomainNotConfigured(t *testing.T) {
 	f := newTestFixture(nil, nil)
 
-	_, err := f.service.StartSSOLogin(context.Background(), "user@unknown.com")
+	_, err := f.authService.StartSSOLogin(context.Background(), "user@unknown.com")
 	if !errors.Is(err, ErrSSONotConfigured) {
 		t.Errorf("expected ErrSSONotConfigured, got: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestStartOIDCLogin_Success(t *testing.T) {
 	}
 	f := newTestFixture(nil, systemProviders)
 
-	authURL, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+	authURL, err := f.authService.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 	if err != nil {
 		t.Fatalf("StartOIDCLogin failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestStartOIDCLogin_Success(t *testing.T) {
 func TestStartOIDCLogin_ProviderNotConfigured(t *testing.T) {
 	f := newTestFixture(nil, nil)
 
-	_, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+	_, err := f.authService.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 	if !errors.Is(err, ErrOIDCProviderNotConfigured) {
 		t.Errorf("expected ErrOIDCProviderNotConfigured, got: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestProcessCallback_SSONewUser_AutoProvision(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Execute callback
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback failed: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestProcessCallback_SSOExistingUser(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Execute callback
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback failed: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestProcessCallback_AutoProvisioningDisabled(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Execute callback - should fail because auto-provisioning is disabled
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrAutoProvisioningDisabled) {
 		t.Errorf("expected ErrAutoProvisioningDisabled, got: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestProcessCallback_EmailReassignment_Blocked(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// New employee tries to login - should be blocked
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrEmailConflict) {
 		t.Errorf("expected ErrEmailConflict for email reassignment, got: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestProcessCallback_EmailReassignment_AllowedAfterDeactivation(t *testing.T
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// New employee login should succeed now
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback should succeed after old account deleted: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestProcessCallback_EmailReassignment_SameSubDifferentEmail(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should succeed - we track by sub, not email
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback should succeed for same sub with different email: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestProcessCallback_EmailNotVerified(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should fail because email is not verified
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrProviderEmailNotVerified) {
 		t.Errorf("expected ErrProviderEmailNotVerified, got: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestProcessCallback_TokenExchangeFailed(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should fail when token exchange fails
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when token exchange fails")
 	}
@@ -420,7 +420,7 @@ func TestProcessCallback_UserInfoFetchFailed(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should fail when userinfo fetch fails
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when userinfo fetch fails")
 	}
@@ -432,7 +432,7 @@ func TestProcessCallback_InvalidState(t *testing.T) {
 	f := newTestFixture(nil, nil)
 
 	// Attempt callback with state that doesn't exist
-	_, err := f.service.ProcessCallback(context.Background(), "invalid-state", "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), "invalid-state", "auth-code")
 	if !errors.Is(err, ErrOIDCSessionNotFound) {
 		t.Errorf("expected ErrOIDCSessionNotFound for invalid state, got: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestProcessCallback_ExpiredSession(t *testing.T) {
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
 	// Should fail for expired session
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrOIDCSessionNotFound) {
 		t.Errorf("expected ErrOIDCSessionNotFound for expired session, got: %v", err)
 	}
@@ -470,7 +470,7 @@ func TestStartOIDCLogin_GeneratesUniqueState(t *testing.T) {
 	// Generate multiple sessions
 	states := make(map[string]bool)
 	for i := 0; i < 5; i++ {
-		_, err := f.service.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
+		_, err := f.authService.StartOIDCLogin(context.Background(), sdk.OIDCProviderTypeGoogle)
 		if err != nil {
 			t.Fatalf("StartOIDCLogin failed: %v", err)
 		}
@@ -505,7 +505,7 @@ func TestProcessCallback_IndividualOAuth_NewUser(t *testing.T) {
 	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback failed: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestProcessCallback_IndividualOAuth_ExistingUser(t *testing.T) {
 	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err != nil {
 		t.Fatalf("ProcessCallback failed: %v", err)
 	}
@@ -579,7 +579,7 @@ func TestProcessCallback_IndividualOAuth_EmailNotVerified(t *testing.T) {
 	session := testIndividualOAuthSession(sdk.OIDCProviderTypeGoogle)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if !errors.Is(err, ErrProviderEmailNotVerified) {
 		t.Errorf("expected ErrProviderEmailNotVerified, got: %v", err)
 	}
@@ -606,7 +606,7 @@ func TestProcessCallback_MissingSubClaim(t *testing.T) {
 	session := testSession(tenantID, provider.ID)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when sub claim is missing")
 	}
@@ -631,7 +631,7 @@ func TestProcessCallback_MissingEmailClaim(t *testing.T) {
 	session := testSession(tenantID, provider.ID)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	_, err := f.service.ProcessCallback(context.Background(), session.State, "auth-code")
+	_, err := f.authService.ProcessCallback(context.Background(), session.State, "auth-code")
 	if err == nil {
 		t.Error("expected error when email claim is missing")
 	}
@@ -649,7 +649,7 @@ func TestStartSSOLogin_ProviderFromDifferentTenant(t *testing.T) {
 	provider := testProviderConfig(tenant1, "example.com")
 	f.providerDB.CreateOIDCProvider(context.Background(), provider)
 
-	authURL, err := f.service.StartSSOLogin(context.Background(), "user@example.com")
+	authURL, err := f.authService.StartSSOLogin(context.Background(), "user@example.com")
 	if err != nil {
 		t.Fatalf("StartSSOLogin failed: %v", err)
 	}
@@ -672,7 +672,7 @@ func TestProcessCallback_CreateUserInCorrectTenant(t *testing.T) {
 	session := testSession(tenant1, provider.ID)
 	f.sessionDB.CreateOIDCSession(context.Background(), session)
 
-	user, err := f.service.ProcessCallback(context.Background(), session.State, "code")
+	user, err := f.authService.ProcessCallback(context.Background(), session.State, "code")
 	if err != nil {
 		t.Fatalf("ProcessCallback failed: %v", err)
 	}

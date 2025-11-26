@@ -8,42 +8,50 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// Helper to create a test OIDC service
-func newTestOIDCService(
+// Helper to create test OIDC services (provider + auth)
+func newTestOIDCServices(
 	providerDB *mockOIDCProviderDB,
 	linkDB *mockOIDCLinkDB,
 	sessionDB *mockOIDCSessionDB,
 	userDB *mockUserDB,
 	tenantsDB *mockTenantsDB,
-	rbacService *mockRBACService,
 	factory *mockProviderFactory,
 	systemProviders map[sdk.OIDCProviderType]OIDCProvider,
-) *OIDCService {
-	return NewOIDCService(&OIDCServiceConfig{
+) (*OIDCProviderService, *OIDCAuthService) {
+	providerService := NewOIDCProviderService(&OIDCProviderServiceConfig{
 		OIDCProviderDB:     providerDB,
-		OIDCLinkDB:         linkDB,
-		OIDCSessionDB:      sessionDB,
-		UserDB:             userDB,
-		TenantsDB:          tenantsDB,
-		RBACService:        rbacService,
-		SystemProviders:    systemProviders,
 		RegistrationClient: nil, // Not needed for these tests
 		ProviderFactory:    factory,
 		PublicURL:          "http://localhost:8080",
 		Logger:             &mockLogger{},
 	})
+
+	authService := NewOIDCAuthService(&OIDCAuthServiceConfig{
+		OIDCProviderService: providerService,
+		OIDCLinkDB:          linkDB,
+		OIDCSessionDB:       sessionDB,
+		UserDB:              userDB,
+		TenantsDB:           tenantsDB,
+		SystemProviders:     systemProviders,
+		ProviderFactory:     factory,
+		PublicURL:           "http://localhost:8080",
+		Logger:              &mockLogger{},
+	})
+
+	return providerService, authService
 }
 
 // Test Helpers
 
 // testFixture holds all mocks needed for OIDC service tests
 type testFixture struct {
-	providerDB *mockOIDCProviderDB
-	linkDB     *mockOIDCLinkDB
-	sessionDB  *mockOIDCSessionDB
-	userDB     *mockUserDB
-	tenantsDB  *mockTenantsDB
-	service    *OIDCService
+	providerDB      *mockOIDCProviderDB
+	linkDB          *mockOIDCLinkDB
+	sessionDB       *mockOIDCSessionDB
+	userDB          *mockUserDB
+	tenantsDB       *mockTenantsDB
+	providerService *OIDCProviderService
+	authService     *OIDCAuthService
 }
 
 // newTestFixture creates a complete test fixture with all mocks
@@ -53,7 +61,6 @@ func newTestFixture(mockProvider OIDCProvider, systemProviders map[sdk.OIDCProvi
 	sessionDB := newMockOIDCSessionDB()
 	userDB := newMockUserDB()
 	tenantsDB := newMockTenantsDB()
-	rbacService := newMockRBACService()
 
 	// Wire up dependencies so BootstrapTenant can properly update shared mocks
 	tenantsDB.setDependencies(userDB)
@@ -65,15 +72,16 @@ func newTestFixture(mockProvider OIDCProvider, systemProviders map[sdk.OIDCProvi
 		factory = &mockProviderFactory{}
 	}
 
-	service := newTestOIDCService(providerDB, linkDB, sessionDB, userDB, tenantsDB, rbacService, factory, systemProviders)
+	providerService, authService := newTestOIDCServices(providerDB, linkDB, sessionDB, userDB, tenantsDB, factory, systemProviders)
 
 	return &testFixture{
-		providerDB: providerDB,
-		linkDB:     linkDB,
-		sessionDB:  sessionDB,
-		userDB:     userDB,
-		tenantsDB:  tenantsDB,
-		service:    service,
+		providerDB:      providerDB,
+		linkDB:          linkDB,
+		sessionDB:       sessionDB,
+		userDB:          userDB,
+		tenantsDB:       tenantsDB,
+		providerService: providerService,
+		authService:     authService,
 	}
 }
 

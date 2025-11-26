@@ -118,10 +118,10 @@ func (c *HTTPClient) Login(ctx context.Context, req LoginRequest) (*LoginRespons
 	return &resp, nil
 }
 
-// Logout logs out the current user by clearing the refresh token cookie
+// Logout logs out the current user by revoking the refresh token
 func (c *HTTPClient) Logout(ctx context.Context) (*LogoutResponse, error) {
 	var resp LogoutResponse
-	if err := c.doRequest(ctx, http.MethodPost, RouteV1Logout, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodDelete, RouteV1Refresh, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -438,6 +438,28 @@ func (c *HTTPClient) RequiredMFAEnable(ctx context.Context, req RequiredMFAEnabl
 	}
 
 	return &resp, nil
+}
+
+// Session Management
+
+// ListSessions retrieves all active sessions for the authenticated user
+func (c *HTTPClient) ListSessions(ctx context.Context) (*SessionsResponse, error) {
+	var resp SessionsResponse
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1Sessions, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// RevokeSession revokes a specific session by ID
+func (c *HTTPClient) RevokeSession(ctx context.Context, req RevokeSessionRequest) error {
+	route := fmt.Sprintf("/v1/sessions/%s", req.SessionID.String())
+	return c.doRequest(ctx, http.MethodDelete, route, nil, nil)
+}
+
+// RevokeAllSessions revokes all sessions for the authenticated user (sign out everywhere)
+func (c *HTTPClient) RevokeAllSessions(ctx context.Context) error {
+	return c.doRequest(ctx, http.MethodDelete, RouteV1Sessions, nil, nil)
 }
 
 func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req validatable, result any) error {
