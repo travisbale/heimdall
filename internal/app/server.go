@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/travisbale/heimdall/clog"
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/http"
 	"github.com/travisbale/heimdall/internal/db/postgres"
@@ -77,14 +77,14 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Environment:         config.Environment,
 		TrustedProxyMode:    config.TrustedProxyMode,
 		CORSAllowedOrigins:  config.CORSAllowedOrigins,
-		Logger:              clog.New("http"),
+		Logger:              slog.Default(),
 	})
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
 		Addr:        config.GRPCAddress,
 		AuthService: services.user,
-		Logger:      clog.New("grpc_server"),
+		Logger:      slog.Default(),
 	})
 
 	return &Server{

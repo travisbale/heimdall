@@ -9,11 +9,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+// logger provides structured logging capabilities (matches *slog.Logger)
 type logger interface {
-	Info(ctx context.Context, msg string, args ...any)
-	Warn(ctx context.Context, msg string, args ...any)
-	Error(ctx context.Context, msg string, args ...any)
-	Debug(ctx context.Context, msg string, args ...any)
+	InfoContext(ctx context.Context, msg string, args ...any)
+	WarnContext(ctx context.Context, msg string, args ...any)
+	ErrorContext(ctx context.Context, msg string, args ...any)
+	DebugContext(ctx context.Context, msg string, args ...any)
 }
 
 type Config struct {
@@ -50,7 +51,7 @@ func (s *Server) ListenAndServe() error {
 	}
 
 	if err := s.Serve(listener); err != nil {
-		s.logger.Error(context.Background(), "gRPC server error", "error", err)
+		s.logger.ErrorContext(context.Background(), "gRPC server error", "error", err)
 	}
 
 	return nil

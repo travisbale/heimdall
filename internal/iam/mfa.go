@@ -93,7 +93,7 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uuid.UUID) (*MFAEnroll
 	}
 
 	setupResp.BackupCodes = backupCodes
-	s.logger.Info(ctx, events.MFASetupStarted, "user_id", userID)
+	s.logger.InfoContext(ctx, events.MFASetupStarted, "user_id", userID)
 
 	return setupResp, nil
 }
@@ -104,7 +104,7 @@ func (s *MFAService) EnableMFA(ctx context.Context, userID uuid.UUID, code strin
 		return err
 	}
 
-	s.logger.Info(ctx, events.MFAEnabled, "user_id", userID)
+	s.logger.InfoContext(ctx, events.MFAEnabled, "user_id", userID)
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password,
 		return err
 	}
 
-	s.logger.Info(ctx, events.MFADisabled, "user_id", userID)
+	s.logger.InfoContext(ctx, events.MFADisabled, "user_id", userID)
 	return nil
 }
 
@@ -161,7 +161,7 @@ func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	s.logger.Info(ctx, events.BackupCodesRegenerated, "user_id", userID)
+	s.logger.InfoContext(ctx, events.BackupCodesRegenerated, "user_id", userID)
 	return backupCodes, nil
 }
 
@@ -228,7 +228,7 @@ func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code strin
 			return err
 		}
 
-		s.logger.Info(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", backupCode.ID)
+		s.logger.InfoContext(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", backupCode.ID)
 		return nil
 	}
 

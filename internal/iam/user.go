@@ -94,7 +94,7 @@ func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid
 		}
 	}
 
-	s.logger.Info(ctx, events.UserCreated, "user_id", user.ID, "email", user.Email, "status", user.Status)
+	s.logger.InfoContext(ctx, events.UserCreated, "user_id", user.ID, "email", user.Email, "status", user.Status)
 
 	return user, verificationToken, nil
 }
@@ -154,7 +154,7 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 		return nil, fmt.Errorf("failed to send verification email: %w", err)
 	}
 
-	s.logger.Info(ctx, events.UserRegistered, "user_id", user.ID, "email", email, "tenant_id", user.TenantID)
+	s.logger.InfoContext(ctx, events.UserRegistered, "user_id", user.ID, "email", email, "tenant_id", user.TenantID)
 
 	return user, nil
 }
@@ -195,10 +195,10 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 	}
 
 	if err := s.verificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
-		s.logger.Error(ctx, "failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
+		s.logger.ErrorContext(ctx, "failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
 	}
 
-	s.logger.Info(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
+	s.logger.InfoContext(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
 	return user, nil
 }

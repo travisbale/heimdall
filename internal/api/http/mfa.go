@@ -40,7 +40,7 @@ func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
 		default:
-			h.logger.Error(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
+			h.logger.ErrorContext(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to setup MFA"})
 		}
 		return
@@ -177,7 +177,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.authService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code)
 	if err != nil {
-		h.logger.Warn(r.Context(), events.MFAVerificationFailed, "error", err.Error())
+		h.logger.WarnContext(r.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
 		case errors.Is(err, iam.ErrInvalidChallengeToken):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired challenge token"})
@@ -197,7 +197,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info(r.Context(), events.MFAVerificationSuccess)
+	h.logger.InfoContext(r.Context(), events.MFAVerificationSuccess)
 
 	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }
@@ -218,7 +218,7 @@ func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
 		default:
-			h.logger.Error(r.Context(), "failed to setup required MFA", "error", err)
+			h.logger.ErrorContext(r.Context(), "failed to setup required MFA", "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to setup MFA"})
 		}
 		return
@@ -251,7 +251,7 @@ func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA setup not found. Please start MFA setup first."})
 		default:
-			h.logger.Error(r.Context(), "failed to enable required MFA", "error", err)
+			h.logger.ErrorContext(r.Context(), "failed to enable required MFA", "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to enable MFA"})
 		}
 		return

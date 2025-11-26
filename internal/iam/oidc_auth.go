@@ -186,7 +186,7 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 	// Clean up the OIDC session after callback completes
 	defer func() {
 		if err := s.oidcSessionDB.DeleteOIDCSession(ctx, session.ID); err != nil {
-			s.logger.Error(ctx, "failed to delete OIDC session", "error", err)
+			s.logger.ErrorContext(ctx, "failed to delete OIDC session", "error", err)
 		}
 	}()
 
@@ -196,13 +196,13 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 	if session.OIDCProviderID != nil {
 		user, _, err = s.handleSSOCallback(ctx, session, code)
 		if err != nil {
-			s.logger.Info(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
+			s.logger.InfoContext(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
 			return nil, err
 		}
 	} else if session.ProviderType != nil {
 		user, err = s.handleIndividualOAuthCallback(ctx, session, code)
 		if err != nil {
-			s.logger.Info(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
+			s.logger.InfoContext(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
 			return nil, err
 		}
 	} else {
@@ -261,7 +261,7 @@ func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSe
 // handleExistingSSOUser processes login for users with existing SSO links
 func (s *OIDCAuthService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
 	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
-		s.logger.Error(ctx, "failed to update OIDC link last used", "error", err)
+		s.logger.ErrorContext(ctx, "failed to update OIDC link last used", "error", err)
 	}
 
 	// Get user by link's UserID to support email changes at provider
@@ -270,7 +270,7 @@ func (s *OIDCAuthService) handleExistingSSOUser(ctx context.Context, link *OIDCL
 		return nil, nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	s.logger.Info(ctx, events.SSOLoginSucceeded, "user_id", user.ID, "email", user.Email, "provider_id", link.OIDCProviderID)
+	s.logger.InfoContext(ctx, events.SSOLoginSucceeded, "user_id", user.ID, "email", user.Email, "provider_id", link.OIDCProviderID)
 
 	return user, link, nil
 }
@@ -295,7 +295,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 	if existingUser != nil {
 		// Email exists but provider sub is different → likely email reassignment
 		// Require admin to manually deactivate old account before new employee can login
-		s.logger.Error(ctx, "SSO login blocked: email exists with different provider sub",
+		s.logger.ErrorContext(ctx, "SSO login blocked: email exists with different provider sub",
 			"email", userInfo.Email,
 			"existing_user_id", existingUser.ID,
 			"existing_status", existingUser.Status,
@@ -360,7 +360,7 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 
 	// Handle existing user login
 	if existingUser != nil {
-		s.logger.Info(ctx, events.OAuthLoginSucceeded, "user_id", existingUser.ID, "email", existingUser.Email, "provider_type", *session.ProviderType)
+		s.logger.InfoContext(ctx, events.OAuthLoginSucceeded, "user_id", existingUser.ID, "email", existingUser.Email, "provider_type", *session.ProviderType)
 		return existingUser, nil
 	}
 
@@ -375,7 +375,7 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 		return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 	}
 
-	s.logger.Info(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenant.ID, "email", userInfo.Email)
+	s.logger.InfoContext(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenant.ID, "email", userInfo.Email)
 
 	return user, nil
 }

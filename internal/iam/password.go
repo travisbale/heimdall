@@ -62,7 +62,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 		switch {
 		case errors.Is(err, ErrUserNotFound):
 			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, nil, nil); err != nil {
-				s.logger.Error(ctx, "failed to record login attempt for non-existent user", "email", email, "error", err)
+				s.logger.ErrorContext(ctx, "failed to record login attempt for non-existent user", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
 		default:
@@ -76,7 +76,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
 			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, user.LastLoginAt); err != nil {
-				s.logger.Error(ctx, "failed to record login attempt", "email", email, "error", err)
+				s.logger.ErrorContext(ctx, "failed to record login attempt", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
 
@@ -87,18 +87,18 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 
 	// Record successful login
 	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID); err != nil {
-		s.logger.Error(ctx, "failed to record successful login", "email", email, "error", err)
+		s.logger.ErrorContext(ctx, "failed to record successful login", "email", email, "error", err)
 	}
 
 	if err = s.userDB.UpdateLastLogin(ctx, user.ID); err != nil {
-		s.logger.Error(ctx, "failed to update last login", "user_id", user.ID, "error", err)
+		s.logger.ErrorContext(ctx, "failed to update last login", "user_id", user.ID, "error", err)
 	}
 
 	if user.Status == UserStatusUnverified {
 		return nil, ErrEmailNotVerified
 	}
 
-	s.logger.Info(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
+	s.logger.InfoContext(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
 
 	return user, nil
 }
@@ -125,7 +125,7 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 		return fmt.Errorf("failed to send password reset email: %w", err)
 	}
 
-	s.logger.Info(ctx, events.PasswordResetRequested, "user_id", user.ID, "email", email)
+	s.logger.InfoContext(ctx, events.PasswordResetRequested, "user_id", user.ID, "email", email)
 
 	return nil
 }
@@ -160,10 +160,10 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 	// Delete the reset token
 	if err := s.passwordResetTokenDB.DeleteToken(ctx, resetToken.UserID); err != nil {
 		// Log but don't fail - the password is already updated
-		s.logger.Error(ctx, "failed to delete reset token", "error", err, "user_id", resetToken.UserID)
+		s.logger.ErrorContext(ctx, "failed to delete reset token", "error", err, "user_id", resetToken.UserID)
 	}
 
-	s.logger.Info(ctx, events.PasswordResetCompleted, "user_id", resetToken.UserID)
+	s.logger.InfoContext(ctx, events.PasswordResetCompleted, "user_id", resetToken.UserID)
 
 	return nil
 }
@@ -191,7 +191,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	s.logger.Info(ctx, events.PasswordChanged, "user_id", userID)
+	s.logger.InfoContext(ctx, events.PasswordChanged, "user_id", userID)
 
 	return nil
 }

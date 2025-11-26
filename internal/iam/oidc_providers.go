@@ -74,7 +74,7 @@ func (s *OIDCProviderService) createManualOIDCProvider(ctx context.Context, prov
 		return nil, err
 	}
 
-	s.logger.Info(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "manual")
+	s.logger.InfoContext(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "manual")
 
 	return provider, nil
 }
@@ -124,7 +124,7 @@ func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, pro
 		return nil, err
 	}
 
-	s.logger.Info(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "dynamic")
+	s.logger.InfoContext(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "dynamic")
 
 	return provider, nil
 }
@@ -146,7 +146,7 @@ func (s *OIDCProviderService) UpdateOIDCProvider(ctx context.Context, params *Up
 		return nil, err
 	}
 
-	s.logger.Info(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
+	s.logger.InfoContext(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
 
 	return provider, nil
 }
@@ -163,9 +163,9 @@ func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID
 	// Manually registered clients must be cleaned up by the admin at the IdP
 	if provider.RegistrationMethod == sdk.OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
 		if err := s.registrationClient.Unregister(ctx, provider.RegistrationClientURI, provider.RegistrationAccessToken); err != nil {
-			s.logger.Error(ctx, "failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
+			s.logger.ErrorContext(ctx, "failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)
 		} else {
-			s.logger.Info(ctx, events.OIDCProviderUnregistered, "client_id", provider.ClientID)
+			s.logger.InfoContext(ctx, events.OIDCProviderUnregistered, "client_id", provider.ClientID)
 		}
 	}
 
@@ -173,7 +173,7 @@ func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID
 		return err
 	}
 
-	s.logger.Info(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
+	s.logger.InfoContext(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
 
 	return nil
 }

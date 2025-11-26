@@ -13,12 +13,12 @@ type hasher interface {
 	VerifyPassword(password, hash string) error
 }
 
-// logger provides structured logging capabilities
+// logger provides structured logging capabilities (matches *slog.Logger)
 type logger interface {
-	Info(ctx context.Context, msg string, args ...any)
-	Warn(ctx context.Context, msg string, args ...any)
-	Error(ctx context.Context, msg string, args ...any)
-	Debug(ctx context.Context, msg string, args ...any)
+	InfoContext(ctx context.Context, msg string, args ...any)
+	WarnContext(ctx context.Context, msg string, args ...any)
+	ErrorContext(ctx context.Context, msg string, args ...any)
+	DebugContext(ctx context.Context, msg string, args ...any)
 }
 
 // rbacService provides role-based access control operations

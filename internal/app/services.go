@@ -1,9 +1,9 @@
 package app
 
 import (
+	"log/slog"
 	"time"
 
-	"github.com/travisbale/heimdall/clog"
 	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/crypto/argon2"
 	"github.com/travisbale/heimdall/internal/email/mailman"
@@ -56,7 +56,7 @@ func initializeServices(
 	passwordHasher := argon2.NewHasher(getArgon2Config(config.Environment))
 
 	// Login attempts service for account lockout tracking
-	loginAttemptsService := iam.NewLoginAttemptsService(dbs.loginAttempts, clog.New("login_attempts_service"))
+	loginAttemptsService := iam.NewLoginAttemptsService(dbs.loginAttempts, slog.Default())
 
 	// RBAC service for roles and permissions
 	rbacService := iam.NewRBACService(&iam.RBACServiceConfig{
@@ -65,7 +65,7 @@ func initializeServices(
 		RolePermissionsDB: dbs.rolePermissions,
 		UserRolesDB:       dbs.userRoles,
 		UserPermissionsDB: dbs.userPermissions,
-		Logger:            clog.New("rbac_service"),
+		Logger:            slog.Default(),
 	})
 
 	// OIDC provider service for provider CRUD operations
@@ -74,7 +74,7 @@ func initializeServices(
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
-		Logger:             clog.New("oidc_provider_service"),
+		Logger:             slog.Default(),
 	})
 
 	// OIDC auth service for OAuth/SSO authentication flows
@@ -87,7 +87,7 @@ func initializeServices(
 		SystemProviders:     systemProviders,
 		ProviderFactory:     oidc.NewProviderFactory(),
 		PublicURL:           config.PublicURL,
-		Logger:              clog.New("oidc_auth_service"),
+		Logger:              slog.Default(),
 	})
 
 	// Password service for password authentication
@@ -97,7 +97,7 @@ func initializeServices(
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
-		Logger:               clog.New("password_service"),
+		Logger:               slog.Default(),
 	})
 
 	// User service for registration and user management
@@ -109,7 +109,7 @@ func initializeServices(
 		VerificationTokenDB: dbs.verificationTokens,
 		OIDCService:         oidcProviderService,
 		RBACService:         rbacService,
-		Logger:              clog.New("user_service"),
+		Logger:              slog.Default(),
 	})
 
 	// MFA service for TOTP and backup codes
@@ -119,13 +119,13 @@ func initializeServices(
 		UsersDB:       dbs.users,
 		Verifier:      totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
 		Hasher:        passwordHasher,
-		Logger:        clog.New("mfa_service"),
+		Logger:        slog.Default(),
 	})
 
 	// Session service for refresh token storage and management
 	sessionService := iam.NewSessionService(&iam.SessionServiceConfig{
 		RefreshTokenDB: dbs.refreshTokens,
-		Logger:         clog.New("session_service"),
+		Logger:         slog.Default(),
 	})
 
 	// Auth service orchestrates authentication flows
@@ -137,7 +137,7 @@ func initializeServices(
 		RBACService:     rbacService,
 		JWTService:      jwtService,
 		SessionService:  sessionService,
-		Logger:          clog.New("auth_service"),
+		Logger:          slog.Default(),
 	})
 
 	return &services{

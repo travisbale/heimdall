@@ -4,15 +4,13 @@ import (
 	"context"
 	"net/http"
 	"time"
-
-	"github.com/travisbale/heimdall/clog"
 )
 
-// logger interface for HTTP request logging
+// logger interface for HTTP request logging (matches *slog.Logger)
 type logger interface {
-	Info(ctx context.Context, msg string, args ...any)
-	Warn(ctx context.Context, msg string, args ...any)
-	Error(ctx context.Context, msg string, args ...any)
+	InfoContext(ctx context.Context, msg string, args ...any)
+	WarnContext(ctx context.Context, msg string, args ...any)
+	ErrorContext(ctx context.Context, msg string, args ...any)
 }
 
 // HTTP event constants for request logging
@@ -40,22 +38,22 @@ func Logger(logger logger) func(http.Handler) http.Handler {
 
 			// Build log fields
 			fields := []any{
-				clog.FieldHTTPMethod, r.Method,
-				clog.FieldHTTPPath, r.URL.Path,
-				clog.FieldHTTPStatus, statusCode,
-				clog.FieldDuration, duration,
+				"http_method", r.Method,
+				"http_path", r.URL.Path,
+				"http_status", statusCode,
+				"duration_ms", duration,
 			}
 
 			// Log at appropriate level based on status code
 			if statusCode >= 500 {
 				// Server errors - log as ERROR
-				logger.Error(r.Context(), RequestFailed, fields...)
+				logger.ErrorContext(r.Context(), RequestFailed, fields...)
 			} else if statusCode >= 400 {
 				// Client errors - log as WARN
-				logger.Warn(r.Context(), RequestCompleted, fields...)
+				logger.WarnContext(r.Context(), RequestCompleted, fields...)
 			} else {
 				// Success - log as INFO
-				logger.Info(r.Context(), RequestCompleted, fields...)
+				logger.InfoContext(r.Context(), RequestCompleted, fields...)
 			}
 		})
 	}

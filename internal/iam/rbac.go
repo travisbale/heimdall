@@ -111,7 +111,7 @@ func (s *RBACService) CreateRole(ctx context.Context, role *Role) (*Role, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role: %w", err)
 	}
-	s.logger.Info(ctx, events.RoleCreated, "role_id", role.ID, "name", role.Name)
+	s.logger.InfoContext(ctx, events.RoleCreated, "role_id", role.ID, "name", role.Name)
 	return role, nil
 }
 
@@ -131,7 +131,7 @@ func (s *RBACService) UpdateRole(ctx context.Context, params UpdateRoleParams) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to update role: %w", err)
 	}
-	s.logger.Info(ctx, events.RoleUpdated, "role_id", params.ID)
+	s.logger.InfoContext(ctx, events.RoleUpdated, "role_id", params.ID)
 	return role, nil
 }
 
@@ -140,7 +140,7 @@ func (s *RBACService) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
 	if err := s.rolesDB.DeleteRole(ctx, roleID); err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
-	s.logger.Info(ctx, events.RoleDeleted, "role_id", roleID)
+	s.logger.InfoContext(ctx, events.RoleDeleted, "role_id", roleID)
 	return nil
 }
 
@@ -154,7 +154,7 @@ func (s *RBACService) SetRolePermissions(ctx context.Context, roleID uuid.UUID, 
 	if err := s.rolePermissionsDB.SetRolePermissions(ctx, roleID, permissionIDs); err != nil {
 		return fmt.Errorf("failed to set role permissions: %w", err)
 	}
-	s.logger.Info(ctx, events.RolePermissionsUpdated, "role_id", roleID, "permission_count", len(permissionIDs))
+	s.logger.InfoContext(ctx, events.RolePermissionsUpdated, "role_id", roleID, "permission_count", len(permissionIDs))
 	return nil
 }
 
@@ -163,7 +163,7 @@ func (s *RBACService) SetUserRoles(ctx context.Context, userID uuid.UUID, roleID
 	if err := s.userRolesDB.SetUserRoles(ctx, userID, roleIDs); err != nil {
 		return fmt.Errorf("failed to set user roles: %w", err)
 	}
-	s.logger.Info(ctx, events.UserRolesUpdated, "user_id", userID, "role_count", len(roleIDs))
+	s.logger.InfoContext(ctx, events.UserRolesUpdated, "user_id", userID, "role_count", len(roleIDs))
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (s *RBACService) SetDirectPermissions(ctx context.Context, userID uuid.UUID
 	if err := s.userPermissionsDB.SetDirectPermissions(ctx, userID, permissions); err != nil {
 		return fmt.Errorf("failed to set user permissions: %w", err)
 	}
-	s.logger.Info(ctx, events.UserPermissionsUpdated, "user_id", userID, "permission_count", len(permissions))
+	s.logger.InfoContext(ctx, events.UserPermissionsUpdated, "user_id", userID, "permission_count", len(permissions))
 	return nil
 }
 

@@ -26,7 +26,7 @@ func main() {
 				format = "json"
 			}
 
-			return clog.InitDefault(format, config.Debug)
+			return clog.Init(format, config.Debug)
 		},
 		Commands: []*cli.Command{
 			startCmd,

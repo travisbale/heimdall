@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,13 +15,13 @@ import (
 	"github.com/travisbale/heimdall/identity"
 )
 
-// setupTestLogger initializes a JSON logger for testing and returns the buffer and logger
+// setupTestLogger initializes a JSON logger with context enrichment for testing
 func setupTestLogger() (*bytes.Buffer, logger) {
 	var buf bytes.Buffer
-	handler := clog.NewJSONHandler(&buf, &clog.HandlerOptions{})
-	clog.SetDefault(handler)
-	logger := clog.New("http")
-	return &buf, logger
+	jsonHandler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{})
+	contextHandler := clog.NewContextHandler(jsonHandler)
+	slog.SetDefault(slog.New(contextHandler))
+	return &buf, slog.Default()
 }
 
 // parseLogEntry parses the JSON log output from the buffer
@@ -51,16 +52,16 @@ func TestLoggingMiddleware_Success(t *testing.T) {
 	if logEntry["level"] != "INFO" {
 		t.Errorf("expected level to be 'INFO', got %v", logEntry["level"])
 	}
-	if logEntry[clog.FieldHTTPMethod] != "GET" {
-		t.Errorf("expected http_method to be 'GET', got %v", logEntry[clog.FieldHTTPMethod])
+	if logEntry["http_method"] != "GET" {
+		t.Errorf("expected http_method to be 'GET', got %v", logEntry["http_method"])
 	}
-	if logEntry[clog.FieldHTTPPath] != "/test" {
-		t.Errorf("expected http_path to be '/test', got %v", logEntry[clog.FieldHTTPPath])
+	if logEntry["http_path"] != "/test" {
+		t.Errorf("expected http_path to be '/test', got %v", logEntry["http_path"])
 	}
-	if logEntry[clog.FieldHTTPStatus] != float64(200) {
-		t.Errorf("expected http_status to be 200, got %v", logEntry[clog.FieldHTTPStatus])
+	if logEntry["http_status"] != float64(200) {
+		t.Errorf("expected http_status to be 200, got %v", logEntry["http_status"])
 	}
-	if _, exists := logEntry[clog.FieldDuration]; !exists {
+	if _, exists := logEntry["duration_ms"]; !exists {
 		t.Error("expected duration_ms to be present")
 	}
 }
@@ -82,8 +83,8 @@ func TestLoggingMiddleware_ClientError(t *testing.T) {
 	if logEntry["level"] != "WARN" {
 		t.Errorf("expected level to be 'WARN', got %v", logEntry["level"])
 	}
-	if logEntry[clog.FieldHTTPStatus] != float64(404) {
-		t.Errorf("expected http_status to be 404, got %v", logEntry[clog.FieldHTTPStatus])
+	if logEntry["http_status"] != float64(404) {
+		t.Errorf("expected http_status to be 404, got %v", logEntry["http_status"])
 	}
 }
 
@@ -107,8 +108,8 @@ func TestLoggingMiddleware_ServerError(t *testing.T) {
 	if logEntry["msg"] != RequestFailed {
 		t.Errorf("expected msg to be '%s', got %v", RequestFailed, logEntry["msg"])
 	}
-	if logEntry[clog.FieldHTTPStatus] != float64(500) {
-		t.Errorf("expected http_status to be 500, got %v", logEntry[clog.FieldHTTPStatus])
+	if logEntry["http_status"] != float64(500) {
+		t.Errorf("expected http_status to be 500, got %v", logEntry["http_status"])
 	}
 }
 
@@ -133,17 +134,17 @@ func TestLoggingMiddleware_WithContext(t *testing.T) {
 
 	logEntry := parseLogEntry(buf)
 
-	if logEntry[clog.FieldUserID] != userID.String() {
-		t.Errorf("expected user_id to be %v, got %v", userID, logEntry[clog.FieldUserID])
+	if logEntry["user_id"] != userID.String() {
+		t.Errorf("expected user_id to be %v, got %v", userID, logEntry["user_id"])
 	}
-	if logEntry[clog.FieldTenantID] != tenantID.String() {
-		t.Errorf("expected tenant_id to be %v, got %v", tenantID, logEntry[clog.FieldTenantID])
+	if logEntry["tenant_id"] != tenantID.String() {
+		t.Errorf("expected tenant_id to be %v, got %v", tenantID, logEntry["tenant_id"])
 	}
-	if logEntry[clog.FieldRequestID] != "req-123" {
-		t.Errorf("expected request_id to be 'req-123', got %v", logEntry[clog.FieldRequestID])
+	if logEntry["request_id"] != "req-123" {
+		t.Errorf("expected request_id to be 'req-123', got %v", logEntry["request_id"])
 	}
-	if logEntry[clog.FieldIPAddress] != "192.168.1.100" {
-		t.Errorf("expected ip_address to be '192.168.1.100', got %v", logEntry[clog.FieldIPAddress])
+	if logEntry["ip_address"] != "192.168.1.100" {
+		t.Errorf("expected ip_address to be '192.168.1.100', got %v", logEntry["ip_address"])
 	}
 }
 
@@ -161,8 +162,8 @@ func TestLoggingMiddleware_ImplicitStatusOK(t *testing.T) {
 
 	logEntry := parseLogEntry(buf)
 
-	if logEntry[clog.FieldHTTPStatus] != float64(200) {
-		t.Errorf("expected http_status to be 200, got %v", logEntry[clog.FieldHTTPStatus])
+	if logEntry["http_status"] != float64(200) {
+		t.Errorf("expected http_status to be 200, got %v", logEntry["http_status"])
 	}
 	if logEntry["level"] != "INFO" {
 		t.Errorf("expected level to be 'INFO', got %v", logEntry["level"])

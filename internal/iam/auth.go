@@ -143,7 +143,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	// Validate session in database (check not revoked)
 	_, err = s.sessionService.ValidateSession(ctx, refreshToken)
 	if err != nil {
-		s.logger.Info(ctx, events.SessionValidationFailed, "user_id", claims.UserID, "error", err)
+		s.logger.InfoContext(ctx, events.SessionValidationFailed, "user_id", claims.UserID, "error", err)
 		return nil, ErrSessionRevoked
 	}
 
@@ -180,7 +180,7 @@ func (s *AuthService) EnableRequiredMFA(ctx context.Context, setupToken, code st
 		return nil, err
 	}
 
-	s.logger.Info(ctx, events.MFAEnabled, "user_id", claims.UserID, "required", true)
+	s.logger.InfoContext(ctx, events.MFAEnabled, "user_id", claims.UserID, "required", true)
 
 	return s.issueMFAChallenge(claims.TenantID, claims.UserID)
 }
@@ -232,7 +232,7 @@ func (s *AuthService) completeAuthentication(ctx context.Context, user *User) (*
 	}
 
 	if rolesRequireMFA {
-		s.logger.Info(ctx, events.MFASetupRequired, "user_id", user.ID)
+		s.logger.InfoContext(ctx, events.MFASetupRequired, "user_id", user.ID)
 		return s.issueMFASetupChallenge(user.TenantID, user.ID)
 	}
 

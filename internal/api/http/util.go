@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/clog"
 	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
@@ -18,7 +18,7 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		clog.Error(context.Background(), "Failed to encode JSON response", "error", err)
+		slog.ErrorContext(context.Background(), "Failed to encode JSON response", "error", err)
 	}
 }
 
