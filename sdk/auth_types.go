@@ -1,0 +1,150 @@
+package sdk
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/travisbale/heimdall/crypto/password"
+)
+
+// LoginRequest represents the login request body
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Validate validates the login request
+func (r *LoginRequest) Validate(ctx context.Context) error {
+	if !emailRegex.MatchString(r.Email) {
+		return fmt.Errorf("invalid email format")
+	}
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	return nil
+}
+
+// LoginResponse represents the login response
+// Note: refresh_token is sent via HTTP-only cookie, not in JSON body
+type LoginResponse struct {
+	AccessToken       string `json:"access_token,omitempty"`        // Set when login is complete
+	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA verification is required
+	MFASetupToken     string `json:"mfa_setup_token,omitempty"`     // Set when role requires MFA but user hasn't set it up
+	TokenType         string `json:"token_type,omitempty"`          // "Bearer" for access tokens, omitted for challenge/setup tokens
+	ExpiresIn         int    `json:"expires_in"`                    // seconds until token expires
+}
+
+// LogoutResponse represents the logout response
+type LogoutResponse struct {
+	Message string `json:"message"`
+}
+
+// CreateUserRequest represents the request to create a user
+type CreateUserRequest struct {
+	Email    string      `json:"email"`
+	TenantID uuid.UUID   `json:"tenant_id"`
+	RoleIDs  []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign
+}
+
+// Validate validates the create user request
+func (r *CreateUserRequest) Validate(ctx context.Context) error {
+	if !emailRegex.MatchString(r.Email) {
+		return fmt.Errorf("invalid email format")
+	}
+	if r.TenantID == uuid.Nil {
+		return fmt.Errorf("tenant_id is required")
+	}
+	return nil
+}
+
+// CreateUserResponse represents the response from creating a user
+type CreateUserResponse struct {
+	UserID            uuid.UUID `json:"user_id"`
+	Email             string    `json:"email"`
+	TenantID          uuid.UUID `json:"tenant_id"`
+	VerificationToken string    `json:"verification_token"` // Empty for SSO users, set for non-SSO users
+}
+
+// RegisterRequest represents the registration request body
+// Password is set during email verification, not during initial registration
+type RegisterRequest struct {
+	Email string `json:"email"`
+}
+
+// Validate validates the registration request
+func (r *RegisterRequest) Validate(ctx context.Context) error {
+	if !emailRegex.MatchString(r.Email) {
+		return fmt.Errorf("invalid email format")
+	}
+	return nil
+}
+
+// RegisterResponse represents the registration response
+type RegisterResponse struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Email   string    `json:"email"`
+	Message string    `json:"message"`
+}
+
+// VerifyEmailRequest represents the email verification request body
+// User proves email ownership and sets their password
+type VerifyEmailRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+// Validate validates the verify email request
+func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
+	if r.Token == "" {
+		return fmt.Errorf("token is required")
+	}
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	// Validate password against security policy
+	return password.NewValidator().Validate(ctx, r.Password)
+}
+
+// ForgotPasswordRequest represents the forgot password request body
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+// Validate validates the forgot password request
+func (r *ForgotPasswordRequest) Validate(ctx context.Context) error {
+	if !emailRegex.MatchString(r.Email) {
+		return fmt.Errorf("invalid email format")
+	}
+	return nil
+}
+
+// ForgotPasswordResponse represents the forgot password response
+type ForgotPasswordResponse struct {
+	Message string `json:"message"`
+}
+
+// ResetPasswordRequest represents the reset password request body
+type ResetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+// Validate validates the reset password request
+func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
+	if r.Token == "" {
+		return fmt.Errorf("token is required")
+	}
+	if r.NewPassword == "" {
+		return fmt.Errorf("new password is required")
+	}
+
+	// Validate password against security policy
+	return password.NewValidator().Validate(ctx, r.NewPassword)
+}
+
+// ResetPasswordResponse represents the reset password response
+type ResetPasswordResponse struct {
+	Message string `json:"message"`
+}
