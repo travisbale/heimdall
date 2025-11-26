@@ -12,6 +12,8 @@ Authentication and authorization service written in Go. Handles user accounts, p
 - **JWT Authentication** - RSA-signed tokens with user and tenant claims
 - **Password Security** - Argon2id hashing with OWASP-recommended parameters
 - **Multi-Factor Authentication (MFA)** - TOTP-based MFA with backup codes for enhanced security
+- **Session Management** - List active sessions, revoke individual sessions, or sign out everywhere
+- **Refresh Token Rotation** - Family-based tracking with automatic theft detection
 - **Email Verification** - Registration flow with email verification via mailman
 - **Password Reset** - Secure token-based password reset via email
 - **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
@@ -131,7 +133,13 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `POST /v1/verify-email` - Verify email address
 - `POST /v1/login` - Authenticate user, returns JWT
 - `POST /v1/logout` - Logout (invalidates refresh token)
-- `POST /v1/refresh` - Refresh access token using refresh token cookie
+- `POST /v1/refresh` - Refresh access token (rotates refresh token)
+
+**Session Management:**
+
+- `GET /v1/sessions` - List active sessions with metadata (IP, user agent, timestamps)
+- `DELETE /v1/sessions` - Revoke all sessions (sign out everywhere)
+- `DELETE /v1/sessions/{id}` - Revoke specific session
 
 **Password Reset:**
 
@@ -225,10 +233,11 @@ heimdall/
 ├── identity/              # Tenant context utilities
 ├── internal/
 │   ├── api/              # HTTP and gRPC handlers
-│   │   ├── http/         # HTTP REST API handlers (auth, MFA, OIDC, RBAC)
+│   │   ├── http/         # HTTP REST API handlers (auth, MFA, OIDC, RBAC, sessions)
 │   │   └── grpc/         # gRPC service implementation
 │   ├── app/              # Server setup and lifecycle
-│   ├── auth/             # Authentication/authorization service layer and domain models
+│   ├── auth/             # Authentication/authorization domain models and services
+│   ├── iam/              # Identity services (AuthService, SessionService)
 │   ├── events/           # Event constants for structured logging and audit trails
 │   ├── db/postgres/      # Database layer with RLS
 │   │   ├── migrations/   # SQL schema migrations
@@ -260,6 +269,17 @@ heimdall/
 - **JWT RSA signatures** - Asymmetric keys for token signing/verification
 - **Constant-time comparison** - Prevents timing attacks on passwords
 - **HTTPS recommended** - For production deployments
+
+### Token Rotation & Theft Detection
+
+Refresh tokens use family-based rotation to detect and respond to token theft:
+
+1. Each login creates a new token family (UUID)
+2. On refresh, the old token is revoked and a new one is issued with the same family ID
+3. If a revoked token is replayed (theft attempt), the entire token family is revoked
+4. Separate logins create independent families, so one compromised session doesn't affect others
+
+This provides defense-in-depth: even if an attacker steals a refresh token, using it after the legitimate user refreshes will invalidate all tokens in that family.
 
 ### Multi-Tenant Isolation
 
