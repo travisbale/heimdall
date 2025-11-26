@@ -23,40 +23,6 @@ func (q *Queries) DeleteAllUserRoles(ctx context.Context, userID uuid.UUID) erro
 	return err
 }
 
-const getRoleUsers = `-- name: GetRoleUsers :many
-SELECT u.id, u.email
-FROM users u
-JOIN user_roles ur ON ur.user_id = u.id
-WHERE ur.role_id = $1
-ORDER BY u.email
-`
-
-type GetRoleUsersRow struct {
-	ID    uuid.UUID `json:"id"`
-	Email string    `json:"email"`
-}
-
-// Get all users with a specific role (for admin UI)
-func (q *Queries) GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]GetRoleUsersRow, error) {
-	rows, err := q.db.Query(ctx, getRoleUsers, roleID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetRoleUsersRow{}
-	for rows.Next() {
-		var i GetRoleUsersRow
-		if err := rows.Scan(&i.ID, &i.Email); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getUserRoles = `-- name: GetUserRoles :many
 SELECT r.id, r.name, r.description, r.mfa_required
 FROM roles r

@@ -49,4 +49,10 @@ ALTER TABLE mfa_settings FORCE ROW LEVEL SECURITY;
 CREATE POLICY mfa_settings_policy ON mfa_settings FOR ALL
     USING (EXISTS (SELECT 1 FROM users WHERE users.id = mfa_settings.user_id));
 
--- No RLS needed for mfa_backup_codes - user_id constraint provides isolation
+-- Enable RLS on mfa_backup_codes table
+-- Tenant isolation enforced via JOIN to users table (users table has RLS)
+ALTER TABLE mfa_backup_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mfa_backup_codes FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY mfa_backup_codes_policy ON mfa_backup_codes FOR ALL
+    USING (EXISTS (SELECT 1 FROM users WHERE users.id = mfa_backup_codes.user_id));
