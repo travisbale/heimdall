@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
@@ -30,9 +29,8 @@ func NewMFAHandler(config *Config) *MFAHandler {
 
 // Setup initiates MFA setup by generating secret, QR code, and backup codes
 func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
+	userID, ok := getAuthenticatedUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -62,13 +60,12 @@ func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
+	userID, ok := getAuthenticatedUserID(w, r)
+	if !ok {
 		return
 	}
 
-	err = h.mfaService.EnableMFA(r.Context(), userID, req.Code)
+	err := h.mfaService.EnableMFA(r.Context(), userID, req.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidMFACode):
@@ -93,13 +90,12 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
+	userID, ok := getAuthenticatedUserID(w, r)
+	if !ok {
 		return
 	}
 
-	err = h.mfaService.DisableMFA(r.Context(), userID, req.Password, req.Code)
+	err := h.mfaService.DisableMFA(r.Context(), userID, req.Password, req.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -121,9 +117,8 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 
 // Status returns MFA status for the authenticated user
 func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
+	userID, ok := getAuthenticatedUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -150,9 +145,8 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := identity.GetUser(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
+	userID, ok := getAuthenticatedUserID(w, r)
+	if !ok {
 		return
 	}
 

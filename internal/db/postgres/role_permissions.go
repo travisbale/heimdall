@@ -50,8 +50,8 @@ func (r *RolePermissionsDB) SetRolePermissions(ctx context.Context, roleID uuid.
 
 		if len(permissionIDs) > 0 {
 			return q.InsertRolePermissions(ctx, sqlc.InsertRolePermissionsParams{
-				Column1: roleID,
-				Column2: permissionIDs,
+				RoleID:        roleID,
+				PermissionIds: permissionIDs,
 			})
 		}
 

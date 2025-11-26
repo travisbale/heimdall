@@ -15,5 +15,5 @@ WHERE role_id = $1;
 -- name: InsertRolePermissions :exec
 -- Insert multiple permissions for a role (called after SetRolePermissions in transaction)
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT $1::uuid, unnest($2::uuid[])
+SELECT @role_id::uuid, unnest(@permission_ids::uuid[])
 ON CONFLICT (role_id, permission_id) DO NOTHING;

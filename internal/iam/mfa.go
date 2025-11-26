@@ -52,6 +52,8 @@ type MFAService struct {
 	logger        logger
 }
 
+const backupCodeCount = 10
+
 // NewMFAService creates a new MFA service
 func NewMFAService(config *MFAServiceConfig) *MFAService {
 	return &MFAService{
@@ -81,22 +83,9 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uuid.UUID) (*MFAEnroll
 		return nil, err
 	}
 
-	backupCodes := make([]string, 10)
-	codeHashes := make([]string, 10)
-	for i := range 10 {
-		max := big.NewInt(100000000)
-		n, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate backup code: %w", err)
-		}
-		code := fmt.Sprintf("%08d", n.Int64())
-		backupCodes[i] = code
-
-		hash, err := s.hasher.HashPassword(code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to hash backup code: %w", err)
-		}
-		codeHashes[i] = hash
+	backupCodes, codeHashes, err := s.generateBackupCodes()
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.backupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
@@ -163,22 +152,9 @@ func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	backupCodes := make([]string, 10)
-	codeHashes := make([]string, 10)
-	for i := range 10 {
-		max := big.NewInt(100000000)
-		n, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate backup code: %w", err)
-		}
-		code := fmt.Sprintf("%08d", n.Int64())
-		backupCodes[i] = code
-
-		hash, err := s.hasher.HashPassword(code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to hash backup code: %w", err)
-		}
-		codeHashes[i] = hash
+	backupCodes, codeHashes, err := s.generateBackupCodes()
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.backupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
@@ -257,4 +233,28 @@ func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code strin
 	}
 
 	return ErrInvalidBackupCode
+}
+
+// generateBackupCodes creates backup codes and their hashes
+func (s *MFAService) generateBackupCodes() (codes []string, hashes []string, err error) {
+	codes = make([]string, backupCodeCount)
+	hashes = make([]string, backupCodeCount)
+
+	for i := range backupCodeCount {
+		max := big.NewInt(100000000)
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to generate backup code: %w", err)
+		}
+		code := fmt.Sprintf("%08d", n.Int64())
+		codes[i] = code
+
+		hash, err := s.hasher.HashPassword(code)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to hash backup code: %w", err)
+		}
+		hashes[i] = hash
+	}
+
+	return codes, hashes, nil
 }

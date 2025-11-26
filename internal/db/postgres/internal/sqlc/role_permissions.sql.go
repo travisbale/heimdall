@@ -72,12 +72,12 @@ ON CONFLICT (role_id, permission_id) DO NOTHING
 `
 
 type InsertRolePermissionsParams struct {
-	Column1 uuid.UUID   `json:"column_1"`
-	Column2 []uuid.UUID `json:"column_2"`
+	RoleID        uuid.UUID   `json:"role_id"`
+	PermissionIds []uuid.UUID `json:"permission_ids"`
 }
 
 // Insert multiple permissions for a role (called after SetRolePermissions in transaction)
 func (q *Queries) InsertRolePermissions(ctx context.Context, arg InsertRolePermissionsParams) error {
-	_, err := q.db.Exec(ctx, insertRolePermissions, arg.Column1, arg.Column2)
+	_, err := q.db.Exec(ctx, insertRolePermissions, arg.RoleID, arg.PermissionIds)
 	return err
 }

@@ -77,8 +77,8 @@ func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status ia
 
 		if len(permissionIDs) > 0 {
 			err = q.InsertRolePermissions(ctx, sqlc.InsertRolePermissionsParams{
-				Column1: role.ID,
-				Column2: permissionIDs,
+				RoleID:        role.ID,
+				PermissionIds: permissionIDs,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to assign permissions to System Admin role: %w", err)

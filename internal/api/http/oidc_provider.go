@@ -85,7 +85,7 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, convertProviderToSDK(result))
+	respondJSON(w, http.StatusCreated, toSDKProvider(result))
 }
 
 // GetOIDCProvider retrieves an OIDC provider by ID
@@ -110,7 +110,7 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	respondJSON(w, http.StatusOK, convertProviderToSDK(provider))
+	respondJSON(w, http.StatusOK, toSDKProvider(provider))
 }
 
 // ListOIDCProviders lists all OAuth providers for the tenant
@@ -123,7 +123,7 @@ func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.
 
 	sdkProviders := make([]sdk.OIDCProvider, len(providers))
 	for i, provider := range providers {
-		sdkProviders[i] = convertProviderToSDK(provider)
+		sdkProviders[i] = toSDKProvider(provider)
 	}
 
 	respondJSON(w, http.StatusOK, sdk.OIDCProvidersResponse{
@@ -168,7 +168,7 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 		return
 	}
 
-	respondJSON(w, http.StatusOK, convertProviderToSDK(result))
+	respondJSON(w, http.StatusOK, toSDKProvider(result))
 }
 
 // DeleteOIDCProvider deletes an OAuth provider
@@ -196,8 +196,8 @@ func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// convertProviderToSDK converts internal provider config to API response format
-func convertProviderToSDK(provider *iam.OIDCProviderConfig) sdk.OIDCProvider {
+// toSDKProvider converts internal provider config to API response format
+func toSDKProvider(provider *iam.OIDCProviderConfig) sdk.OIDCProvider {
 	return sdk.OIDCProvider{
 		ID:                       provider.ID,
 		ProviderName:             provider.ProviderName,
