@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// MFA code length constants
+const (
+	totpCodeLength   = 6
+	backupCodeLength = 8
+)
+
 // MFASetupResponse contains secret, QR code, and backup codes for MFA setup
 type MFASetupResponse struct {
 	Secret      string   `json:"secret"`
@@ -20,10 +26,10 @@ type EnableMFARequest struct {
 
 // Validate validates the enable MFA request
 func (r *EnableMFARequest) Validate(ctx context.Context) error {
-	if r.Code == "" {
-		return fmt.Errorf("code is required")
+	if err := validateRequired(r.Code, "code"); err != nil {
+		return err
 	}
-	if len(r.Code) != 6 {
+	if len(r.Code) != totpCodeLength {
 		return fmt.Errorf("code must be 6 digits")
 	}
 	return nil
@@ -37,13 +43,10 @@ type DisableMFARequest struct {
 
 // Validate validates the disable MFA request
 func (r *DisableMFARequest) Validate(ctx context.Context) error {
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
+	if err := validateRequired(r.Password, "password"); err != nil {
+		return err
 	}
-	if r.Code == "" {
-		return fmt.Errorf("code is required")
-	}
-	return nil
+	return validateRequired(r.Code, "code")
 }
 
 // MFAStatus represents current MFA state
@@ -59,10 +62,7 @@ type RegenerateBackupCodesRequest struct {
 
 // Validate validates the regenerate backup codes request
 func (r *RegenerateBackupCodesRequest) Validate(ctx context.Context) error {
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
-	}
-	return nil
+	return validateRequired(r.Password, "password")
 }
 
 // BackupCodesResponse contains new backup codes
@@ -79,13 +79,13 @@ type VerifyMFACodeRequest struct {
 
 // Validate validates the verify MFA code request
 func (r *VerifyMFACodeRequest) Validate(ctx context.Context) error {
-	if r.ChallengeToken == "" {
-		return fmt.Errorf("challenge_token is required")
+	if err := validateRequired(r.ChallengeToken, "challenge_token"); err != nil {
+		return err
 	}
-	if r.Code == "" {
-		return fmt.Errorf("code is required")
+	if err := validateRequired(r.Code, "code"); err != nil {
+		return err
 	}
-	if len(r.Code) != 6 && len(r.Code) != 8 {
+	if len(r.Code) != totpCodeLength && len(r.Code) != backupCodeLength {
 		return fmt.Errorf("code must be 6 digits (TOTP) or 8 digits (backup code)")
 	}
 	return nil
@@ -98,10 +98,7 @@ type RequiredMFASetupRequest struct {
 
 // Validate validates the required MFA setup request
 func (r *RequiredMFASetupRequest) Validate(ctx context.Context) error {
-	if r.SetupToken == "" {
-		return fmt.Errorf("setup_token is required")
-	}
-	return nil
+	return validateRequired(r.SetupToken, "setup_token")
 }
 
 // RequiredMFAEnableRequest enables MFA after required setup
@@ -112,13 +109,13 @@ type RequiredMFAEnableRequest struct {
 
 // Validate validates the required MFA enable request
 func (r *RequiredMFAEnableRequest) Validate(ctx context.Context) error {
-	if r.SetupToken == "" {
-		return fmt.Errorf("setup_token is required")
+	if err := validateRequired(r.SetupToken, "setup_token"); err != nil {
+		return err
 	}
-	if r.Code == "" {
-		return fmt.Errorf("code is required")
+	if err := validateRequired(r.Code, "code"); err != nil {
+		return err
 	}
-	if len(r.Code) != 6 {
+	if len(r.Code) != totpCodeLength {
 		return fmt.Errorf("code must be 6 digits")
 	}
 	return nil

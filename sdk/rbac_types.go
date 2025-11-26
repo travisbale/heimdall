@@ -2,8 +2,6 @@ package sdk
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -45,13 +43,10 @@ type CreateRoleRequest struct {
 
 // Validate validates the create role request
 func (r *CreateRoleRequest) Validate(ctx context.Context) error {
-	if strings.TrimSpace(r.Name) == "" {
-		return fmt.Errorf("name is required")
+	if err := validateRequired(r.Name, "name"); err != nil {
+		return err
 	}
-	if strings.TrimSpace(r.Description) == "" {
-		return fmt.Errorf("description is required")
-	}
-	return nil
+	return validateRequired(r.Description, "description")
 }
 
 // UpdateRoleRequest represents the request to update a role (supports partial updates)
@@ -64,16 +59,13 @@ type UpdateRoleRequest struct {
 
 // Validate validates the update role request
 func (r *UpdateRoleRequest) Validate(ctx context.Context) error {
-	if r.RoleID == uuid.Nil {
-		return fmt.Errorf("role_id is required")
+	if err := validateUUID(r.RoleID, "role_id"); err != nil {
+		return err
 	}
-	if r.Name != nil && strings.TrimSpace(*r.Name) == "" {
-		return fmt.Errorf("name cannot be empty")
+	if err := validateNotEmpty(r.Name, "name"); err != nil {
+		return err
 	}
-	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
-		return fmt.Errorf("description cannot be empty")
-	}
-	return nil
+	return validateNotEmpty(r.Description, "description")
 }
 
 // GetRoleRequest represents the request to get a role
@@ -83,10 +75,7 @@ type GetRoleRequest struct {
 
 // Validate validates the get role request
 func (r *GetRoleRequest) Validate(ctx context.Context) error {
-	if r.RoleID == uuid.Nil {
-		return fmt.Errorf("role_id is required")
-	}
-	return nil
+	return validateUUID(r.RoleID, "role_id")
 }
 
 // DeleteRoleRequest represents the request to delete a role
@@ -96,10 +85,7 @@ type DeleteRoleRequest struct {
 
 // Validate validates the delete role request
 func (r *DeleteRoleRequest) Validate(ctx context.Context) error {
-	if r.RoleID == uuid.Nil {
-		return fmt.Errorf("role_id is required")
-	}
-	return nil
+	return validateUUID(r.RoleID, "role_id")
 }
 
 // RolesResponse represents the response with a list of roles
@@ -114,10 +100,7 @@ type GetRolePermissionsRequest struct {
 
 // Validate validates the get role permissions request
 func (r *GetRolePermissionsRequest) Validate(ctx context.Context) error {
-	if r.RoleID == uuid.Nil {
-		return fmt.Errorf("role_id is required")
-	}
-	return nil
+	return validateUUID(r.RoleID, "role_id")
 }
 
 // SetRolePermissionsRequest represents the request to set all permissions for a role
@@ -128,10 +111,7 @@ type SetRolePermissionsRequest struct {
 
 // Validate validates the set role permissions request
 func (r *SetRolePermissionsRequest) Validate(ctx context.Context) error {
-	if r.RoleID == uuid.Nil {
-		return fmt.Errorf("role_id is required")
-	}
-	return nil
+	return validateUUID(r.RoleID, "role_id")
 }
 
 // SetUserRolesRequest represents the request to set all roles for a user
@@ -142,10 +122,7 @@ type SetUserRolesRequest struct {
 
 // Validate validates the set user roles request
 func (r *SetUserRolesRequest) Validate(ctx context.Context) error {
-	if r.UserID == uuid.Nil {
-		return fmt.Errorf("user_id is required")
-	}
-	return nil
+	return validateUUID(r.UserID, "user_id")
 }
 
 // GetUserRolesRequest represents the request to get roles for a user
@@ -155,10 +132,7 @@ type GetUserRolesRequest struct {
 
 // Validate validates the get user roles request
 func (r *GetUserRolesRequest) Validate(ctx context.Context) error {
-	if r.UserID == uuid.Nil {
-		return fmt.Errorf("user_id is required")
-	}
-	return nil
+	return validateUUID(r.UserID, "user_id")
 }
 
 // EffectivePermission represents a direct permission assigned to a user
@@ -181,12 +155,12 @@ type SetDirectPermissionsRequest struct {
 
 // Validate validates the set user permissions request
 func (r *SetDirectPermissionsRequest) Validate(ctx context.Context) error {
-	if r.UserID == uuid.Nil {
-		return fmt.Errorf("user_id is required")
+	if err := validateUUID(r.UserID, "user_id"); err != nil {
+		return err
 	}
 	for _, perm := range r.Permissions {
-		if perm.PermissionID == uuid.Nil {
-			return fmt.Errorf("permission_id is required")
+		if err := validateUUID(perm.PermissionID, "permission_id"); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -199,10 +173,7 @@ type GetDirectPermissionsRequest struct {
 
 // Validate validates the get user permissions request
 func (r *GetDirectPermissionsRequest) Validate(ctx context.Context) error {
-	if r.UserID == uuid.Nil {
-		return fmt.Errorf("user_id is required")
-	}
-	return nil
+	return validateUUID(r.UserID, "user_id")
 }
 
 // DirectPermissionsResponse represents the response with direct permissions for a user

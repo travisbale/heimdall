@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,8 +28,5 @@ type RevokeSessionRequest struct {
 
 // Validate validates the revoke session request
 func (r *RevokeSessionRequest) Validate(ctx context.Context) error {
-	if r.SessionID == uuid.Nil {
-		return fmt.Errorf("session_id is required")
-	}
-	return nil
+	return validateUUID(r.SessionID, "session_id")
 }

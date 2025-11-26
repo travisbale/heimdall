@@ -78,10 +78,7 @@ type SSOLoginRequest struct {
 
 // Validate validates the SSO login request
 func (r *SSOLoginRequest) Validate(ctx context.Context) error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
-	}
-	return nil
+	return validateEmail(r.Email)
 }
 
 // OIDCAuthResponse represents the OIDC authentication response with authorization URL
@@ -121,11 +118,11 @@ type CreateOIDCProviderRequest struct {
 
 // Validate validates the create OIDC provider request
 func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
-	if r.ProviderName == "" {
-		return fmt.Errorf("provider_name is required")
+	if err := validateRequired(r.ProviderName, "provider_name"); err != nil {
+		return err
 	}
-	if r.IssuerURL == "" {
-		return fmt.Errorf("issuer_url is required")
+	if err := validateRequired(r.IssuerURL, "issuer_url"); err != nil {
+		return err
 	}
 
 	// HTTPS required for production security, but allow HTTP for localhost/testing
@@ -154,10 +151,7 @@ type GetOIDCProviderRequest struct {
 
 // Validate validates the get OIDC provider request
 func (r *GetOIDCProviderRequest) Validate(ctx context.Context) error {
-	if r.ProviderID == uuid.Nil {
-		return fmt.Errorf("provider_id is required")
-	}
-	return nil
+	return validateUUID(r.ProviderID, "provider_id")
 }
 
 // UpdateOIDCProviderRequest represents the request to update an OIDC provider
@@ -175,8 +169,8 @@ type UpdateOIDCProviderRequest struct {
 
 // Validate validates the update OIDC provider request
 func (r *UpdateOIDCProviderRequest) Validate(ctx context.Context) error {
-	if r.ProviderID == uuid.Nil {
-		return fmt.Errorf("provider_id is required")
+	if err := validateUUID(r.ProviderID, "provider_id"); err != nil {
+		return err
 	}
 
 	// If AllowedDomains is provided (non-nil), it must have at least one entry
@@ -195,10 +189,7 @@ type DeleteOIDCProviderRequest struct {
 
 // Validate validates the delete OIDC provider request
 func (r *DeleteOIDCProviderRequest) Validate(ctx context.Context) error {
-	if r.ProviderID == uuid.Nil {
-		return fmt.Errorf("provider_id is required")
-	}
-	return nil
+	return validateUUID(r.ProviderID, "provider_id")
 }
 
 // OIDCProvidersResponse represents the response with a list of OIDC providers

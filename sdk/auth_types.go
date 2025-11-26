@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/crypto/password"
@@ -16,13 +15,10 @@ type LoginRequest struct {
 
 // Validate validates the login request
 func (r *LoginRequest) Validate(ctx context.Context) error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
+	if err := validateEmail(r.Email); err != nil {
+		return err
 	}
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
-	}
-	return nil
+	return validateRequired(r.Password, "password")
 }
 
 // LoginResponse represents the login response
@@ -49,13 +45,10 @@ type CreateUserRequest struct {
 
 // Validate validates the create user request
 func (r *CreateUserRequest) Validate(ctx context.Context) error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
+	if err := validateEmail(r.Email); err != nil {
+		return err
 	}
-	if r.TenantID == uuid.Nil {
-		return fmt.Errorf("tenant_id is required")
-	}
-	return nil
+	return validateUUID(r.TenantID, "tenant_id")
 }
 
 // CreateUserResponse represents the response from creating a user
@@ -74,10 +67,7 @@ type RegisterRequest struct {
 
 // Validate validates the registration request
 func (r *RegisterRequest) Validate(ctx context.Context) error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
-	}
-	return nil
+	return validateEmail(r.Email)
 }
 
 // RegisterResponse represents the registration response
@@ -96,14 +86,12 @@ type VerifyEmailRequest struct {
 
 // Validate validates the verify email request
 func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
-	if r.Token == "" {
-		return fmt.Errorf("token is required")
+	if err := validateRequired(r.Token, "token"); err != nil {
+		return err
 	}
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
+	if err := validateRequired(r.Password, "password"); err != nil {
+		return err
 	}
-
-	// Validate password against security policy
 	return password.NewValidator().Validate(ctx, r.Password)
 }
 
@@ -114,10 +102,7 @@ type ForgotPasswordRequest struct {
 
 // Validate validates the forgot password request
 func (r *ForgotPasswordRequest) Validate(ctx context.Context) error {
-	if !emailRegex.MatchString(r.Email) {
-		return fmt.Errorf("invalid email format")
-	}
-	return nil
+	return validateEmail(r.Email)
 }
 
 // ForgotPasswordResponse represents the forgot password response
@@ -133,14 +118,12 @@ type ResetPasswordRequest struct {
 
 // Validate validates the reset password request
 func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
-	if r.Token == "" {
-		return fmt.Errorf("token is required")
+	if err := validateRequired(r.Token, "token"); err != nil {
+		return err
 	}
-	if r.NewPassword == "" {
-		return fmt.Errorf("new password is required")
+	if err := validateRequired(r.NewPassword, "new password"); err != nil {
+		return err
 	}
-
-	// Validate password against security policy
 	return password.NewValidator().Validate(ctx, r.NewPassword)
 }
 
