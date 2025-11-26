@@ -175,7 +175,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code)
+	tokens, err := h.authService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code, req.TrustDevice)
 	if err != nil {
 		h.logger.WarnContext(r.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
@@ -198,6 +198,19 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.InfoContext(r.Context(), events.MFAVerificationSuccess)
+
+	// Set device trust cookie if a device token was generated
+	if tokens.DeviceToken != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     deviceTrustCookie,
+			Value:    tokens.DeviceToken,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   h.secureCookies,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   30 * 24 * 60 * 60, // 30 days
+		})
+	}
 
 	encodeSessionResponse(w, r, tokens, h.secureCookies)
 }

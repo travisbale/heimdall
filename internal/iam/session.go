@@ -16,6 +16,7 @@ type SessionTokens struct {
 	RefreshToken           string
 	MFAChallengeToken      string
 	MFASetupToken          string
+	DeviceToken            string // Trusted device token (set when user opts to trust device after MFA)
 	AccessExpiration       time.Duration
 	RefreshExpiration      time.Duration
 	MFAChallengeExpiration time.Duration

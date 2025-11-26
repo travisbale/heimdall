@@ -258,3 +258,17 @@ type RefreshToken struct {
 	ExpiresAt  time.Time
 	RevokedAt  *time.Time
 }
+
+// TrustedDevice represents a device trusted to skip MFA
+type TrustedDevice struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	TenantID   uuid.UUID
+	TokenHash  string
+	UserAgent  string
+	IPAddress  string
+	CreatedAt  time.Time
+	LastUsedAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+}

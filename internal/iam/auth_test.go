@@ -194,6 +194,10 @@ func (m *mockSessionStorageService) RevokeSessionByToken(ctx context.Context, re
 	return m.revokeErr
 }
 
+func (m *mockSessionStorageService) RevokeAllSessions(ctx context.Context, userID uuid.UUID) error {
+	return m.revokeErr
+}
+
 // Test fixture
 
 type authServiceTestFixture struct {
@@ -251,7 +255,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
 		// MFA disabled by default (enabled = false)
 
-		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -276,7 +280,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
 		f.mfaService.enabled = true
 
-		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -298,7 +302,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 
 		f.passwordService.err = ErrInvalidCredentials
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "wrongpassword")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "wrongpassword", "")
 		if !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("expected ErrInvalidCredentials, got %v", err)
 		}
@@ -313,7 +317,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
 		f.mfaService.isMFAEnabledErr = errors.New("database error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error for MFA status check failure")
 		}
@@ -420,7 +424,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		tenantID := uuid.New()
 		f.jwtService.mfaChallengeClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
 
-		tokens, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456")
+		tokens, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -439,7 +443,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 
 		f.jwtService.validateMFAChallengeErr = errors.New("invalid token")
 
-		_, err := f.service.AuthenticateWithMFA(ctx, "invalid_challenge", "123456")
+		_, err := f.service.AuthenticateWithMFA(ctx, "invalid_challenge", "123456", false)
 		if !errors.Is(err, ErrInvalidChallengeToken) {
 			t.Errorf("expected ErrInvalidChallengeToken, got %v", err)
 		}
@@ -454,7 +458,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		f.jwtService.mfaChallengeClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
 		f.mfaService.verifyCodeErr = ErrInvalidMFACode
 
-		_, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "wrong_code")
+		_, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "wrong_code", false)
 		if !errors.Is(err, ErrInvalidMFACode) {
 			t.Errorf("expected ErrInvalidMFACode, got %v", err)
 		}
@@ -531,7 +535,7 @@ func TestCreateSession_Errors(t *testing.T) {
 		// MFA disabled by default
 		f.rbacService.getUserScopesError = errors.New("database error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error when getting user scopes fails")
 		}
@@ -547,7 +551,7 @@ func TestCreateSession_Errors(t *testing.T) {
 		// MFA disabled by default
 		f.jwtService.issueAccessTokenErr = errors.New("signing error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error when issuing access token fails")
 		}
@@ -563,7 +567,7 @@ func TestCreateSession_Errors(t *testing.T) {
 		// MFA disabled by default
 		f.jwtService.issueRefreshTokenErr = errors.New("signing error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error when issuing refresh token fails")
 		}
@@ -580,7 +584,7 @@ func TestIssueMFAChallenge_Error(t *testing.T) {
 	f.mfaService.enabled = true
 	f.jwtService.issueMFAChallengeTokenErr = errors.New("signing error")
 
-	_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+	_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 	if err == nil {
 		t.Error("expected error when issuing MFA challenge token fails")
 	}
@@ -598,7 +602,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAVal = true
 
-		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -624,7 +628,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAErr = errors.New("database error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error when checking MFA requirements fails")
 		}
@@ -641,7 +645,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 		f.rbacService.userRolesRequireMFAVal = true
 		f.jwtService.issueMFASetupTokenErr = errors.New("signing error")
 
-		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password")
+		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
 		if err == nil {
 			t.Error("expected error when issuing MFA setup token fails")
 		}

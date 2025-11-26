@@ -65,3 +65,10 @@ const (
 	AllSessionsRevoked      = "all_sessions_revoked"
 	TokenReuseDetected      = "token_reuse_detected"
 )
+
+// Trusted Device Events
+const (
+	TrustedDeviceCreated    = "trusted_device_created"
+	TrustedDeviceAllRevoked = "trusted_device_all_revoked"
+	MFASkippedTrustedDevice = "mfa_skipped_trusted_device"
+)

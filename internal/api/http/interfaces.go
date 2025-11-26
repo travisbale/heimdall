@@ -22,14 +22,17 @@ type passwordService interface {
 
 // authService defines the interface for authentication orchestration
 type authService interface {
-	AuthenticateWithPassword(ctx context.Context, email, password string) (*iam.SessionTokens, error)
+	AuthenticateWithPassword(ctx context.Context, email, password, deviceToken string) (*iam.SessionTokens, error)
 	AuthenticateWithOIDC(ctx context.Context, state, code string) (*iam.SessionTokens, error)
-	AuthenticateWithMFA(ctx context.Context, challengeToken, code string) (*iam.SessionTokens, error)
+	AuthenticateWithMFA(ctx context.Context, challengeToken, code string, trustDevice bool) (*iam.SessionTokens, error)
 	CompleteRegistration(ctx context.Context, token, password string) (*iam.SessionTokens, error)
 	RefreshSession(ctx context.Context, refreshToken string) (*iam.SessionTokens, error)
 	SetupRequiredMFA(ctx context.Context, setupToken string) (*iam.MFAEnrollment, error)
 	EnableRequiredMFA(ctx context.Context, setupToken, code string) (*iam.SessionTokens, error)
 	Logout(ctx context.Context, refreshToken string) error
+	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
+	CreateTrustedDevice(ctx context.Context, device *iam.TrustedDevice) (string, error)
 }
 
 // sessionService defines the interface for session management operations

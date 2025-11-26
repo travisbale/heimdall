@@ -657,6 +657,7 @@ type BackupCodesResponse struct {
 type VerifyMFACodeRequest struct {
 	ChallengeToken string `json:"challenge_token"` // Challenge token from initial login
 	Code           string `json:"code"`            // TOTP code (6 digits) or backup code (8 digits)
+	TrustDevice    bool   `json:"trust_device"`    // Optional: trust this device for 30 days (skip MFA on next login)
 }
 
 // Validate validates the verify MFA code request

@@ -9,6 +9,7 @@ import (
 )
 
 const refreshTokenCookie = "refresh_token"
+const deviceTrustCookie = "device_trust"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
@@ -31,7 +32,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.AuthenticateWithPassword(r.Context(), req.Email, req.Password)
+	// Read device trust cookie if present (for MFA bypass on trusted devices)
+	var deviceToken string
+	if cookie, err := r.Cookie(deviceTrustCookie); err == nil {
+		deviceToken = cookie.Value
+	}
+
+	tokens, err := h.authService.AuthenticateWithPassword(r.Context(), req.Email, req.Password, deviceToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):

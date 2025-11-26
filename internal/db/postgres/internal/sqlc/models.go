@@ -308,6 +308,19 @@ type Tenant struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type TrustedDevice struct {
+	ID         uuid.UUID  `json:"id"`
+	UserID     uuid.UUID  `json:"user_id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	TokenHash  string     `json:"token_hash"`
+	UserAgent  string     `json:"user_agent"`
+	IpAddress  string     `json:"ip_address"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt time.Time  `json:"last_used_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+}
+
 type User struct {
 	ID           uuid.UUID      `json:"id"`
 	TenantID     uuid.UUID      `json:"tenant_id"`

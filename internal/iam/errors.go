@@ -52,3 +52,6 @@ var ErrInvalidSetupToken = errors.New("invalid or expired setup token")
 var ErrSessionNotFound = errors.New("session not found or expired")
 var ErrSessionRevoked = errors.New("session has been revoked")
 var ErrTokenReused = errors.New("refresh token reuse detected")
+
+// Trusted device errors
+var ErrTrustedDeviceNotFound = errors.New("trusted device not found or expired")

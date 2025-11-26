@@ -11,12 +11,16 @@ import (
 // SessionsHandler handles session management HTTP requests
 type SessionsHandler struct {
 	sessionService sessionService
+	authService    authService
+	secureCookies  bool
 }
 
 // NewSessionsHandler creates a new SessionsHandler
 func NewSessionsHandler(config *Config) *SessionsHandler {
 	return &SessionsHandler{
 		sessionService: config.SessionService,
+		authService:    config.AuthService,
+		secureCookies:  config.SecureCookies(),
 	}
 }
 
@@ -99,10 +103,37 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := h.sessionService.RevokeAllSessions(r.Context(), userID); err != nil {
+	// Use AuthService to revoke sessions and trusted devices
+	if err := h.authService.SignOutEverywhere(r.Context(), userID); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke sessions"})
 		return
 	}
+
+	// Construct cookie path using X-Forwarded-Prefix if available
+	prefix := r.Header.Get("X-Forwarded-Prefix")
+	refreshCookiePath := prefix + sdk.RouteV1Refresh
+
+	// Clear refresh token cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookie,
+		Value:    "",
+		Path:     refreshCookiePath,
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	// Clear device trust cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     deviceTrustCookie,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
 
 	respondJSON(w, http.StatusOK, sdk.LogoutResponse{Message: "All sessions revoked"})
 }

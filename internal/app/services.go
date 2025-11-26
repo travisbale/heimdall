@@ -25,6 +25,7 @@ type services struct {
 	loginAttempts *iam.LoginAttemptsService
 	auth          *iam.AuthService
 	session       *iam.SessionService
+	trustedDevice *iam.TrustedDeviceService
 	jwt           *jwt.Service
 }
 
@@ -128,16 +129,24 @@ func initializeServices(
 		Logger:         slog.Default(),
 	})
 
+	// Trusted device service for MFA bypass on trusted devices
+	trustedDeviceService := iam.NewTrustedDeviceService(&iam.TrustedDeviceServiceConfig{
+		TrustedDeviceDB: dbs.trustedDevices,
+		Logger:          slog.Default(),
+	})
+
 	// Auth service orchestrates authentication flows
 	authService := iam.NewAuthService(&iam.AuthServiceConfig{
-		PasswordService: passwordService,
-		OIDCService:     oidcAuthService,
-		UserService:     userService,
-		MFAService:      mfaService,
-		RBACService:     rbacService,
-		JWTService:      jwtService,
-		SessionService:  sessionService,
-		Logger:          slog.Default(),
+		PasswordService:       passwordService,
+		PasswordChangeService: passwordService,
+		OIDCService:           oidcAuthService,
+		UserService:           userService,
+		MFAService:            mfaService,
+		RBACService:           rbacService,
+		JWTService:            jwtService,
+		SessionService:        sessionService,
+		TrustedDeviceService:  trustedDeviceService,
+		Logger:                slog.Default(),
 	})
 
 	return &services{
@@ -150,6 +159,7 @@ func initializeServices(
 		loginAttempts: loginAttemptsService,
 		auth:          authService,
 		session:       sessionService,
+		trustedDevice: trustedDeviceService,
 		jwt:           jwtService,
 	}, nil
 }
