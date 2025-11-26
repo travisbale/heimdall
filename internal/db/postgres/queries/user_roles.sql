@@ -17,11 +17,3 @@ FROM roles r
 JOIN user_roles ur ON ur.role_id = r.id
 WHERE ur.user_id = $1
 ORDER BY r.name;
-
--- name: GetRoleUsers :many
--- Get all users with a specific role (for admin UI)
-SELECT u.id, u.email
-FROM users u
-JOIN user_roles ur ON ur.user_id = u.id
-WHERE ur.role_id = $1
-ORDER BY u.email;
