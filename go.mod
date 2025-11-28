@@ -16,7 +16,7 @@ require (
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/oauth2 v0.33.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
 )
