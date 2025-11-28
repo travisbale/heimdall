@@ -44,6 +44,7 @@ func NewVerifier(db MFASettingsDB, cipher cipher, period uint) *Verifier {
 		validateOpts: totp.ValidateOpts{
 			Period: period,
 			Digits: otp.DigitsSix,
+			Skew:   1, // Accept codes from previous/next window for clock drift tolerance
 		},
 	}
 }
