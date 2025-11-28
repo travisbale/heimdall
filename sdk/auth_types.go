@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/password"
+	"github.com/travisbale/knowhere/crypto/password"
 )
 
 // LoginRequest represents the login request body
@@ -37,18 +37,15 @@ type LogoutResponse struct {
 }
 
 // CreateUserRequest represents the request to create a user
+// Note: tenant_id is extracted from context and sent via gRPC metadata
 type CreateUserRequest struct {
-	Email    string      `json:"email"`
-	TenantID uuid.UUID   `json:"tenant_id"`
-	RoleIDs  []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign
+	Email   string      `json:"email"`
+	RoleIDs []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign
 }
 
 // Validate validates the create user request
 func (r *CreateUserRequest) Validate(ctx context.Context) error {
-	if err := validateEmail(r.Email); err != nil {
-		return err
-	}
-	return validateUUID(r.TenantID, "tenant_id")
+	return validateEmail(r.Email)
 }
 
 // CreateUserResponse represents the response from creating a user

@@ -15,11 +15,6 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// HealthResponse represents the health check response
-type HealthResponse struct {
-	Status string `json:"status"`
-}
-
 // User represents a user in API responses
 type User struct {
 	ID     uuid.UUID `json:"id"`

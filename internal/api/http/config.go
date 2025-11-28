@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 
-	"github.com/travisbale/heimdall/jwt"
+	"github.com/travisbale/heimdall/internal/iam"
 )
 
 // logger provides structured logging capabilities (matches *slog.Logger)
@@ -18,7 +18,7 @@ type database interface {
 }
 
 type jwtValidator interface {
-	ValidateToken(token string) (*jwt.Claims, error)
+	ValidateToken(token string) (*iam.JWTClaims, error)
 }
 
 type Config struct {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // Mock implementations for testing
@@ -550,30 +549,34 @@ func (m *mockUserPermissionRepository) GetDirectPermissions(ctx context.Context,
 // Authentication and Security Mocks
 
 type mockHasher struct {
-	hashResult  string
-	hashError   error
-	verifyError error
+	hashResult   string
+	hashError    error
+	verifyResult bool
+	verifyError  error
 }
 
-func (m *mockHasher) HashPassword(password string) (string, error) {
+func (m *mockHasher) Hash(input string) (string, error) {
 	if m.hashError != nil {
 		return "", m.hashError
 	}
 	if m.hashResult != "" {
 		return m.hashResult, nil
 	}
-	return "hashed_" + password, nil
+	return "hashed_" + input, nil
 }
 
-func (m *mockHasher) VerifyPassword(password, encodedHash string) error {
+func (m *mockHasher) Verify(input, encodedHash string) error {
 	if m.verifyError != nil {
 		return m.verifyError
 	}
-	// Simple mock verification - check if hash matches "hashed_" + password
-	if encodedHash == "hashed_"+password {
+	if m.verifyResult {
 		return nil
 	}
-	return ErrInvalidCredentials
+	// Simple mock verification - check if hash matches "hashed_" + input
+	if encodedHash == "hashed_"+input {
+		return nil
+	}
+	return ErrMismatchedHash
 }
 
 type mockEmailClient struct {
@@ -698,23 +701,23 @@ type mockRBACService struct {
 	setUserRolesError      error
 	getUserScopesError     error
 	userRolesRequireMFAErr error
-	userScopes             map[uuid.UUID][]sdk.Scope
+	userScopes             map[uuid.UUID][]Scope
 	userRolesRequireMFAVal bool
 }
 
 func newMockRBACService() *mockRBACService {
 	return &mockRBACService{
-		userScopes: make(map[uuid.UUID][]sdk.Scope),
+		userScopes: make(map[uuid.UUID][]Scope),
 	}
 }
 
-func (m *mockRBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error) {
+func (m *mockRBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error) {
 	if m.getUserScopesError != nil {
 		return nil, m.getUserScopesError
 	}
 	scopes, ok := m.userScopes[userID]
 	if !ok {
-		return []sdk.Scope{}, nil
+		return []Scope{}, nil
 	}
 	return scopes, nil
 }

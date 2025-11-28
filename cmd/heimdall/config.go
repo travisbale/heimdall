@@ -25,6 +25,7 @@ type Config struct {
 	PublicURL string
 
 	MailmanGRPCAddress string
+	UatuGRPCAddress    string
 
 	Environment string // "development", "staging", "production"
 

@@ -4,14 +4,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/travisbale/heimdall/crypto/aes"
-	"github.com/travisbale/heimdall/crypto/argon2"
 	"github.com/travisbale/heimdall/internal/email/mailman"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/mfa/totp"
 	"github.com/travisbale/heimdall/internal/oidc"
-	"github.com/travisbale/heimdall/jwt"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/crypto/aes"
+	"github.com/travisbale/knowhere/crypto/argon2"
+	"github.com/travisbale/knowhere/jwt"
 )
 
 // services holds all business logic service instances

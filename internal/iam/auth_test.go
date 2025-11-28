@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/jwt"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // Mocks for AuthService dependencies
@@ -92,9 +90,9 @@ type mockJWTService struct {
 	issueRefreshTokenErr        error
 	issueMFAChallengeTokenErr   error
 	issueMFASetupTokenErr       error
-	mfaChallengeClaims          *jwt.Claims
-	mfaSetupClaims              *jwt.Claims
-	refreshClaims               *jwt.Claims
+	mfaChallengeClaims          *JWTClaims
+	mfaSetupClaims              *JWTClaims
+	refreshClaims               *JWTClaims
 	accessTokenExpiration       time.Duration
 	refreshTokenExpiration      time.Duration
 	mfaChallengeTokenExpiration time.Duration
@@ -114,7 +112,7 @@ func newMockJWTService() *mockJWTService {
 	}
 }
 
-func (m *mockJWTService) IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, time.Duration, error) {
+func (m *mockJWTService) IssueAccessToken(tenantID, userID uuid.UUID, scopes []Scope) (string, time.Duration, error) {
 	if m.issueAccessTokenErr != nil {
 		return "", 0, m.issueAccessTokenErr
 	}
@@ -135,14 +133,14 @@ func (m *mockJWTService) IssueRefreshToken(tenantID, userID uuid.UUID) (string, 
 	return m.refreshToken, m.refreshTokenExpiration, nil
 }
 
-func (m *mockJWTService) ValidateMFAChallengeToken(token string) (*jwt.Claims, error) {
+func (m *mockJWTService) ValidateMFAChallengeToken(token string) (*JWTClaims, error) {
 	if m.validateMFAChallengeErr != nil {
 		return nil, m.validateMFAChallengeErr
 	}
 	return m.mfaChallengeClaims, nil
 }
 
-func (m *mockJWTService) ValidateToken(token string) (*jwt.Claims, error) {
+func (m *mockJWTService) ValidateToken(token string) (*JWTClaims, error) {
 	if m.validateTokenErr != nil {
 		return nil, m.validateTokenErr
 	}
@@ -156,7 +154,7 @@ func (m *mockJWTService) IssueMFASetupToken(tenantID, userID uuid.UUID) (string,
 	return m.mfaSetupToken, m.mfaSetupTokenExpiration, nil
 }
 
-func (m *mockJWTService) ValidateMFASetupToken(token string) (*jwt.Claims, error) {
+func (m *mockJWTService) ValidateMFASetupToken(token string) (*JWTClaims, error) {
 	if m.validateMFASetupErr != nil {
 		return nil, m.validateMFASetupErr
 	}
@@ -422,7 +420,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaChallengeClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 
 		tokens, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false)
 		if err != nil {
@@ -455,7 +453,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaChallengeClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.mfaService.verifyCodeErr = ErrInvalidMFACode
 
 		_, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "wrong_code", false)
@@ -473,7 +471,7 @@ func TestRefreshSession(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		familyID := uuid.New()
-		f.jwtService.refreshClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.sessionService.rotatedToken = &RefreshToken{
 			UserID:   userID,
 			TenantID: tenantID,
@@ -511,7 +509,7 @@ func TestRefreshSession(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.refreshClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.sessionService.rotateErr = ErrTokenReused
 
 		_, err := f.service.RefreshSession(ctx, "reused_token")
@@ -711,7 +709,7 @@ func TestSetupRequiredMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaSetupClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaSetupClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.mfaService.enrollment = &MFAEnrollment{
 			Secret:      "JBSWY3DPEHPK3PXP",
 			QRCode:      "data:image/png;base64,...",
@@ -746,7 +744,7 @@ func TestSetupRequiredMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaSetupClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaSetupClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.mfaService.setupMFAErr = ErrMFAAlreadyEnabled
 
 		_, err := f.service.SetupRequiredMFA(ctx, "setup_token")
@@ -763,7 +761,7 @@ func TestEnableRequiredMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaSetupClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaSetupClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 
 		tokens, err := f.service.EnableRequiredMFA(ctx, "setup_token", "123456")
 		if err != nil {
@@ -797,7 +795,7 @@ func TestEnableRequiredMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaSetupClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaSetupClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.mfaService.enableMFAErr = ErrInvalidMFACode
 
 		_, err := f.service.EnableRequiredMFA(ctx, "setup_token", "wrong_code")
@@ -812,7 +810,7 @@ func TestEnableRequiredMFA(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.jwtService.mfaSetupClaims = &jwt.Claims{UserID: userID, TenantID: tenantID}
+		f.jwtService.mfaSetupClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.mfaService.enableMFAErr = ErrMFANotEnabled
 
 		_, err := f.service.EnableRequiredMFA(ctx, "setup_token", "123456")

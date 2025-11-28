@@ -60,7 +60,7 @@ type oidcProviderService interface {
 // rbacService defines the interface for RBAC operations
 type rbacService interface {
 	ListPermissions(ctx context.Context) ([]*iam.Permission, error)
-	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]iam.Scope, error)
 
 	CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error)
 	GetRole(ctx context.Context, roleID uuid.UUID) (*iam.Role, error)

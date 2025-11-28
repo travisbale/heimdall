@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/travisbale/heimdall/clog"
+	"github.com/travisbale/uatu/ulog"
 	"github.com/urfave/cli/v2"
 )
+
+// logHandler holds the ulog handler for cleanup on shutdown
+var logHandler *ulog.Handler
 
 func main() {
 	app := &cli.App{
@@ -16,17 +19,23 @@ func main() {
 			DebugFlag,
 			LogFormatFlag,
 			DatabaseURLFlag,
+			UatuGRPCAddressFlag,
 		},
 		Before: func(c *cli.Context) error {
-			// Default to json if invalid format provided
-			format := config.LogFormat
-
-			if format != "json" && format != "text" {
-				fmt.Fprintf(os.Stderr, "Invalid log format %q. Defaulting to json\n", format)
-				format = "json"
+			var err error
+			logHandler, err = ulog.Init(&ulog.InitConfig{
+				Service: "heimdall",
+				Address: config.UatuGRPCAddress,
+				Format:  config.LogFormat,
+				Debug:   config.Debug,
+			})
+			return err
+		},
+		After: func(c *cli.Context) error {
+			if logHandler != nil {
+				return logHandler.Close()
 			}
-
-			return clog.Init(format, config.Debug)
+			return nil
 		},
 		Commands: []*cli.Command{
 			startCmd,

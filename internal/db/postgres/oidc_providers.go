@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/crypto/aes"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
+	"github.com/travisbale/knowhere/crypto/aes"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // OIDCProvidersDB manages tenant-specific OIDC provider configs with encrypted secrets

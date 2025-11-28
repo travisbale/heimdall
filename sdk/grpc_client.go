@@ -7,8 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/pb"
+	"github.com/travisbale/knowhere/identity"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 // GRPCClient is a gRPC client for the heimdall API
@@ -53,10 +55,13 @@ func NewGRPCClient(address string, opts ...GRPCClientOption) (*GRPCClient, error
 
 	// Add default dial options if none provided
 	if len(config.dialOptions) == 0 {
-		config.dialOptions = append(config.dialOptions,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
+		config.dialOptions = append(config.dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
+
+	// Add identity propagation interceptor
+	config.dialOptions = append(config.dialOptions,
+		grpc.WithUnaryInterceptor(identityClientInterceptor()),
+	)
 
 	// Establish connection
 	conn, err := grpc.NewClient(address, config.dialOptions...)
@@ -78,7 +83,44 @@ func (c *GRPCClient) Close() error {
 	return nil
 }
 
+// identityClientInterceptor returns a client interceptor that automatically
+// extracts identity information from the context and adds it to outgoing
+// gRPC metadata. This propagates the authenticated user's identity to
+// internal services without requiring explicit calls at each call site.
+func identityClientInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		var pairs []string
+
+		// Extract tenant and actor IDs from context
+		if tenantID, err := identity.GetTenant(ctx); err == nil {
+			pairs = append(pairs, "x-tenant-id", tenantID.String())
+		}
+		if actorID, err := identity.GetActor(ctx); err == nil {
+			pairs = append(pairs, "x-actor-id", actorID.String())
+		}
+
+		// Extract request ID
+		if reqID := identity.GetRequestID(ctx); reqID != "" {
+			pairs = append(pairs, "x-request-id", reqID)
+		}
+
+		// Extract IP address
+		if ipAddr := identity.GetIPAddress(ctx); ipAddr != "" {
+			pairs = append(pairs, "x-ip-address", ipAddr)
+		}
+
+		// Add metadata to outgoing context if we have any identity info
+		if len(pairs) > 0 {
+			md := metadata.Pairs(pairs...)
+			ctx = metadata.NewOutgoingContext(ctx, md)
+		}
+
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
 // CreateUser creates a new user for a tenant
+// Note: tenant_id is extracted from context and sent via gRPC metadata by the client interceptor
 func (c *GRPCClient) CreateUser(ctx context.Context, req CreateUserRequest) (*CreateUserResponse, error) {
 	if err := req.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid request")
@@ -91,9 +133,8 @@ func (c *GRPCClient) CreateUser(ctx context.Context, req CreateUserRequest) (*Cr
 	}
 
 	pbReq := &pb.CreateUserRequest{
-		Email:    req.Email,
-		TenantId: req.TenantID.String(),
-		RoleIds:  roleIDs,
+		Email:   req.Email,
+		RoleIds: roleIDs,
 	}
 
 	pbResp, err := c.client.CreateUser(ctx, pbReq)

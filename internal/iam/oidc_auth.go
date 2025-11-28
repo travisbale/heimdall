@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/crypto/token"
 )
 
 // oidcProviderLookup defines the provider lookup methods needed by OIDCAuthService

@@ -11,10 +11,10 @@ service UserService {
 }
 
 // CreateUserRequest contains the parameters for creating a user
+// Note: tenant_id is extracted from gRPC metadata (set by the client interceptor)
 message CreateUserRequest {
   string email = 1;
-  string tenant_id = 2;
-  repeated string role_ids = 3; // Role IDs to assign to the user
+  repeated string role_ids = 2; // Role IDs to assign to the user
 }
 
 // CreateUserResponse contains the created user information

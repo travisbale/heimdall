@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // LoginAttemptsDB tracks failed login attempts for progressive lockout and audit trail

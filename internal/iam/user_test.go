@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
+	"github.com/travisbale/knowhere/identity"
 )
 
 type userServiceTestFixture struct {

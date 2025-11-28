@@ -22,11 +22,11 @@ const (
 )
 
 // CreateUserRequest contains the parameters for creating a user
+// Note: tenant_id is extracted from gRPC metadata (set by the client interceptor)
 type CreateUserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	RoleIds       []string               `protobuf:"bytes,3,rep,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"` // Role IDs to assign to the user
+	RoleIds       []string               `protobuf:"bytes,2,rep,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"` // Role IDs to assign to the user
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -64,13 +64,6 @@ func (*CreateUserRequest) Descriptor() ([]byte, []int) {
 func (x *CreateUserRequest) GetEmail() string {
 	if x != nil {
 		return x.Email
-	}
-	return ""
-}
-
-func (x *CreateUserRequest) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
 	}
 	return ""
 }
@@ -156,11 +149,10 @@ var File_auth_proto protoreflect.FileDescriptor
 const file_auth_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"auth.proto\x12\bheimdall\"a\n" +
+	"auth.proto\x12\bheimdall\"D\n" +
 	"\x11CreateUserRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x19\n" +
-	"\brole_ids\x18\x03 \x03(\tR\aroleIds\"\x8f\x01\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x19\n" +
+	"\brole_ids\x18\x02 \x03(\tR\aroleIds\"\x8f\x01\n" +
 	"\x12CreateUserResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1b\n" +

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/internal/db/postgres"
+	"github.com/travisbale/knowhere/crypto/aes"
 )
 
 // setupDatabase connects to PostgreSQL and runs migrations

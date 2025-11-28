@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/knowhere/crypto/token"
 )
 
 type loginAttemptsService interface {
@@ -71,18 +71,14 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 	}
 
 	// Verify password before checking account status to prevent user enumeration
-	err = s.hasher.VerifyPassword(password, user.PasswordHash)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrInvalidCredentials):
+	if err := s.hasher.Verify(password, user.PasswordHash); err != nil {
+		if errors.Is(err, ErrMismatchedHash) {
 			if err := s.loginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, user.LastLoginAt); err != nil {
 				s.logger.ErrorContext(ctx, "failed to record login attempt", "email", email, "error", err)
 			}
 			return nil, ErrInvalidCredentials
-
-		default:
-			return nil, fmt.Errorf("failed to verify password: %w", err)
 		}
+		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 
 	// Record successful login
@@ -144,7 +140,7 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 	}
 
 	// Hash the new password
-	passwordHash, err := s.hasher.HashPassword(newPassword)
+	passwordHash, err := s.hasher.Hash(newPassword)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -175,11 +171,14 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	if err := s.hasher.VerifyPassword(oldPassword, user.PasswordHash); err != nil {
-		return ErrInvalidCredentials
+	if err := s.hasher.Verify(oldPassword, user.PasswordHash); err != nil {
+		if errors.Is(err, ErrMismatchedHash) {
+			return ErrInvalidCredentials
+		}
+		return fmt.Errorf("failed to verify password: %w", err)
 	}
 
-	passwordHash, err := s.hasher.HashPassword(newPassword)
+	passwordHash, err := s.hasher.Hash(newPassword)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}

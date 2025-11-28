@@ -31,7 +31,9 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(MetadataInterceptor()),
+	)
 
 	authHandler := NewAuthHandler(config.AuthService)
 

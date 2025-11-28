@@ -8,9 +8,9 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // respondJSON sends JSON response with given status code
@@ -59,14 +59,15 @@ func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator
 	return true
 }
 
-// getAuthenticatedUserID extracts the user ID from context, returns false if unauthorized
-func getAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	userID, err := identity.GetUser(r.Context())
+// getAuthenticatedActorID extracts the actor ID from context, returns false if unauthorized
+// The actor is the authenticated user performing the action
+func getAuthenticatedActorID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	actorID, err := identity.GetActor(r.Context())
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
 		return uuid.Nil, false
 	}
-	return userID, true
+	return actorID, true
 }
 
 // parseUUID parses UUID from string, returns uuid.Nil on invalid input

@@ -29,7 +29,7 @@ func NewMFAHandler(config *Config) *MFAHandler {
 
 // Setup initiates MFA setup by generating secret, QR code, and backup codes
 func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +60,7 @@ func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +90,7 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -117,7 +117,7 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 
 // Status returns MFA status for the authenticated user
 func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -145,7 +145,7 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}

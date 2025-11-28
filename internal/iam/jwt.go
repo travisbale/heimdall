@@ -1,7 +1,12 @@
-package sdk
+package iam
 
-// Scope represents a system permission identifier used in JWT tokens and authorization
-type Scope string
+import "github.com/travisbale/knowhere/jwt"
+
+// Scope is an alias for jwt.Scope
+type Scope = jwt.Scope
+
+// JWTClaims is an alias for jwt.Claims
+type JWTClaims = jwt.Claims
 
 // System-wide scopes for Heimdall authentication and authorization service
 const (
@@ -24,8 +29,3 @@ const (
 	ScopeOIDCUpdate Scope = "oidc:update" // Update OIDC/SSO provider settings
 	ScopeOIDCDelete Scope = "oidc:delete" // Delete OIDC/SSO provider configurations
 )
-
-// String returns the scope as a string
-func (s Scope) String() string {
-	return string(s)
-}

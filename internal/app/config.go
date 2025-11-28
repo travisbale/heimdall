@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"github.com/travisbale/heimdall/crypto/argon2"
+	"github.com/travisbale/knowhere/crypto/argon2"
 )
 
 const (

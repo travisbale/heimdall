@@ -156,7 +156,7 @@ func TestGetUserScopes_MultipleAllowsDeduplicated(t *testing.T) {
 	// Check both permissions are present
 	permMap := make(map[string]bool)
 	for _, perm := range permissions {
-		permMap[perm.String()] = true
+		permMap[string(perm)] = true
 	}
 
 	if !permMap["users:read"] {

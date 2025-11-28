@@ -1,9 +1,14 @@
 package iam
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/travisbale/knowhere/crypto/argon2"
+)
 
 // Authentication errors
 var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrMismatchedHash = argon2.ErrMismatchedHash
 var ErrUserNotFound = errors.New("user not found")
 var ErrAccountIsInactive = errors.New("user account is not active")
 var ErrEmailNotVerified = errors.New("email address not verified")

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/knowhere/crypto/token"
 )
 
 const (

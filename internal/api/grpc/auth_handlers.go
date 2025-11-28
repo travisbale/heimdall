@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/pb"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // authService defines the interface for authentication operations
@@ -31,17 +31,12 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
 	}
-	if req.TenantId == "" {
-		return nil, fmt.Errorf("tenant_id is required")
-	}
 
-	tenantID, err := uuid.Parse(req.TenantId)
+	// Get tenant ID from context (set by MetadataInterceptor from gRPC metadata)
+	tenantID, err := identity.GetTenant(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("invalid tenant_id: %w", err)
+		return nil, fmt.Errorf("tenant_id is required in metadata")
 	}
-
-	// Set tenant context for database operations
-	ctx = identity.WithTenant(ctx, tenantID)
 
 	var roleIDs []uuid.UUID
 	for _, roleIDStr := range req.RoleIds {

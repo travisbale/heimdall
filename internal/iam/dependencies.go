@@ -4,13 +4,12 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // hasher hashes and verifies passwords and codes
 type hasher interface {
-	HashPassword(password string) (string, error)
-	VerifyPassword(password, hash string) error
+	Hash(input string) (string, error)
+	Verify(input, hash string) error
 }
 
 // logger provides structured logging capabilities (matches *slog.Logger)
@@ -23,7 +22,7 @@ type logger interface {
 
 // rbacService provides role-based access control operations
 type rbacService interface {
-	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error)
+	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error)
 	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 	UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error)
 }

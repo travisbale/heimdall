@@ -29,11 +29,6 @@ func MigrateUp(databaseURL string) error {
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
-	if err == migrate.ErrNoChange {
-		fmt.Println("No migrations to apply") // Already at latest version
-		return nil
-	}
-
 	fmt.Println("Migrations applied successfully")
 	return nil
 }
@@ -53,11 +48,6 @@ func MigrateDown(databaseURL string) error {
 
 	if err := m.Steps(-1); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("failed to rollback migration: %w", err)
-	}
-
-	if err == migrate.ErrNoChange {
-		fmt.Println("No migrations to rollback") // Already at initial version
-		return nil
 	}
 
 	fmt.Println("Migration rolled back successfully")

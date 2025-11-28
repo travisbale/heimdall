@@ -6,11 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/token"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/events"
-	"github.com/travisbale/heimdall/jwt"
-	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/crypto/token"
+	"github.com/travisbale/knowhere/identity"
 )
 
 type passwordService interface {
@@ -33,13 +31,13 @@ type mfaVerificationService interface {
 }
 
 type jwtService interface {
-	IssueAccessToken(tenantID, userID uuid.UUID, scopes []sdk.Scope) (string, time.Duration, error)
+	IssueAccessToken(tenantID, userID uuid.UUID, scopes []Scope) (string, time.Duration, error)
 	IssueMFAChallengeToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
 	IssueMFASetupToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
 	IssueRefreshToken(tenantID, userID uuid.UUID) (string, time.Duration, error)
-	ValidateMFAChallengeToken(token string) (*jwt.Claims, error)
-	ValidateMFASetupToken(token string) (*jwt.Claims, error)
-	ValidateToken(token string) (*jwt.Claims, error)
+	ValidateMFAChallengeToken(token string) (*JWTClaims, error)
+	ValidateMFASetupToken(token string) (*JWTClaims, error)
+	ValidateToken(token string) (*JWTClaims, error)
 }
 
 type sessionStorageService interface {

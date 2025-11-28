@@ -72,13 +72,10 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 		switch {
 		case errors.Is(err, iam.ErrOIDCDiscoveryFailed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Unable to discover OIDC provider. Check the issuer URL."})
-
 		case errors.Is(err, iam.ErrOIDCIssuerMismatch):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "OIDC provider issuer validation failed"})
-
 		case errors.Is(err, iam.ErrOIDCRegistrationFailed):
 			respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Dynamic client registration failed"})
-
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to create OAuth provider"})
 		}

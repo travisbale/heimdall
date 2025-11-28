@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"time"
-
-	"github.com/travisbale/heimdall/sdk"
 )
 
 type HealthHandler struct {
@@ -25,13 +23,9 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.db.Health(ctx); err != nil {
-		respondJSON(w, http.StatusServiceUnavailable, &sdk.HealthResponse{
-			Status: "unhealthy",
-		})
+		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, &sdk.HealthResponse{
-		Status: "healthy",
-	})
+	w.WriteHeader(http.StatusOK)
 }

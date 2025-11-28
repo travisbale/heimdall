@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/crypto/token"
 	"github.com/travisbale/heimdall/internal/events"
+	"github.com/travisbale/knowhere/crypto/token"
 )
 
 const registrationTokenExpiration = 24 * time.Hour
@@ -179,7 +179,7 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 		return nil, ErrAccountAlreadyVerified
 	}
 
-	passwordHash, err := s.hasher.HashPassword(password)
+	passwordHash, err := s.hasher.Hash(password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}

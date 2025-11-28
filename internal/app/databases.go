@@ -1,8 +1,8 @@
 package app
 
 import (
-	"github.com/travisbale/heimdall/crypto/aes"
 	"github.com/travisbale/heimdall/internal/db/postgres"
+	"github.com/travisbale/knowhere/crypto/aes"
 )
 
 // databases holds all database access layer instances

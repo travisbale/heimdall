@@ -26,7 +26,7 @@ func NewSessionsHandler(config *Config) *SessionsHandler {
 
 // ListSessions returns all active sessions for the authenticated user
 func (h *SessionsHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -56,7 +56,7 @@ func (h *SessionsHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 
 // RevokeSession revokes a specific session by ID
 func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}
@@ -98,7 +98,7 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 
 // RevokeAllSessions revokes all sessions for the authenticated user (sign out everywhere)
 func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getAuthenticatedUserID(w, r)
+	userID, ok := getAuthenticatedActorID(w, r)
 	if !ok {
 		return
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // RolesDB provides database operations for roles

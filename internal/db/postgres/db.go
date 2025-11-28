@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/travisbale/heimdall/identity"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // DB wraps the pgx connection pool
@@ -101,7 +101,8 @@ func (d *DB) withTenantTransaction(ctx context.Context, tenantID string, fn func
 	}
 	// Deferred rollback is safe even if transaction commits successfully
 	defer func() {
-		if err2 := tx.Rollback(ctx); err2 != nil {
+		// if commit is successful it returns ErrTxClosed which we ignore
+		if err2 := tx.Rollback(ctx); err2 != nil && err2 != pgx.ErrTxClosed {
 			slog.Error("failed to rollback transaction", "error", err2)
 		}
 	}()

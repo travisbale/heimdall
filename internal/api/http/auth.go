@@ -43,13 +43,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Authentication failed"})
-
 		case errors.Is(err, iam.ErrEmailNotVerified):
 			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Please verify your email address before logging in"})
-
 		case errors.Is(err, iam.ErrAccountLocked):
 			respondJSON(w, http.StatusTooManyRequests, sdk.ErrorResponse{Error: "Too many failed login attempts. Please try again later."})
-
 		default:
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to authenticate user"})
 		}

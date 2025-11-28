@@ -91,28 +91,27 @@ func NewHTTPClient(baseURL string, opts ...Option) (*HTTPClient, error) {
 	return client, nil
 }
 
-// Health checks the health of the heimdall API
-// Uses HEAD request which doesn't return a body, status code indicates health
-func (c *HTTPClient) Health(ctx context.Context) (*HealthResponse, error) {
+// Health checks the health of the heimdall API.
+// Returns nil if healthy, error if unhealthy or unreachable.
+func (c *HTTPClient) Health(ctx context.Context) error {
 	endpoint := fmt.Sprintf("%s%s", c.baseURL, RouteHealth)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	// HEAD returns no body, check status code
-	if resp.StatusCode == http.StatusOK {
-		return &HealthResponse{Status: "healthy"}, nil
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("service unhealthy: status %d", resp.StatusCode)
 	}
 
-	return &HealthResponse{Status: "unhealthy"}, nil
+	return nil
 }
 
 // Login authenticates a user and returns an access token

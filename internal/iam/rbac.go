@@ -76,16 +76,16 @@ func NewRBACService(config *RBACServiceConfig) *RBACService {
 }
 
 // GetUserScopes returns all effective permission scopes for a user
-func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sdk.Scope, error) {
+func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error) {
 	permissions, err := s.permissionsDB.GetUserPermissions(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
 
 	// Build permission map: once denied, cannot be allowed
-	permMap := make(map[sdk.Scope]bool)
+	permMap := make(map[Scope]bool)
 	for _, perm := range permissions {
-		scope := sdk.Scope(perm.Permission.Name)
+		scope := Scope(perm.Permission.Name)
 		if perm.Effect == sdk.PermissionDeny {
 			permMap[scope] = false
 		} else {
@@ -96,7 +96,7 @@ func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]sd
 		}
 	}
 
-	result := make([]sdk.Scope, 0, len(permMap))
+	result := make([]Scope, 0, len(permMap))
 	for scope, allowed := range permMap {
 		if allowed {
 			result = append(result, scope)

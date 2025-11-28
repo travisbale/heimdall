@@ -7,9 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/travisbale/heimdall/http/middleware"
-	"github.com/travisbale/heimdall/jwt"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/clog"
+	"github.com/travisbale/knowhere/identity"
+	"github.com/travisbale/knowhere/jwt"
 )
 
 type Server struct {
@@ -37,12 +39,12 @@ func NewServer(config *Config) *Server {
 
 	// Global middleware
 	r.Use(chimiddleware.Recoverer)
-	r.Use(chimiddleware.RequestID)
-	r.Use(middleware.ClientIP(config.TrustedProxyMode))
-	r.Use(middleware.UserAgent)
+	r.Use(identity.RequestID)
+	r.Use(identity.ClientIP(config.TrustedProxyMode))
+	r.Use(identity.UserAgent)
 
 	// Set the logging middleware last so context is enriched
-	r.Use(middleware.Logger(config.Logger))
+	r.Use(clog.Middleware(config.Logger))
 
 	// CORS enabled only when origins specified (browser-based clients require this)
 	if len(config.CORSAllowedOrigins) > 0 {
@@ -97,33 +99,33 @@ func NewServer(config *Config) *Server {
 	})
 
 	// OIDC provider management
-	r.With(require(sdk.ScopeOIDCCreate)).Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateOIDCProvider)
-	r.With(require(sdk.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListOIDCProviders)
-	r.With(require(sdk.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetOIDCProvider)
-	r.With(require(sdk.ScopeOIDCUpdate)).Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateOIDCProvider)
-	r.With(require(sdk.ScopeOIDCDelete)).Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteOIDCProvider)
+	r.With(require(iam.ScopeOIDCCreate)).Post(sdk.RouteV1OAuthProviders, oidcProvidersHandler.CreateOIDCProvider)
+	r.With(require(iam.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProviders, oidcProvidersHandler.ListOIDCProviders)
+	r.With(require(iam.ScopeOIDCRead)).Get(sdk.RouteV1OAuthProvider, oidcProvidersHandler.GetOIDCProvider)
+	r.With(require(iam.ScopeOIDCUpdate)).Put(sdk.RouteV1OAuthProvider, oidcProvidersHandler.UpdateOIDCProvider)
+	r.With(require(iam.ScopeOIDCDelete)).Delete(sdk.RouteV1OAuthProvider, oidcProvidersHandler.DeleteOIDCProvider)
 
 	// RBAC - Permissions
-	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Permissions, rbacHandler.ListPermissions)
+	r.With(require(iam.ScopeRoleRead)).Get(sdk.RouteV1Permissions, rbacHandler.ListPermissions)
 
 	// RBAC - Roles
-	r.With(require(sdk.ScopeRoleCreate)).Post(sdk.RouteV1Roles, rbacHandler.CreateRole)
-	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Roles, rbacHandler.ListRoles)
-	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1Role, rbacHandler.GetRole)
-	r.With(require(sdk.ScopeRoleUpdate)).Put(sdk.RouteV1Role, rbacHandler.UpdateRole)
-	r.With(require(sdk.ScopeRoleDelete)).Delete(sdk.RouteV1Role, rbacHandler.DeleteRole)
+	r.With(require(iam.ScopeRoleCreate)).Post(sdk.RouteV1Roles, rbacHandler.CreateRole)
+	r.With(require(iam.ScopeRoleRead)).Get(sdk.RouteV1Roles, rbacHandler.ListRoles)
+	r.With(require(iam.ScopeRoleRead)).Get(sdk.RouteV1Role, rbacHandler.GetRole)
+	r.With(require(iam.ScopeRoleUpdate)).Put(sdk.RouteV1Role, rbacHandler.UpdateRole)
+	r.With(require(iam.ScopeRoleDelete)).Delete(sdk.RouteV1Role, rbacHandler.DeleteRole)
 
 	// RBAC - Role permissions
-	r.With(require(sdk.ScopeRoleRead)).Get(sdk.RouteV1RolePermissions, rbacHandler.GetRolePermissions)
-	r.With(require(sdk.ScopeRoleUpdate)).Put(sdk.RouteV1RolePermissions, rbacHandler.SetRolePermissions)
+	r.With(require(iam.ScopeRoleRead)).Get(sdk.RouteV1RolePermissions, rbacHandler.GetRolePermissions)
+	r.With(require(iam.ScopeRoleUpdate)).Put(sdk.RouteV1RolePermissions, rbacHandler.SetRolePermissions)
 
 	// RBAC - User roles
-	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserRoles, rbacHandler.GetUserRoles)
-	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserRoles, rbacHandler.SetUserRoles)
+	r.With(require(iam.ScopeUserRead)).Get(sdk.RouteV1UserRoles, rbacHandler.GetUserRoles)
+	r.With(require(iam.ScopeUserAssign)).Put(sdk.RouteV1UserRoles, rbacHandler.SetUserRoles)
 
 	// RBAC - User direct permissions
-	r.With(require(sdk.ScopeUserRead)).Get(sdk.RouteV1UserPermissions, rbacHandler.GetDirectPermissions)
-	r.With(require(sdk.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
+	r.With(require(iam.ScopeUserRead)).Get(sdk.RouteV1UserPermissions, rbacHandler.GetDirectPermissions)
+	r.With(require(iam.ScopeUserAssign)).Put(sdk.RouteV1UserPermissions, rbacHandler.SetDirectPermissions)
 
 	// MFA management endpoints
 	r.With(auth).Post(sdk.RouteV1MFASetup, mfaHandler.Setup)

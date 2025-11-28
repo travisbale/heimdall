@@ -115,8 +115,11 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password,
 		return err
 	}
 
-	if err := s.hasher.VerifyPassword(password, user.PasswordHash); err != nil {
-		return ErrInvalidCredentials
+	if err := s.hasher.Verify(password, user.PasswordHash); err != nil {
+		if errors.Is(err, ErrMismatchedHash) {
+			return ErrInvalidCredentials
+		}
+		return fmt.Errorf("failed to verify password: %w", err)
 	}
 
 	err = s.verifyMFA(ctx, userID, code)
@@ -144,8 +147,11 @@ func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	if err := s.hasher.VerifyPassword(password, user.PasswordHash); err != nil {
-		return nil, ErrInvalidCredentials
+	if err := s.hasher.Verify(password, user.PasswordHash); err != nil {
+		if errors.Is(err, ErrMismatchedHash) {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 
 	if err := s.backupCodesDB.DeleteByUserID(ctx, userID); err != nil {
@@ -214,14 +220,11 @@ func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code strin
 	}
 
 	for _, backupCode := range backupCodes {
-		err := s.hasher.VerifyPassword(code, backupCode.CodeHash)
-		if err != nil {
-			switch {
-			case errors.Is(err, ErrInvalidCredentials):
+		if err := s.hasher.Verify(code, backupCode.CodeHash); err != nil {
+			if errors.Is(err, ErrMismatchedHash) {
 				continue
-			default:
-				return fmt.Errorf("failed to verify backup code: %w", err)
 			}
+			return fmt.Errorf("failed to verify backup code: %w", err)
 		}
 
 		if err := s.backupCodesDB.MarkUsed(ctx, backupCode.ID); err != nil {
@@ -249,7 +252,7 @@ func (s *MFAService) generateBackupCodes() (codes []string, hashes []string, err
 		code := fmt.Sprintf("%08d", n.Int64())
 		codes[i] = code
 
-		hash, err := s.hasher.HashPassword(code)
+		hash, err := s.hasher.Hash(code)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to hash backup code: %w", err)
 		}
