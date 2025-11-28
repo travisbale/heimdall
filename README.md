@@ -14,6 +14,8 @@ Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the 
 - **JWT Authentication** - RSA-signed tokens with user and tenant claims
 - **Password Security** - Argon2id hashing with OWASP-recommended parameters
 - **Multi-Factor Authentication (MFA)** - TOTP-based MFA with backup codes for enhanced security
+- **Trusted Devices** - Users can mark devices as trusted to skip MFA (30-day sliding window)
+- **Required MFA Enforcement** - Roles can require MFA; users are guided through setup on first login
 - **Session Management** - List active sessions, revoke individual sessions, or sign out everywhere
 - **Refresh Token Rotation** - Family-based tracking with automatic theft detection
 - **Email Verification** - Registration flow with email verification via mailman
@@ -150,17 +152,19 @@ docker run -p 8080:8080 -p 9090:9090 \
 
 **Multi-Factor Authentication (MFA):**
 
-- `POST /v1/mfa/verify` - Verify MFA code during login
+- `POST /v1/mfa/verify` - Verify MFA code during login (can trust device)
 - `POST /v1/mfa/setup` - Initiate MFA setup (returns QR code and backup codes)
 - `POST /v1/mfa/enable` - Enable MFA after validating TOTP code
 - `DELETE /v1/mfa/disable` - Disable MFA (requires password and TOTP/backup code)
 - `POST /v1/mfa/backup-codes/regenerate` - Regenerate backup codes (requires password)
 - `GET /v1/mfa/status` - Get MFA status and remaining backup codes
+- `POST /v1/mfa/required-setup` - Start MFA setup when role requires it (uses setup token)
+- `POST /v1/mfa/required-enable` - Enable MFA and complete login flow
 
 **OAuth/OIDC Authentication:**
 
 - `POST /v1/oauth/login` - Start individual OAuth login (Google, Microsoft, GitHub)
-- `POST /v1/oauth/sso` - Start corporate SSO login by email domain
+- `POST /v1/sso/login` - Start corporate SSO login by email domain
 - `GET /v1/oauth/callback` - OAuth callback endpoint (handles both flows)
 
 **OIDC Provider Management** (requires authentication):
@@ -229,30 +233,22 @@ Automated dependency updates run weekly for:
 ```txt
 heimdall/
 ├── cmd/heimdall/          # CLI commands (start, migrate, cleanup, version)
-├── crypto/                # Cryptographic utilities
-│   ├── aes/              # AES encryption for sensitive data
-│   └── argon2/           # Argon2id password hashing
-├── identity/              # Tenant context utilities
 ├── internal/
 │   ├── api/              # HTTP and gRPC handlers
 │   │   ├── http/         # HTTP REST API handlers (auth, MFA, OIDC, RBAC, sessions)
 │   │   └── grpc/         # gRPC service implementation
 │   ├── app/              # Server setup and lifecycle
-│   ├── auth/             # Authentication/authorization domain models and services
-│   ├── iam/              # Identity services (AuthService, SessionService)
+│   ├── iam/              # Identity and access management (all business logic)
 │   ├── events/           # Event constants for structured logging and audit trails
 │   ├── db/postgres/      # Database layer with RLS
-│   │   ├── migrations/   # SQL schema migrations
+│   │   ├── migrations/   # SQL schema migrations (001-006)
 │   │   ├── queries/      # SQL queries (input to sqlc)
 │   │   └── internal/sqlc/# Generated type-safe queries
 │   ├── email/            # Email service integrations
-│   │   ├── mailman/      # Mailman gRPC client
-│   │   └── console/      # Console email stub (development)
+│   │   └── mailman/      # Mailman gRPC client
 │   ├── mfa/              # Multi-Factor Authentication utilities
 │   │   └── totp/         # TOTP verification logic
-│   ├── oidc/             # OIDC provider implementations
-│   └── pb/               # Generated protobuf code
-├── jwt/                   # JWT token issuance and validation
+│   └── oidc/             # OIDC provider implementations
 ├── sdk/                   # Client SDK and route definitions
 ├── proto/                 # Protocol Buffer definitions
 ├── .github/
@@ -261,6 +257,12 @@ heimdall/
 ├── Dockerfile             # Multi-stage Docker build
 ├── Makefile               # Build commands
 └── sqlc.yaml              # sqlc configuration
+
+# Shared utilities in github.com/travisbale/knowhere:
+#   - clog/     (structured logging)
+#   - crypto/   (AES, Argon2, token generation)
+#   - identity/ (context helpers, request ID, client IP)
+#   - jwt/      (JWT issuance and validation)
 ```
 
 ## Security Considerations
@@ -282,6 +284,14 @@ Refresh tokens use family-based rotation to detect and respond to token theft:
 4. Separate logins create independent families, so one compromised session doesn't affect others
 
 This provides defense-in-depth: even if an attacker steals a refresh token, using it after the legitimate user refreshes will invalidate all tokens in that family.
+
+### Trusted Device Security
+
+Trusted devices allow users to skip MFA on recognized devices:
+- Device tokens are hashed (SHA-256) before storage
+- Tokens have 30-day expiration with sliding window (extends on use)
+- Automatically revoked on: sign out everywhere, password change, token reuse detection
+- Token prefix (`hmdl_device_`) enables secret scanning detection
 
 ### Multi-Tenant Isolation
 
@@ -317,15 +327,23 @@ Environment variables:
 - `DATABASE_URL` - PostgreSQL connection string
 - `HTTP_ADDRESS` - HTTP server address (default: `:8080`)
 - `GRPC_ADDRESS` - gRPC server address (default: `:9090`)
+- `JWT_ISSUER` - JWT issuer name (default: `heimdall`)
 - `JWT_PRIVATE_KEY_PATH` - Path to RSA private key (PEM format)
 - `JWT_PUBLIC_KEY_PATH` - Path to RSA public key (PEM format)
 - `JWT_EXPIRATION` - Refresh token lifetime (default: `24h`)
 - `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
 - `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
+- `UATU_GRPC_ADDRESS` - Uatu audit logging gRPC address (default: `localhost:9091`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
+- `TRUSTED_PROXY_MODE` - Enable IP extraction from X-Forwarded-For headers (default: `false`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 - `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets, MFA TOTP secrets)
 - `TOTP_PERIOD` - TOTP time window in seconds (default: `30`)
+
+**OAuth Provider Configuration** (optional):
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - Google OAuth credentials
+- `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` - Microsoft OAuth credentials
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth credentials
 
 ## License
 
