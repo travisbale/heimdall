@@ -76,12 +76,12 @@ func (r *LoginAttemptsDB) GetMostRecentLockout(ctx context.Context, email string
 	return lockedUntil, err
 }
 
-// DeleteOldLoginAttempts cleans up old audit data (recommended: retain 30-90 days for compliance)
-func (r *LoginAttemptsDB) DeleteOldLoginAttempts(ctx context.Context, olderThan time.Time) error {
+// DeleteLoginAttempts removes all login attempts for a user after successful authentication
+func (r *LoginAttemptsDB) DeleteLoginAttempts(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		err := q.DeleteOldLoginAttempts(ctx, olderThan)
+		err := q.DeleteLoginAttempts(ctx, &userID)
 		if err != nil {
-			return fmt.Errorf("failed to delete old login attempts: %w", err)
+			return fmt.Errorf("failed to delete login attempts: %w", err)
 		}
 		return nil
 	})

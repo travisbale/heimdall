@@ -13,7 +13,7 @@ import (
 
 type loginAttemptsService interface {
 	RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, lastLoginAt *time.Time) error
-	RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID) error
+	RecordSuccessfulLogin(ctx context.Context, userID uuid.UUID) error
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 
@@ -81,9 +81,9 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 
-	// Record successful login
-	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, email, &user.ID); err != nil {
-		s.logger.ErrorContext(ctx, "failed to record successful login", "email", email, "error", err)
+	// Clear failed login attempts after successful authentication
+	if err := s.loginAttemptsService.RecordSuccessfulLogin(ctx, user.ID); err != nil {
+		s.logger.ErrorContext(ctx, "failed to clear login attempts", "user_id", user.ID, "error", err)
 	}
 
 	if err = s.userDB.UpdateLastLogin(ctx, user.ID); err != nil {

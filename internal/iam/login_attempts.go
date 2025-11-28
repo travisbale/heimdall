@@ -14,8 +14,6 @@ const (
 	lockoutDuration2 = 15 * time.Minute // 10 failed attempts
 	lockoutDuration3 = 1 * time.Hour    // 15 failed attempts
 	lockoutDuration4 = 24 * time.Hour   // 20 failed attempts
-
-	loginAttemptsRetentionPeriod = 7 * 24 * time.Hour // 7 days
 )
 
 // loginAttemptsDB defines the data access interface for login attempts
@@ -23,7 +21,7 @@ type loginAttemptsDB interface {
 	RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, lockedUntil *time.Time) error
 	GetRecentFailedAttempts(ctx context.Context, email string, since time.Time) (int64, error)
 	GetMostRecentLockout(ctx context.Context, email string) (*time.Time, error)
-	DeleteOldLoginAttempts(ctx context.Context, olderThan time.Time) error
+	DeleteLoginAttempts(ctx context.Context, userID uuid.UUID) error
 }
 
 // LoginAttemptsService handles login attempt tracking and account lockout logic
@@ -97,14 +95,11 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 	return s.db.RecordAttempt(ctx, email, userID, lockedUntil)
 }
 
-// RecordSuccessfulLogin performs cleanup of old login attempts
-func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID) error {
-	cutoffTime := time.Now().Add(-loginAttemptsRetentionPeriod)
-
-	// Delete login attempts older than the retention period
-	err := s.db.DeleteOldLoginAttempts(ctx, cutoffTime)
+// RecordSuccessfulLogin clears failed login attempts for the user
+func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, userID uuid.UUID) error {
+	err := s.db.DeleteLoginAttempts(ctx, userID)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to cleanup old login attempts", "error", err)
+		s.logger.ErrorContext(ctx, "failed to delete login attempts", "error", err)
 	}
 
 	return nil

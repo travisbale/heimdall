@@ -12,15 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
-const deleteOldLoginAttempts = `-- name: DeleteOldLoginAttempts :exec
+const deleteLoginAttempts = `-- name: DeleteLoginAttempts :exec
 DELETE FROM login_attempts
-WHERE attempted_at < $1
+WHERE user_id = $1
 `
 
-// Cleanup query to delete login attempts older than the specified time
-// Should be run periodically (e.g., daily via cron job)
-func (q *Queries) DeleteOldLoginAttempts(ctx context.Context, attemptedAt time.Time) error {
-	_, err := q.db.Exec(ctx, deleteOldLoginAttempts, attemptedAt)
+// Delete all login attempts for a user after successful login
+// Failed attempts are no longer relevant once the user has authenticated
+func (q *Queries) DeleteLoginAttempts(ctx context.Context, userID *uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteLoginAttempts, userID)
 	return err
 }
 

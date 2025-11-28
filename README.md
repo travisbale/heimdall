@@ -7,6 +7,8 @@
 
 Authentication and authorization service written in Go. Handles user accounts, password hashing (Argon2), JWT issuance and validation, and multi-tenant access control for all tenant applications.
 
+Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the all-seeing guardian of the Bifröst who protects the realms from unwanted intrusion.
+
 ## Features
 
 - **JWT Authentication** - RSA-signed tokens with user and tenant claims

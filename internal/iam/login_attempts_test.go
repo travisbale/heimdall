@@ -17,7 +17,7 @@ type mockLoginAttemptsDB struct {
 	lockoutError      error
 	recordedAttempts  []recordedAttempt
 	recordError       error
-	deletedOlderThan  *time.Time
+	deletedUserID     *uuid.UUID
 	deleteError       error
 }
 
@@ -53,11 +53,11 @@ func (m *mockLoginAttemptsDB) GetMostRecentLockout(ctx context.Context, email st
 	return m.mostRecentLockout, nil
 }
 
-func (m *mockLoginAttemptsDB) DeleteOldLoginAttempts(ctx context.Context, olderThan time.Time) error {
+func (m *mockLoginAttemptsDB) DeleteLoginAttempts(ctx context.Context, userID uuid.UUID) error {
 	if m.deleteError != nil {
 		return m.deleteError
 	}
-	m.deletedOlderThan = &olderThan
+	m.deletedUserID = &userID
 	return nil
 }
 
@@ -345,24 +345,22 @@ func TestRecordFailedLogin_DatabaseError(t *testing.T) {
 
 // RecordSuccessfulLogin Tests
 
-func TestRecordSuccessfulLogin_DeletesOldAttempts(t *testing.T) {
+func TestRecordSuccessfulLogin_DeletesAttempts(t *testing.T) {
 	service, db := createTestLoginAttemptsService()
 	ctx := context.Background()
 
-	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil)
+	userID := uuid.New()
+	err := service.RecordSuccessfulLogin(ctx, userID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if db.deletedOlderThan == nil {
-		t.Fatal("expected DeleteOldLoginAttempts to be called")
+	if db.deletedUserID == nil {
+		t.Fatal("expected DeleteLoginAttempts to be called")
 	}
 
-	// Should delete attempts older than 7 days
-	expectedCutoff := time.Now().Add(-7 * 24 * time.Hour)
-	timeDiff := db.deletedOlderThan.Sub(expectedCutoff).Abs()
-	if timeDiff > 1*time.Second {
-		t.Errorf("expected cutoff ~7 days ago, got %v", db.deletedOlderThan)
+	if *db.deletedUserID != userID {
+		t.Errorf("expected userID %v, got %v", userID, *db.deletedUserID)
 	}
 }
 
@@ -373,7 +371,7 @@ func TestRecordSuccessfulLogin_DatabaseError_LogsButSucceeds(t *testing.T) {
 	db.deleteError = ErrUserNotFound
 
 	// Should not return error even if cleanup fails
-	err := service.RecordSuccessfulLogin(ctx, "user@example.com", nil)
+	err := service.RecordSuccessfulLogin(ctx, uuid.New())
 	if err != nil {
 		t.Errorf("expected no error (cleanup failure should be logged), got %v", err)
 	}
@@ -424,26 +422,31 @@ func TestLoginAttemptsFlow_ProgressiveLockout(t *testing.T) {
 	}
 }
 
-func TestLoginAttemptsFlow_SuccessfulLoginResetsLockout(t *testing.T) {
+func TestLoginAttemptsFlow_SuccessfulLoginClearsAttempts(t *testing.T) {
 	service, db := createTestLoginAttemptsService()
 	ctx := context.Background()
 
 	email := "user@example.com"
+	userID := uuid.New()
 
 	// Record failed attempts
 	db.recentFailedCount = 4
-	err := service.RecordFailedLogin(ctx, email, nil, nil)
+	err := service.RecordFailedLogin(ctx, email, &userID, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Successful login should cleanup old attempts
-	err = service.RecordSuccessfulLogin(ctx, email, nil)
+	// Successful login should clear all attempts for this user
+	err = service.RecordSuccessfulLogin(ctx, userID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if db.deletedOlderThan == nil {
+	if db.deletedUserID == nil {
 		t.Error("expected cleanup to be triggered on successful login")
+	}
+
+	if *db.deletedUserID != userID {
+		t.Errorf("expected userID %v, got %v", userID, *db.deletedUserID)
 	}
 }

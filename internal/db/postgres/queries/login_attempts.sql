@@ -23,8 +23,8 @@ WHERE email = $1
 ORDER BY attempted_at DESC
 LIMIT 1;
 
--- name: DeleteOldLoginAttempts :exec
--- Cleanup query to delete login attempts older than the specified time
--- Should be run periodically (e.g., daily via cron job)
+-- name: DeleteLoginAttempts :exec
+-- Delete all login attempts for a user after successful login
+-- Failed attempts are no longer relevant once the user has authenticated
 DELETE FROM login_attempts
-WHERE attempted_at < $1;
+WHERE user_id = $1;

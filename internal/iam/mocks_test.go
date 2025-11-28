@@ -677,11 +677,11 @@ func (m *mockLoginAttemptsService) RecordFailedLogin(ctx context.Context, email 
 	return nil
 }
 
-func (m *mockLoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, email string, userID *uuid.UUID) error {
+func (m *mockLoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, userID uuid.UUID) error {
 	if m.recordSuccessError != nil {
 		return m.recordSuccessError
 	}
-	m.successfulAttempts = append(m.successfulAttempts, email)
+	m.successfulAttempts = append(m.successfulAttempts, userID.String())
 	return nil
 }
 
