@@ -39,15 +39,10 @@ func NewOIDCProviderService(config *OIDCProviderServiceConfig) *OIDCProviderServ
 	}
 }
 
-// getCallbackURL returns the full OAuth callback URL
-func (s *OIDCProviderService) getCallbackURL() string {
-	return s.publicURL + sdk.RouteV1OAuthCallback
-}
-
 // CreateOIDCProvider creates a new OIDC provider configuration manually or dynamically
 func (s *OIDCProviderService) CreateOIDCProvider(ctx context.Context, provider *OIDCProviderConfig, accessToken string) (*OIDCProviderConfig, error) {
 	if len(provider.Scopes) == 0 {
-		provider.Scopes = defaultOIDCScopes
+		provider.Scopes = defaultOIDCScopes()
 	}
 
 	if provider.ClientID != "" && provider.ClientSecret != "" {
@@ -92,7 +87,7 @@ func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, pro
 	}
 
 	// Perform dynamic client registration (RFC 7591)
-	callbackURL := s.getCallbackURL()
+	callbackURL := oauthCallbackURL(s.publicURL)
 	clientName := fmt.Sprintf("Heimdall - %s", provider.ProviderName)
 
 	registration, err := s.registrationClient.Register(ctx, metadata.RegistrationEndpoint, callbackURL, clientName, accessToken, provider.Scopes)

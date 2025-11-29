@@ -74,7 +74,7 @@ func (s *SessionService) StoreSession(ctx context.Context, rt *RefreshToken) err
 		return fmt.Errorf("failed to store session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "session stored", "user_id", rt.UserID, "user_agent", rt.UserAgent)
+	s.logger.InfoContext(ctx, events.SessionCreated, "user_id", rt.UserID, "user_agent", rt.UserAgent)
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (s *SessionService) RevokeSession(ctx context.Context, sessionID uuid.UUID)
 		return fmt.Errorf("failed to revoke session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "session revoked", "session_id", sessionID)
+	s.logger.InfoContext(ctx, events.SessionRevoked, "session_id", sessionID)
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (s *SessionService) RevokeSessionByToken(ctx context.Context, refreshToken 
 		return fmt.Errorf("failed to revoke session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "session revoked by token")
+	s.logger.InfoContext(ctx, events.SessionRevoked)
 	return nil
 }
 
@@ -160,7 +160,7 @@ func (s *SessionService) RevokeAllSessions(ctx context.Context, userID uuid.UUID
 		return fmt.Errorf("failed to revoke all sessions: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "all sessions revoked", "user_id", userID)
+	s.logger.InfoContext(ctx, events.AllSessionsRevoked, "user_id", userID)
 	return nil
 }
 
@@ -170,6 +170,6 @@ func (s *SessionService) DeleteExpiredSessions(ctx context.Context) error {
 		return fmt.Errorf("failed to delete expired sessions: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "expired sessions deleted")
+	s.logger.InfoContext(ctx, events.ExpiredSessionsDeleted)
 	return nil
 }

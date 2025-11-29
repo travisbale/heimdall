@@ -44,8 +44,10 @@ const (
 
 // Session Info Events
 const (
+	SessionCreated          = "session_created"
 	SessionRevoked          = "session_revoked"
 	AllSessionsRevoked      = "all_sessions_revoked"
+	ExpiredSessionsDeleted  = "expired_sessions_deleted"
 	SessionValidationFailed = "session_validation_failed"
 	TokenReuseDetected      = "token_reuse_detected"
 )

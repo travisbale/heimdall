@@ -59,11 +59,6 @@ func NewOIDCAuthService(config *OIDCAuthServiceConfig) *OIDCAuthService {
 	}
 }
 
-// getCallbackURL returns the full OAuth callback URL
-func (s *OIDCAuthService) getCallbackURL() string {
-	return s.publicURL + sdk.RouteV1OAuthCallback
-}
-
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)
 func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (string, error) {
 	domain, err := extractEmailDomain(email)
@@ -112,7 +107,7 @@ func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (stri
 		CodeVerifier:   codeVerifier,
 		OIDCProviderID: &providerConfig.ID, // Corporate SSO - reference provider config
 		ProviderType:   nil,                // Not a system-wide provider
-		RedirectURI:    s.getCallbackURL(),
+		RedirectURI:    oauthCallbackURL(s.publicURL),
 		TenantID:       &providerConfig.TenantID, // Corporate SSO - store tenant ID
 		ExpiresAt:      time.Now().Add(oidcSessionExpiration),
 	}
@@ -157,7 +152,7 @@ func (s *OIDCAuthService) StartOIDCLogin(ctx context.Context, providerType sdk.O
 		CodeVerifier:   codeVerifier,
 		OIDCProviderID: nil,           // Not a tenant-specific provider
 		ProviderType:   &providerType, // System-wide provider (Google, GitHub, etc.)
-		RedirectURI:    s.getCallbackURL(),
+		RedirectURI:    oauthCallbackURL(s.publicURL),
 		TenantID:       nil, // Tenant determined during callback
 		ExpiresAt:      time.Now().Add(oidcSessionExpiration),
 	}

@@ -9,11 +9,20 @@ import (
 	"github.com/travisbale/heimdall/internal/events"
 )
 
+// Lockout thresholds - number of failed attempts before lockout kicks in
 const (
-	lockoutDuration1 = 5 * time.Minute  // 5 failed attempts
-	lockoutDuration2 = 15 * time.Minute // 10 failed attempts
-	lockoutDuration3 = 1 * time.Hour    // 15 failed attempts
-	lockoutDuration4 = 24 * time.Hour   // 20 failed attempts
+	lockoutThreshold1 = 5
+	lockoutThreshold2 = 10
+	lockoutThreshold3 = 15
+	lockoutThreshold4 = 20
+)
+
+// Lockout durations - how long the account is locked at each threshold
+const (
+	lockoutDuration1 = 5 * time.Minute
+	lockoutDuration2 = 15 * time.Minute
+	lockoutDuration3 = 1 * time.Hour
+	lockoutDuration4 = 24 * time.Hour
 )
 
 // loginAttemptsDB defines the data access interface for login attempts
@@ -71,20 +80,18 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 	// Progressive lockout: longer delays after repeated failures
 	var lockedUntil *time.Time
 	switch failedCount {
-	case 5:
+	case lockoutThreshold1:
 		t := time.Now().Add(lockoutDuration1)
 		lockedUntil = &t
-	case 10:
+	case lockoutThreshold2:
 		t := time.Now().Add(lockoutDuration2)
 		lockedUntil = &t
-	case 15:
+	case lockoutThreshold3:
 		t := time.Now().Add(lockoutDuration3)
 		lockedUntil = &t
-	case 20:
+	case lockoutThreshold4:
 		t := time.Now().Add(lockoutDuration4)
 		lockedUntil = &t
-	default:
-		lockedUntil = nil // Not a threshold - no lockout
 	}
 
 	// Log account lockout events
