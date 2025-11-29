@@ -32,7 +32,6 @@ type authService interface {
 	Logout(ctx context.Context, refreshToken string) error
 	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
-	CreateTrustedDevice(ctx context.Context, device *iam.TrustedDevice) (string, error)
 }
 
 // sessionService defines the interface for session management operations

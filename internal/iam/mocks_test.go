@@ -383,6 +383,7 @@ func (m *mockLogger) InfoContext(ctx context.Context, msg string, args ...any)  
 func (m *mockLogger) WarnContext(ctx context.Context, msg string, args ...any)  {}
 func (m *mockLogger) ErrorContext(ctx context.Context, msg string, args ...any) {}
 func (m *mockLogger) DebugContext(ctx context.Context, msg string, args ...any) {}
+func (m *mockLogger) AuditContext(ctx context.Context, msg string, args ...any) {}
 
 // RBAC Mock implementations
 

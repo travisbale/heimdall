@@ -147,7 +147,7 @@ func (s *AuthService) AuthenticateWithMFA(ctx context.Context, challengeToken, c
 	}
 
 	// Set tenant context from token for RLS-protected operations
-	ctx = identity.WithTenant(ctx, claims.TenantID)
+	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
 
 	if err := s.mfaService.VerifyCode(ctx, claims.UserID, code); err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func (s *AuthService) SetupRequiredMFA(ctx context.Context, setupToken string) (
 	}
 
 	// Set tenant context from token for RLS-protected operations
-	ctx = identity.WithTenant(ctx, claims.TenantID)
+	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
 
 	return s.mfaService.SetupMFA(ctx, claims.UserID)
 }
@@ -203,13 +203,13 @@ func (s *AuthService) EnableRequiredMFA(ctx context.Context, setupToken, code st
 	}
 
 	// Set tenant context from token for RLS-protected operations
-	ctx = identity.WithTenant(ctx, claims.TenantID)
+	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
 
 	if err := s.mfaService.EnableMFA(ctx, claims.UserID, code); err != nil {
 		return nil, err
 	}
 
-	s.logger.InfoContext(ctx, events.MFAEnabled, "user_id", claims.UserID, "required", true)
+	s.logger.InfoContext(ctx, events.MFAEnabled, "required", true)
 
 	return s.issueMFAChallenge(claims.TenantID, claims.UserID)
 }
@@ -228,7 +228,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	}
 
 	// Set tenant context from token for RLS-protected operations
-	ctx = identity.WithTenant(ctx, claims.TenantID)
+	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
 
 	oldSession, err := s.sessionService.RotateSession(ctx, refreshToken)
 	if err != nil {
@@ -251,7 +251,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		return fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	ctx = identity.WithTenant(ctx, claims.TenantID)
+	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
 	return s.sessionService.RevokeSessionByToken(ctx, refreshToken)
 }
 
@@ -283,7 +283,6 @@ func (s *AuthService) SignOutEverywhere(ctx context.Context, userID uuid.UUID) e
 // ChangePassword orchestrates password change with security side effects.
 // Revokes all trusted devices after password change.
 func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
-	// Delegate password validation/update to PasswordService
 	if err := s.passwordChangeService.ChangePassword(ctx, userID, oldPassword, newPassword); err != nil {
 		return err
 	}
@@ -314,15 +313,6 @@ func (s *AuthService) HandleTokenReuse(ctx context.Context, userID uuid.UUID) {
 	}
 }
 
-// CreateTrustedDevice creates a new trusted device for the user.
-// Called after successful MFA verification when user opts to trust the device.
-func (s *AuthService) CreateTrustedDevice(ctx context.Context, device *TrustedDevice) (string, error) {
-	if s.trustedDeviceService == nil {
-		return "", fmt.Errorf("trusted device service not configured")
-	}
-	return s.trustedDeviceService.CreateTrustedDevice(ctx, device)
-}
-
 // ============================================================================
 // Private helpers - Authentication flow internals
 // ============================================================================
@@ -330,7 +320,7 @@ func (s *AuthService) CreateTrustedDevice(ctx context.Context, device *TrustedDe
 // completeAuthentication checks MFA status and either issues tokens or requires MFA
 func (s *AuthService) completeAuthentication(ctx context.Context, user *User, deviceToken string) (*SessionTokens, error) {
 	// Set tenant context for RLS-protected operations
-	ctx = identity.WithTenant(ctx, user.TenantID)
+	ctx = identity.WithActor(ctx, user.TenantID, user.ID)
 
 	mfaEnabled, err := s.mfaService.IsMFAEnabled(ctx, user.ID)
 	if err != nil {
@@ -343,9 +333,7 @@ func (s *AuthService) completeAuthentication(ctx context.Context, user *User, de
 			ipAddress := identity.GetIPAddress(ctx)
 			trusted, err := s.trustedDeviceService.ValidateTrustedDevice(ctx, deviceToken, user.ID, ipAddress)
 			if err == nil && trusted {
-				s.logger.InfoContext(ctx, events.MFASkippedTrustedDevice,
-					"user_id", user.ID,
-					"ip_address", ipAddress)
+				s.logger.InfoContext(ctx, events.MFASkippedTrustedDevice)
 				return s.createSession(ctx, user.TenantID, user.ID)
 			}
 		}
@@ -360,7 +348,7 @@ func (s *AuthService) completeAuthentication(ctx context.Context, user *User, de
 	}
 
 	if rolesRequireMFA {
-		s.logger.InfoContext(ctx, events.MFASetupRequired, "user_id", user.ID)
+		s.logger.InfoContext(ctx, events.MFASetupRequired)
 		return s.issueMFASetupChallenge(user.TenantID, user.ID)
 	}
 
@@ -430,6 +418,9 @@ func (s *AuthService) createSessionFamily(ctx context.Context, familyID, tenantI
 	if err := s.sessionService.StoreSession(ctx, rt); err != nil {
 		return nil, fmt.Errorf("failed to store session: %w", err)
 	}
+
+	// Log successful authentication - user is now fully authenticated
+	s.logger.AuditContext(ctx, events.LoginSucceeded)
 
 	return &SessionTokens{
 		AccessToken:       accessToken,

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
@@ -38,7 +38,7 @@ func NewServer(config *Config) *Server {
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(chimiddleware.Recoverer)
+	r.Use(middleware.Recoverer)
 	r.Use(identity.RequestID)
 	r.Use(identity.ClientIP(config.TrustedProxyMode))
 	r.Use(identity.UserAgent)

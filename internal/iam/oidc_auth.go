@@ -270,8 +270,6 @@ func (s *OIDCAuthService) handleExistingSSOUser(ctx context.Context, link *OIDCL
 		return nil, nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.SSOLoginSucceeded, "user_id", user.ID, "email", user.Email, "provider_id", link.OIDCProviderID)
-
 	return user, link, nil
 }
 
@@ -360,7 +358,6 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 
 	// Handle existing user login
 	if existingUser != nil {
-		s.logger.InfoContext(ctx, events.OAuthLoginSucceeded, "user_id", existingUser.ID, "email", existingUser.Email, "provider_type", *session.ProviderType)
 		return existingUser, nil
 	}
 

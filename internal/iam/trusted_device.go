@@ -69,10 +69,7 @@ func (s *TrustedDeviceService) CreateTrustedDevice(ctx context.Context, device *
 		return "", fmt.Errorf("failed to create trusted device: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.TrustedDeviceCreated,
-		"user_id", device.UserID,
-		"tenant_id", device.TenantID,
-		"ip_address", device.IPAddress)
+	s.logger.InfoContext(ctx, events.TrustedDeviceCreated)
 
 	return fullToken, nil
 }

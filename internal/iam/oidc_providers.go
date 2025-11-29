@@ -74,7 +74,11 @@ func (s *OIDCProviderService) createManualOIDCProvider(ctx context.Context, prov
 		return nil, err
 	}
 
-	s.logger.InfoContext(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "manual")
+	s.logger.AuditContext(ctx, events.OIDCProviderCreated,
+		"provider_id", provider.ID,
+		"provider_name", provider.ProviderName,
+		"registration_method", "manual",
+	)
 
 	return provider, nil
 }
@@ -124,7 +128,11 @@ func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, pro
 		return nil, err
 	}
 
-	s.logger.InfoContext(ctx, events.OIDCProviderCreated, "provider_id", provider.ID, "provider_name", provider.ProviderName, "registration_method", "dynamic")
+	s.logger.AuditContext(ctx, events.OIDCProviderCreated,
+		"provider_id", provider.ID,
+		"provider_name", provider.ProviderName,
+		"registration_method", "dynamic",
+	)
 
 	return provider, nil
 }
@@ -146,7 +154,7 @@ func (s *OIDCProviderService) UpdateOIDCProvider(ctx context.Context, params *Up
 		return nil, err
 	}
 
-	s.logger.InfoContext(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
+	s.logger.AuditContext(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
 
 	return provider, nil
 }
@@ -173,7 +181,7 @@ func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID
 		return err
 	}
 
-	s.logger.InfoContext(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
+	s.logger.AuditContext(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
 
 	return nil
 }

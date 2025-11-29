@@ -32,7 +32,7 @@ func MetadataInterceptor() grpc.UnaryServerInterceptor {
 			if tenantID, err := uuid.Parse(vals[0]); err == nil {
 				if actorVals := md.Get(headerActorID); len(actorVals) > 0 {
 					if actorID, err := uuid.Parse(actorVals[0]); err == nil {
-						ctx = identity.WithActor(ctx, actorID, tenantID)
+						ctx = identity.WithActor(ctx, tenantID, actorID)
 					}
 				} else {
 					ctx = identity.WithTenant(ctx, tenantID)

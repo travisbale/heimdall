@@ -94,8 +94,6 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 		return nil, ErrEmailNotVerified
 	}
 
-	s.logger.InfoContext(ctx, events.LoginSucceeded, "user_id", user.ID, "email", email)
-
 	return user, nil
 }
 
