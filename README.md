@@ -42,7 +42,7 @@ Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the 
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - PostgreSQL 16+
 - protoc (Protocol Buffers compiler)
 - golangci-lint
@@ -259,10 +259,12 @@ heimdall/
 └── sqlc.yaml              # sqlc configuration
 
 # Shared utilities in github.com/travisbale/knowhere:
-#   - clog/     (structured logging)
-#   - crypto/   (AES, Argon2, token generation)
-#   - identity/ (context helpers, request ID, client IP)
-#   - jwt/      (JWT issuance and validation)
+#   - clog/        (structured logging middleware)
+#   - crypto/      (AES, Argon2, password validation, token generation)
+#   - db/          (database migrations)
+#   - db/postgres/ (generic PostgreSQL connection pool with tenant context)
+#   - identity/    (context helpers, request ID, client IP, tenant extraction)
+#   - jwt/         (JWT issuance and validation)
 ```
 
 ## Security Considerations
