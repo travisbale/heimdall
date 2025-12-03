@@ -32,22 +32,8 @@ type trustedDeviceDB interface {
 
 // TrustedDeviceService manages trusted device operations
 type TrustedDeviceService struct {
-	trustedDeviceDB trustedDeviceDB
-	logger          logger
-}
-
-// TrustedDeviceServiceConfig contains dependencies for TrustedDeviceService
-type TrustedDeviceServiceConfig struct {
 	TrustedDeviceDB trustedDeviceDB
 	Logger          logger
-}
-
-// NewTrustedDeviceService creates a new trusted device service
-func NewTrustedDeviceService(config *TrustedDeviceServiceConfig) *TrustedDeviceService {
-	return &TrustedDeviceService{
-		trustedDeviceDB: config.TrustedDeviceDB,
-		logger:          config.Logger,
-	}
 }
 
 // CreateTrustedDevice creates a new trusted device entry and returns the raw token.
@@ -64,12 +50,12 @@ func (s *TrustedDeviceService) CreateTrustedDevice(ctx context.Context, device *
 	device.TokenHash = token.Hash(fullToken)
 	device.ExpiresAt = time.Now().Add(DeviceTrustDays * 24 * time.Hour)
 
-	_, err = s.trustedDeviceDB.Create(ctx, device)
+	_, err = s.TrustedDeviceDB.Create(ctx, device)
 	if err != nil {
 		return "", fmt.Errorf("failed to create trusted device: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.TrustedDeviceCreated)
+	s.Logger.InfoContext(ctx, events.TrustedDeviceCreated)
 
 	return fullToken, nil
 }
@@ -81,7 +67,7 @@ func (s *TrustedDeviceService) ValidateTrustedDevice(ctx context.Context, device
 	}
 
 	tokenHash := token.Hash(deviceToken)
-	device, err := s.trustedDeviceDB.GetByTokenHash(ctx, tokenHash)
+	device, err := s.TrustedDeviceDB.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
 		// Not found or expired = not trusted, not an error
 		return false, nil
@@ -94,8 +80,8 @@ func (s *TrustedDeviceService) ValidateTrustedDevice(ctx context.Context, device
 
 	// Update last used and extend expiration (sliding window)
 	newExpiry := time.Now().Add(DeviceTrustDays * 24 * time.Hour)
-	if err := s.trustedDeviceDB.UpdateLastUsed(ctx, device.ID, newExpiry, ipAddress); err != nil {
-		s.logger.ErrorContext(ctx, "failed to update trusted device last used", "error", err)
+	if err := s.TrustedDeviceDB.UpdateLastUsed(ctx, device.ID, newExpiry, ipAddress); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to update trusted device last used", "error", err)
 		// Non-fatal: continue even if update fails
 	}
 
@@ -104,20 +90,20 @@ func (s *TrustedDeviceService) ValidateTrustedDevice(ctx context.Context, device
 
 // RevokeAllTrustedDevices revokes all trusted devices for a user
 func (s *TrustedDeviceService) RevokeAllTrustedDevices(ctx context.Context, userID uuid.UUID) error {
-	if err := s.trustedDeviceDB.RevokeAllByUserID(ctx, userID); err != nil {
+	if err := s.TrustedDeviceDB.RevokeAllByUserID(ctx, userID); err != nil {
 		return fmt.Errorf("failed to revoke trusted devices: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.TrustedDeviceAllRevoked, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.TrustedDeviceAllRevoked, "user_id", userID)
 	return nil
 }
 
 // DeleteExpiredDevices cleans up expired and old revoked devices
 func (s *TrustedDeviceService) DeleteExpiredDevices(ctx context.Context) error {
-	if err := s.trustedDeviceDB.DeleteExpired(ctx); err != nil {
+	if err := s.TrustedDeviceDB.DeleteExpired(ctx); err != nil {
 		return fmt.Errorf("failed to delete expired devices: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "expired trusted devices deleted")
+	s.Logger.InfoContext(ctx, "expired trusted devices deleted")
 	return nil
 }

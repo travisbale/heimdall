@@ -11,20 +11,10 @@ import (
 
 // MFAHandler handles MFA HTTP requests
 type MFAHandler struct {
-	mfaService    mfaService
-	authService   authService
-	secureCookies bool
-	logger        logger
-}
-
-// NewMFAHandler creates a new MFAHandler
-func NewMFAHandler(config *Config) *MFAHandler {
-	return &MFAHandler{
-		mfaService:    config.MFAService,
-		authService:   config.AuthService,
-		secureCookies: config.SecureCookies(),
-		logger:        config.Logger,
-	}
+	MFAService    mfaService
+	AuthService   authService
+	SecureCookies bool
+	Logger        logger
 }
 
 // Setup initiates MFA setup by generating secret, QR code, and backup codes
@@ -34,13 +24,13 @@ func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enrollment, err := h.mfaService.SetupMFA(r.Context(), userID)
+	enrollment, err := h.MFAService.SetupMFA(r.Context(), userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
 		default:
-			h.logger.ErrorContext(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
+			h.Logger.ErrorContext(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to setup MFA"})
 		}
 		return
@@ -65,7 +55,7 @@ func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.mfaService.EnableMFA(r.Context(), userID, req.Code)
+	err := h.MFAService.EnableMFA(r.Context(), userID, req.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidMFACode):
@@ -95,7 +85,7 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.mfaService.DisableMFA(r.Context(), userID, req.Password, req.Code)
+	err := h.MFAService.DisableMFA(r.Context(), userID, req.Password, req.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -122,7 +112,7 @@ func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := h.mfaService.GetStatus(r.Context(), userID)
+	status, err := h.MFAService.GetStatus(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, iam.ErrMFANotEnabled) {
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA is not enabled"})
@@ -150,7 +140,7 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	codes, err := h.mfaService.RegenerateBackupCodes(r.Context(), userID, req.Password)
+	codes, err := h.MFAService.RegenerateBackupCodes(r.Context(), userID, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -175,9 +165,9 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code, req.TrustDevice)
+	tokens, err := h.AuthService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code, req.TrustDevice)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), events.MFAVerificationFailed, "error", err.Error())
+		h.Logger.WarnContext(r.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
 		case errors.Is(err, iam.ErrInvalidChallengeToken):
 			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired challenge token"})
@@ -197,7 +187,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.InfoContext(r.Context(), events.MFAVerificationSuccess)
+	h.Logger.InfoContext(r.Context(), events.MFAVerificationSuccess)
 
 	// Set device trust cookie if a device token was generated
 	if tokens.DeviceToken != "" {
@@ -206,13 +196,13 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Value:    tokens.DeviceToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   h.secureCookies,
+			Secure:   h.SecureCookies,
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   30 * 24 * 60 * 60, // 30 days
 		})
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }
 
 // RequiredSetup handles MFA setup when user's role requires MFA but they haven't set it up.
@@ -223,7 +213,7 @@ func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enrollment, err := h.authService.SetupRequiredMFA(r.Context(), req.SetupToken)
+	enrollment, err := h.AuthService.SetupRequiredMFA(r.Context(), req.SetupToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidSetupToken):
@@ -231,7 +221,7 @@ func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			respondJSON(w, http.StatusConflict, sdk.ErrorResponse{Error: "MFA is already enabled"})
 		default:
-			h.logger.ErrorContext(r.Context(), "failed to setup required MFA", "error", err)
+			h.Logger.ErrorContext(r.Context(), "failed to setup required MFA", "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to setup MFA"})
 		}
 		return
@@ -252,7 +242,7 @@ func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.EnableRequiredMFA(r.Context(), req.SetupToken, req.Code)
+	tokens, err := h.AuthService.EnableRequiredMFA(r.Context(), req.SetupToken, req.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidSetupToken):
@@ -264,11 +254,11 @@ func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFANotEnabled):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "MFA setup not found. Please start MFA setup first."})
 		default:
-			h.logger.ErrorContext(r.Context(), "failed to enable required MFA", "error", err)
+			h.Logger.ErrorContext(r.Context(), "failed to enable required MFA", "error", err)
 			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to enable MFA"})
 		}
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }

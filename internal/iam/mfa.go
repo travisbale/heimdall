@@ -33,7 +33,8 @@ type mfaBackupCodesDB interface {
 	CountUnused(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
-type MFAServiceConfig struct {
+// MFAService manages multi-factor authentication
+type MFAService struct {
 	MFASettingsDB mfaSettingsDB
 	BackupCodesDB mfaBackupCodesDB
 	UsersDB       userDB
@@ -42,43 +43,21 @@ type MFAServiceConfig struct {
 	Logger        logger
 }
 
-// MFAService manages multi-factor authentication
-type MFAService struct {
-	mfaSettingsDB mfaSettingsDB
-	backupCodesDB mfaBackupCodesDB
-	usersDB       userDB
-	verifier      mfaVerifier
-	hasher        hasher
-	logger        logger
-}
-
 const backupCodeCount = 10
-
-// NewMFAService creates a new MFA service
-func NewMFAService(config *MFAServiceConfig) *MFAService {
-	return &MFAService{
-		mfaSettingsDB: config.MFASettingsDB,
-		backupCodesDB: config.BackupCodesDB,
-		usersDB:       config.UsersDB,
-		verifier:      config.Verifier,
-		hasher:        config.Hasher,
-		logger:        config.Logger,
-	}
-}
 
 // SetupMFA initiates MFA setup by generating secret, QR code, and backup codes
 func (s *MFAService) SetupMFA(ctx context.Context, userID uuid.UUID) (*MFAEnrollment, error) {
-	settings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
+	settings, err := s.MFASettingsDB.GetByUserID(ctx, userID)
 	if err == nil && settings.VerifiedAt != nil {
 		return nil, ErrMFAAlreadyEnabled
 	}
 
-	user, err := s.usersDB.GetUser(ctx, userID)
+	user, err := s.UsersDB.GetUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	setupResp, err := s.verifier.Setup(ctx, userID, user.Email)
+	setupResp, err := s.Verifier.Setup(ctx, userID, user.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -88,34 +67,34 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uuid.UUID) (*MFAEnroll
 		return nil, err
 	}
 
-	if err := s.backupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
+	if err := s.BackupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
 		return nil, err
 	}
 
 	setupResp.BackupCodes = backupCodes
-	s.logger.InfoContext(ctx, events.MFASetupStarted, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.MFASetupStarted, "user_id", userID)
 
 	return setupResp, nil
 }
 
 // EnableMFA validates MFA setup code and enables MFA
 func (s *MFAService) EnableMFA(ctx context.Context, userID uuid.UUID, code string) error {
-	if err := s.verifier.Enable(ctx, userID, code); err != nil {
+	if err := s.Verifier.Enable(ctx, userID, code); err != nil {
 		return err
 	}
 
-	s.logger.InfoContext(ctx, events.MFAEnabled, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.MFAEnabled, "user_id", userID)
 	return nil
 }
 
 // DisableMFA disables MFA for a user (requires password and TOTP/backup code)
 func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password, code string) error {
-	user, err := s.usersDB.GetUser(ctx, userID)
+	user, err := s.UsersDB.GetUser(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.hasher.Verify(password, user.PasswordHash); err != nil {
+	if err := s.Hasher.Verify(password, user.PasswordHash); err != nil {
 		if errors.Is(err, ErrMismatchedHash) {
 			return ErrInvalidCredentials
 		}
@@ -128,33 +107,33 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password,
 	}
 
 	// Delete MFA settings and backup codes
-	if err := s.mfaSettingsDB.Delete(ctx, userID); err != nil {
+	if err := s.MFASettingsDB.Delete(ctx, userID); err != nil {
 		return err
 	}
 
-	if err := s.backupCodesDB.DeleteByUserID(ctx, userID); err != nil {
+	if err := s.BackupCodesDB.DeleteByUserID(ctx, userID); err != nil {
 		return err
 	}
 
-	s.logger.InfoContext(ctx, events.MFADisabled, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.MFADisabled, "user_id", userID)
 	return nil
 }
 
 // RegenerateBackupCodes generates new backup codes (requires password)
 func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID, password string) ([]string, error) {
-	user, err := s.usersDB.GetUser(ctx, userID)
+	user, err := s.UsersDB.GetUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.hasher.Verify(password, user.PasswordHash); err != nil {
+	if err := s.Hasher.Verify(password, user.PasswordHash); err != nil {
 		if errors.Is(err, ErrMismatchedHash) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 
-	if err := s.backupCodesDB.DeleteByUserID(ctx, userID); err != nil {
+	if err := s.BackupCodesDB.DeleteByUserID(ctx, userID); err != nil {
 		return nil, err
 	}
 
@@ -163,17 +142,17 @@ func (s *MFAService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	if err := s.backupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
+	if err := s.BackupCodesDB.CreateBatch(ctx, userID, codeHashes); err != nil {
 		return nil, err
 	}
 
-	s.logger.InfoContext(ctx, events.BackupCodesRegenerated, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.BackupCodesRegenerated, "user_id", userID)
 	return backupCodes, nil
 }
 
 // IsMFAEnabled returns whether MFA is enabled for a user
 func (s *MFAService) IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
-	settings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
+	settings, err := s.MFASettingsDB.GetByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, ErrMFANotEnabled) {
 			return false, nil
@@ -185,12 +164,12 @@ func (s *MFAService) IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, 
 
 // GetStatus returns MFA status for a user (for UI display)
 func (s *MFAService) GetStatus(ctx context.Context, userID uuid.UUID) (*MFAStatus, error) {
-	settings, err := s.mfaSettingsDB.GetByUserID(ctx, userID)
+	settings, err := s.MFASettingsDB.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	count, err := s.backupCodesDB.CountUnused(ctx, userID)
+	count, err := s.BackupCodesDB.CountUnused(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -208,30 +187,30 @@ func (s *MFAService) VerifyCode(ctx context.Context, userID uuid.UUID, code stri
 
 // verifyMFA tries TOTP code first, then backup code
 func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code string) error {
-	err := s.verifier.Verify(ctx, userID, code)
+	err := s.Verifier.Verify(ctx, userID, code)
 	if !errors.Is(err, ErrInvalidMFACode) {
 		return err
 	}
 
 	// MFA code was invalid, try backup codes
-	backupCodes, err := s.backupCodesDB.GetUnusedByUserID(ctx, userID)
+	backupCodes, err := s.BackupCodesDB.GetUnusedByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
 	for _, backupCode := range backupCodes {
-		if err := s.hasher.Verify(code, backupCode.CodeHash); err != nil {
+		if err := s.Hasher.Verify(code, backupCode.CodeHash); err != nil {
 			if errors.Is(err, ErrMismatchedHash) {
 				continue
 			}
 			return fmt.Errorf("failed to verify backup code: %w", err)
 		}
 
-		if err := s.backupCodesDB.MarkUsed(ctx, backupCode.ID); err != nil {
+		if err := s.BackupCodesDB.MarkUsed(ctx, backupCode.ID); err != nil {
 			return err
 		}
 
-		s.logger.InfoContext(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", backupCode.ID)
+		s.Logger.InfoContext(ctx, events.BackupCodeUsed, "user_id", userID, "backup_code_id", backupCode.ID)
 		return nil
 	}
 
@@ -252,7 +231,7 @@ func (s *MFAService) generateBackupCodes() (codes []string, hashes []string, err
 		code := fmt.Sprintf("%08d", n.Int64())
 		codes[i] = code
 
-		hash, err := s.hasher.Hash(code)
+		hash, err := s.Hasher.Hash(code)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to hash backup code: %w", err)
 		}

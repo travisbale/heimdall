@@ -11,17 +11,9 @@ import (
 
 // OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
 type OIDCAuthHandler struct {
-	oidcAuthService oidcAuthService
-	authService     authService
-	secureCookies   bool
-}
-
-func NewOIDCAuthHandler(config *Config) *OIDCAuthHandler {
-	return &OIDCAuthHandler{
-		oidcAuthService: config.OIDCAuthService,
-		authService:     config.AuthService,
-		secureCookies:   config.SecureCookies(),
-	}
+	OIDCAuthService oidcAuthService
+	AuthService     authService
+	SecureCookies   bool
 }
 
 // Login initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
@@ -32,7 +24,7 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start individual OAuth login flow using system-wide provider configuration
-	authURL, err := h.oidcAuthService.StartOIDCLogin(r.Context(), req.ProviderType)
+	authURL, err := h.OIDCAuthService.StartOIDCLogin(r.Context(), req.ProviderType)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
@@ -56,7 +48,7 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start corporate SSO login flow using tenant-specific provider
-	authURL, err := h.oidcAuthService.StartSSOLogin(r.Context(), req.Email)
+	authURL, err := h.OIDCAuthService.StartSSOLogin(r.Context(), req.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):
@@ -98,7 +90,7 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Exchange code for tokens, fetch user info, create/link account, and create session
-	tokens, err := h.authService.AuthenticateWithOIDC(r.Context(), state, code)
+	tokens, err := h.AuthService.AuthenticateWithOIDC(r.Context(), state, code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCSessionNotFound):
@@ -122,5 +114,5 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }

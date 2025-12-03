@@ -11,19 +11,12 @@ import (
 
 // RBACHandler handles RBAC operations
 type RBACHandler struct {
-	rbacService rbacService
-}
-
-// NewRBACHandler creates a new RBAC handler
-func NewRBACHandler(config *Config) *RBACHandler {
-	return &RBACHandler{
-		rbacService: config.RBACService,
-	}
+	RBACService rbacService
 }
 
 // ListPermissions retrieves all system permissions
 func (h *RBACHandler) ListPermissions(w http.ResponseWriter, r *http.Request) {
-	permissions, err := h.rbacService.ListPermissions(r.Context())
+	permissions, err := h.RBACService.ListPermissions(r.Context())
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to list permissions"})
 		return
@@ -52,7 +45,7 @@ func (h *RBACHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 		MFARequired: req.MFARequired,
 	}
 
-	role, err := h.rbacService.CreateRole(r.Context(), role)
+	role, err := h.RBACService.CreateRole(r.Context(), role)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to create role"})
 		return
@@ -72,7 +65,7 @@ func (h *RBACHandler) GetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.rbacService.GetRole(r.Context(), req.RoleID)
+	role, err := h.RBACService.GetRole(r.Context(), req.RoleID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
@@ -88,7 +81,7 @@ func (h *RBACHandler) GetRole(w http.ResponseWriter, r *http.Request) {
 
 // ListRoles retrieves all roles for the tenant
 func (h *RBACHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
-	roles, err := h.rbacService.ListRoles(r.Context())
+	roles, err := h.RBACService.ListRoles(r.Context())
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to list roles"})
 		return
@@ -126,7 +119,7 @@ func (h *RBACHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		MFARequired: req.MFARequired,
 	}
 
-	role, err := h.rbacService.UpdateRole(r.Context(), params)
+	role, err := h.RBACService.UpdateRole(r.Context(), params)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
@@ -151,7 +144,7 @@ func (h *RBACHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.rbacService.DeleteRole(r.Context(), req.RoleID); err != nil {
+	if err := h.RBACService.DeleteRole(r.Context(), req.RoleID); err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
 			respondJSON(w, http.StatusNotFound, sdk.ErrorResponse{Error: "Role not found"})
@@ -175,7 +168,7 @@ func (h *RBACHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	permissions, err := h.rbacService.GetRolePermissions(r.Context(), req.RoleID)
+	permissions, err := h.RBACService.GetRolePermissions(r.Context(), req.RoleID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get role permissions"})
 		return
@@ -205,7 +198,7 @@ func (h *RBACHandler) SetRolePermissions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.rbacService.SetRolePermissions(r.Context(), req.RoleID, req.PermissionIDs); err != nil {
+	if err := h.RBACService.SetRolePermissions(r.Context(), req.RoleID, req.PermissionIDs); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to set role permissions"})
 		return
 	}
@@ -227,7 +220,7 @@ func (h *RBACHandler) SetUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.rbacService.SetUserRoles(r.Context(), req.UserID, req.RoleIDs); err != nil {
+	if err := h.RBACService.SetUserRoles(r.Context(), req.UserID, req.RoleIDs); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to set user roles"})
 		return
 	}
@@ -246,7 +239,7 @@ func (h *RBACHandler) GetUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roles, err := h.rbacService.GetUserRoles(r.Context(), req.UserID)
+	roles, err := h.RBACService.GetUserRoles(r.Context(), req.UserID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get user roles"})
 		return
@@ -285,7 +278,7 @@ func (h *RBACHandler) SetDirectPermissions(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if err := h.rbacService.SetDirectPermissions(r.Context(), req.UserID, authPerms); err != nil {
+	if err := h.RBACService.SetDirectPermissions(r.Context(), req.UserID, authPerms); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to set user permissions"})
 		return
 	}
@@ -304,7 +297,7 @@ func (h *RBACHandler) GetDirectPermissions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	permissions, err := h.rbacService.GetDirectPermissions(r.Context(), req.UserID)
+	permissions, err := h.RBACService.GetDirectPermissions(r.Context(), req.UserID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to get user permissions"})
 		return

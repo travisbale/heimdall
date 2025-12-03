@@ -31,7 +31,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 	// Wire up dependencies so BootstrapTenant can properly update shared mocks
 	tenantsDB.setDependencies(userDB)
 
-	service := NewUserService(&UserServiceConfig{
+	service := &UserService{
 		UserDB:              userDB,
 		TenantsDB:           tenantsDB,
 		Hasher:              hasher,
@@ -40,7 +40,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 		OIDCService:         oidcService,
 		RBACService:         rbacService,
 		Logger:              &mockLogger{},
-	})
+	}
 
 	return &userServiceTestFixture{
 		service:             service,

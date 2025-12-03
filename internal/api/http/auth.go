@@ -13,16 +13,8 @@ const deviceTrustCookie = "device_trust"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
-	authService   authService
-	secureCookies bool
-}
-
-// NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(config *Config) *AuthHandler {
-	return &AuthHandler{
-		authService:   config.AuthService,
-		secureCookies: config.SecureCookies(),
-	}
+	AuthService   authService
+	SecureCookies bool
 }
 
 // Login handles user login
@@ -38,7 +30,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		deviceToken = cookie.Value
 	}
 
-	tokens, err := h.authService.AuthenticateWithPassword(r.Context(), req.Email, req.Password, deviceToken)
+	tokens, err := h.AuthService.AuthenticateWithPassword(r.Context(), req.Email, req.Password, deviceToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -53,7 +45,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }
 
 // Logout handles user logout by revoking tokens
@@ -64,7 +56,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authService.Logout(r.Context(), cookie.Value); err != nil {
+	if err := h.AuthService.Logout(r.Context(), cookie.Value); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke session"})
 		return
 	}
@@ -80,7 +72,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Path:     cookiePath,
 		MaxAge:   -1, // Deletes the cookie
 		HttpOnly: true,
-		Secure:   h.secureCookies,
+		Secure:   h.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -97,11 +89,11 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.RefreshSession(r.Context(), cookie.Value)
+	tokens, err := h.AuthService.RefreshSession(r.Context(), cookie.Value)
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }

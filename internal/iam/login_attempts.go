@@ -35,21 +35,13 @@ type loginAttemptsDB interface {
 
 // LoginAttemptsService handles login attempt tracking and account lockout logic
 type LoginAttemptsService struct {
-	db     loginAttemptsDB
-	logger logger
-}
-
-// NewLoginAttemptsService creates a new login attempts service
-func NewLoginAttemptsService(db loginAttemptsDB, logger logger) *LoginAttemptsService {
-	return &LoginAttemptsService{
-		db:     db,
-		logger: logger,
-	}
+	DB     loginAttemptsDB
+	Logger logger
 }
 
 // IsAccountLocked checks if an email is currently locked out and when the lock expires
 func (s *LoginAttemptsService) IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error) {
-	lockedUntil, err := s.db.GetMostRecentLockout(ctx, email)
+	lockedUntil, err := s.DB.GetMostRecentLockout(ctx, email)
 	if err != nil {
 		return false, time.Time{}, fmt.Errorf("failed to get recent lockout: %w", err)
 	}
@@ -71,7 +63,7 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 		windowStart = *lastLoginAt
 	}
 
-	failedCount, err := s.db.GetRecentFailedAttempts(ctx, email, windowStart)
+	failedCount, err := s.DB.GetRecentFailedAttempts(ctx, email, windowStart)
 	if err != nil {
 		return fmt.Errorf("failed to get recent attempts: %w", err)
 	}
@@ -96,17 +88,17 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 
 	// Log account lockout events
 	if lockedUntil != nil {
-		s.logger.InfoContext(ctx, events.AccountLocked, "email", email, "failed_count", failedCount, "locked_until", lockedUntil)
+		s.Logger.InfoContext(ctx, events.AccountLocked, "email", email, "failed_count", failedCount, "locked_until", lockedUntil)
 	}
 
-	return s.db.RecordAttempt(ctx, email, userID, lockedUntil)
+	return s.DB.RecordAttempt(ctx, email, userID, lockedUntil)
 }
 
 // RecordSuccessfulLogin clears failed login attempts for the user
 func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, userID uuid.UUID) error {
-	err := s.db.DeleteLoginAttempts(ctx, userID)
+	err := s.DB.DeleteLoginAttempts(ctx, userID)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to delete login attempts", "error", err)
+		s.Logger.ErrorContext(ctx, "failed to delete login attempts", "error", err)
 	}
 
 	return nil

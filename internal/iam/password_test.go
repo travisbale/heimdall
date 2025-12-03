@@ -25,14 +25,14 @@ func newPasswordServiceTestFixture() *passwordServiceTestFixture {
 	passwordResetTokenDB := newMockTokenDB()
 	loginAttempts := &mockLoginAttemptsService{}
 
-	service := NewPasswordService(&PasswordServiceConfig{
+	service := &PasswordService{
 		UserDB:               userDB,
 		Hasher:               hasher,
 		PasswordResetTokenDB: passwordResetTokenDB,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttempts,
 		Logger:               &mockLogger{},
-	})
+	}
 
 	return &passwordServiceTestFixture{
 		service:              service,

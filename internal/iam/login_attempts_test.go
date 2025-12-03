@@ -65,7 +65,10 @@ func (m *mockLoginAttemptsDB) DeleteLoginAttempts(ctx context.Context, userID uu
 func createTestLoginAttemptsService() (*LoginAttemptsService, *mockLoginAttemptsDB) {
 	db := &mockLoginAttemptsDB{}
 	logger := &mockLogger{}
-	service := NewLoginAttemptsService(db, logger)
+	service := &LoginAttemptsService{
+		DB:     db,
+		Logger: logger,
+	}
 	return service, db
 }
 

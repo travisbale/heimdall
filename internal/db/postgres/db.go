@@ -11,11 +11,6 @@ import (
 // DB is the database connection for heimdall
 type DB = postgres.DB[*sqlc.Queries]
 
-// queries wraps sqlc.New to satisfy the db.NewDB constructor signature
-func queries(d any) *sqlc.Queries {
-	return sqlc.New(d.(sqlc.DBTX))
-}
-
 // NewDB creates a new database connection pool
 func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	cfg := postgres.DefaultConfig()
@@ -24,6 +19,11 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		_, err := conn.LoadTypes(ctx, []string{"permission_effect", "_permission_effect"})
 		return err
+	}
+
+	// Wrap sqlc.New to satisfy the db.NewDB constructor signature
+	queries := func(d any) *sqlc.Queries {
+		return sqlc.New(d.(sqlc.DBTX))
 	}
 
 	return postgres.NewDB(ctx, databaseURL, queries, cfg)

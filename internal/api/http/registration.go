@@ -10,18 +10,9 @@ import (
 
 // RegistrationHandler handles user registration HTTP requests
 type RegistrationHandler struct {
-	userService   userService
-	authService   authService
-	secureCookies bool
-}
-
-// NewRegistrationHandler creates a new RegistrationHandler
-func NewRegistrationHandler(config *Config) *RegistrationHandler {
-	return &RegistrationHandler{
-		userService:   config.UserService,
-		authService:   config.AuthService,
-		secureCookies: config.SecureCookies(),
-	}
+	UserService   userService
+	AuthService   authService
+	SecureCookies bool
 }
 
 // Register handles user registration (email only, password set during verification)
@@ -31,7 +22,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.Register(r.Context(), req.Email)
+	user, err := h.UserService.Register(r.Context(), req.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrDuplicateEmail):
@@ -60,7 +51,7 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	tokens, err := h.authService.CompleteRegistration(r.Context(), req.Token, req.Password)
+	tokens, err := h.AuthService.CompleteRegistration(r.Context(), req.Token, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrVerificationTokenNotFound):
@@ -75,5 +66,5 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.secureCookies)
+	encodeSessionResponse(w, r, tokens, h.SecureCookies)
 }

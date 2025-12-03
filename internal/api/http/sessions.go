@@ -10,18 +10,9 @@ import (
 
 // SessionsHandler handles session management HTTP requests
 type SessionsHandler struct {
-	sessionService sessionService
-	authService    authService
-	secureCookies  bool
-}
-
-// NewSessionsHandler creates a new SessionsHandler
-func NewSessionsHandler(config *Config) *SessionsHandler {
-	return &SessionsHandler{
-		sessionService: config.SessionService,
-		authService:    config.AuthService,
-		secureCookies:  config.SecureCookies(),
-	}
+	SessionService sessionService
+	AuthService    authService
+	SecureCookies  bool
 }
 
 // ListSessions returns all active sessions for the authenticated user
@@ -31,7 +22,7 @@ func (h *SessionsHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessions, err := h.sessionService.ListSessions(r.Context(), userID)
+	sessions, err := h.SessionService.ListSessions(r.Context(), userID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to list sessions"})
 		return
@@ -69,7 +60,7 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify session belongs to user by listing their sessions first
-	sessions, err := h.sessionService.ListSessions(r.Context(), userID)
+	sessions, err := h.SessionService.ListSessions(r.Context(), userID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to verify session ownership"})
 		return
@@ -88,7 +79,7 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.sessionService.RevokeSession(r.Context(), sessionID); err != nil {
+	if err := h.SessionService.RevokeSession(r.Context(), sessionID); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke session"})
 		return
 	}
@@ -104,7 +95,7 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Use AuthService to revoke sessions and trusted devices
-	if err := h.authService.SignOutEverywhere(r.Context(), userID); err != nil {
+	if err := h.AuthService.SignOutEverywhere(r.Context(), userID); err != nil {
 		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke sessions"})
 		return
 	}
@@ -119,7 +110,7 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 		Value:    "",
 		Path:     refreshCookiePath,
 		HttpOnly: true,
-		Secure:   h.secureCookies,
+		Secure:   h.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
@@ -130,7 +121,7 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   h.secureCookies,
+		Secure:   h.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})

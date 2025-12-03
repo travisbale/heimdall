@@ -25,7 +25,7 @@ type Config struct {
 
 // Server implements gRPC UserService for internal service-to-service communication
 type Server struct {
-	Addr   string
+	addr   string
 	logger logger
 	*grpc.Server
 }
@@ -35,19 +35,21 @@ func NewServer(config *Config) *Server {
 		grpc.UnaryInterceptor(MetadataInterceptor()),
 	)
 
-	authHandler := NewAuthHandler(config.AuthService)
+	authHandler := &AuthHandler{
+		AuthService: config.AuthService,
+	}
 
 	pb.RegisterUserServiceServer(grpcServer, authHandler)
 
 	return &Server{
-		Addr:   config.Addr,
+		addr:   config.Addr,
 		logger: config.Logger,
 		Server: grpcServer,
 	}
 }
 
 func (s *Server) ListenAndServe() error {
-	listener, err := net.Listen("tcp", s.Addr)
+	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC listener: %w", err)
 	}

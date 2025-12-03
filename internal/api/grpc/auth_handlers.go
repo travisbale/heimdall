@@ -17,13 +17,7 @@ type authService interface {
 
 type AuthHandler struct {
 	pb.UnimplementedUserServiceServer
-	authService authService
-}
-
-func NewAuthHandler(authService authService) *AuthHandler {
-	return &AuthHandler{
-		authService: authService,
-	}
+	AuthService authService
 }
 
 // CreateUser implements the gRPC CreateUser endpoint
@@ -52,7 +46,7 @@ func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 		Email:    req.Email,
 	}
 
-	user, verificationToken, err := h.authService.CreateUser(ctx, user, roleIDs)
+	user, verificationToken, err := h.AuthService.CreateUser(ctx, user, roleIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}

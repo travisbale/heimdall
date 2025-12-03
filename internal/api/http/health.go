@@ -7,13 +7,7 @@ import (
 )
 
 type HealthHandler struct {
-	db database
-}
-
-func NewHealthHandler(config *Config) *HealthHandler {
-	return &HealthHandler{
-		db: config.Database,
-	}
+	DB database
 }
 
 // HandleHealth handles health check requests
@@ -22,7 +16,7 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	if err := h.db.Health(ctx); err != nil {
+	if err := h.DB.Health(ctx); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

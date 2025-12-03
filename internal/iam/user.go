@@ -22,8 +22,8 @@ type emailClient interface {
 	SendPasswordResetEmail(ctx context.Context, email, token string) error
 }
 
-// UserServiceConfig holds the dependencies for creating a UserService
-type UserServiceConfig struct {
+// UserService handles user registration, email verification, and user management
+type UserService struct {
 	UserDB              userDB
 	TenantsDB           tenantsDB
 	Hasher              hasher
@@ -34,34 +34,9 @@ type UserServiceConfig struct {
 	Logger              logger
 }
 
-// UserService handles user registration, email verification, and user management
-type UserService struct {
-	userDB              userDB
-	tenantsDB           tenantsDB
-	hasher              hasher
-	emailClient         emailClient
-	verificationTokenDB tokenDB
-	oidcService         oidcService
-	rbacService         rbacService
-	logger              logger
-}
-
-func NewUserService(config *UserServiceConfig) *UserService {
-	return &UserService{
-		userDB:              config.UserDB,
-		tenantsDB:           config.TenantsDB,
-		hasher:              config.Hasher,
-		emailClient:         config.EmailClient,
-		verificationTokenDB: config.VerificationTokenDB,
-		oidcService:         config.OIDCService,
-		rbacService:         config.RBACService,
-		logger:              config.Logger,
-	}
-}
-
 // CreateUser creates a new user and assigns specified roles
 func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid.UUID) (*User, string, error) {
-	ssoRequired, err := s.oidcService.IsSSORequired(ctx, user.Email)
+	ssoRequired, err := s.OIDCService.IsSSORequired(ctx, user.Email)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to check SSO requirement: %w", err)
 	}
@@ -73,7 +48,7 @@ func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid
 		user.Status = UserStatusUnverified
 	}
 
-	user, err = s.userDB.CreateUser(ctx, user)
+	user, err = s.UserDB.CreateUser(ctx, user)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
@@ -88,20 +63,20 @@ func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid
 	}
 
 	if len(roleIDs) > 0 {
-		err = s.rbacService.SetUserRoles(ctx, user.ID, roleIDs)
+		err = s.RBACService.SetUserRoles(ctx, user.ID, roleIDs)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to assign roles to user: %w", err)
 		}
 	}
 
-	s.logger.InfoContext(ctx, events.UserCreated, "user_id", user.ID, "email", user.Email, "status", user.Status)
+	s.Logger.InfoContext(ctx, events.UserCreated, "user_id", user.ID, "email", user.Email, "status", user.Status)
 
 	return user, verificationToken, nil
 }
 
 // Register creates new user with email verification, rejects SSO-enforced domains
 func (s *UserService) Register(ctx context.Context, email string) (*User, error) {
-	if required, err := s.oidcService.IsSSORequired(ctx, email); err != nil {
+	if required, err := s.OIDCService.IsSSORequired(ctx, email); err != nil {
 		return nil, err
 	} else if required {
 		return nil, ErrSSORequired
@@ -110,11 +85,11 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	var user *User
 
 	// Check if user already exists
-	user, err := s.userDB.GetUserByEmail(ctx, email)
+	user, err := s.UserDB.GetUserByEmail(ctx, email)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			_, user, err = s.tenantsDB.BootstrapTenant(ctx, email, UserStatusUnverified)
+			_, user, err = s.TenantsDB.BootstrapTenant(ctx, email, UserStatusUnverified)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 			}
@@ -124,7 +99,7 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 				return nil, err
 			}
 
-			if err := s.emailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
+			if err := s.EmailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
 				return nil, fmt.Errorf("failed to send verification email: %w", err)
 			}
 
@@ -145,23 +120,23 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	}
 
 	expiresAt := time.Now().Add(registrationTokenExpiration)
-	_, err = s.verificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
+	_, err = s.VerificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verification token: %w", err)
 	}
 
-	if err := s.emailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
+	if err := s.EmailClient.SendVerificationEmail(ctx, email, verificationToken); err != nil {
 		return nil, fmt.Errorf("failed to send verification email: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.UserRegistered, "user_id", user.ID, "email", email, "tenant_id", user.TenantID)
+	s.Logger.InfoContext(ctx, events.UserRegistered, "user_id", user.ID, "email", email, "tenant_id", user.TenantID)
 
 	return user, nil
 }
 
 // VerifyEmailAndSetPassword verifies the email verification token, sets the password, and activates the account
 func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr string, password string) (*User, error) {
-	verificationToken, err := s.verificationTokenDB.GetToken(ctx, tokenStr)
+	verificationToken, err := s.VerificationTokenDB.GetToken(ctx, tokenStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verification token: %w", err)
 	}
@@ -170,7 +145,7 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 		return nil, ErrVerificationTokenNotFound
 	}
 
-	user, err := s.userDB.GetUser(ctx, verificationToken.UserID)
+	user, err := s.UserDB.GetUser(ctx, verificationToken.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve user: %w", err)
 	}
@@ -179,13 +154,13 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 		return nil, ErrAccountAlreadyVerified
 	}
 
-	passwordHash, err := s.hasher.Hash(password)
+	passwordHash, err := s.Hasher.Hash(password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	activeStatus := UserStatusActive
-	user, err = s.userDB.UpdateUser(ctx, &UpdateUserParams{
+	user, err = s.UserDB.UpdateUser(ctx, &UpdateUserParams{
 		ID:           verificationToken.UserID,
 		PasswordHash: &passwordHash,
 		Status:       &activeStatus,
@@ -194,11 +169,11 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 		return nil, fmt.Errorf("failed to set password and activate account: %w", err)
 	}
 
-	if err := s.verificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
-		s.logger.ErrorContext(ctx, "failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
+	if err := s.VerificationTokenDB.DeleteToken(ctx, verificationToken.UserID); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to delete verification token", "error", err, "user_id", verificationToken.UserID)
 	}
 
-	s.logger.InfoContext(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
+	s.Logger.InfoContext(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
 	return user, nil
 }
@@ -210,7 +185,7 @@ func (s *UserService) createVerificationToken(ctx context.Context, userID uuid.U
 	}
 
 	expiresAt := time.Now().Add(registrationTokenExpiration)
-	_, err = s.verificationTokenDB.CreateToken(ctx, userID, verificationToken, expiresAt)
+	_, err = s.VerificationTokenDB.CreateToken(ctx, userID, verificationToken, expiresAt)
 	if err != nil {
 		return "", fmt.Errorf("failed to create verification token: %w", err)
 	}

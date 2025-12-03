@@ -18,15 +18,15 @@ func newTestOIDCServices(
 	factory *mockProviderFactory,
 	systemProviders map[sdk.OIDCProviderType]OIDCProvider,
 ) (*OIDCProviderService, *OIDCAuthService) {
-	providerService := NewOIDCProviderService(&OIDCProviderServiceConfig{
+	providerService := &OIDCProviderService{
 		OIDCProviderDB:     providerDB,
 		RegistrationClient: nil, // Not needed for these tests
 		ProviderFactory:    factory,
 		PublicURL:          "http://localhost:8080",
 		Logger:             &mockLogger{},
-	})
+	}
 
-	authService := NewOIDCAuthService(&OIDCAuthServiceConfig{
+	authService := &OIDCAuthService{
 		OIDCProviderService: providerService,
 		OIDCLinkDB:          linkDB,
 		OIDCSessionDB:       sessionDB,
@@ -36,7 +36,7 @@ func newTestOIDCServices(
 		ProviderFactory:     factory,
 		PublicURL:           "http://localhost:8080",
 		Logger:              &mockLogger{},
-	})
+	}
 
 	return providerService, authService
 }

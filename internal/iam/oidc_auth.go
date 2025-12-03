@@ -18,8 +18,8 @@ type oidcProviderLookup interface {
 	GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*OIDCProviderConfig, error)
 }
 
-// OIDCAuthServiceConfig holds the dependencies for creating an OIDCAuthService
-type OIDCAuthServiceConfig struct {
+// OIDCAuthService handles OAuth/SSO authentication flows
+type OIDCAuthService struct {
 	OIDCProviderService oidcProviderLookup
 	OIDCLinkDB          oidcLinkDB
 	OIDCSessionDB       oidcSessionDB
@@ -31,34 +31,6 @@ type OIDCAuthServiceConfig struct {
 	Logger              logger
 }
 
-// OIDCAuthService handles OAuth/SSO authentication flows
-type OIDCAuthService struct {
-	oidcProviderService oidcProviderLookup
-	oidcLinkDB          oidcLinkDB
-	oidcSessionDB       oidcSessionDB
-	userDB              userDB
-	tenantsDB           tenantsDB
-	systemProviders     map[sdk.OIDCProviderType]OIDCProvider
-	providerFactory     oidcProviderFactory
-	publicURL           string
-	logger              logger
-}
-
-// NewOIDCAuthService creates a new OIDCAuthService
-func NewOIDCAuthService(config *OIDCAuthServiceConfig) *OIDCAuthService {
-	return &OIDCAuthService{
-		oidcProviderService: config.OIDCProviderService,
-		oidcLinkDB:          config.OIDCLinkDB,
-		oidcSessionDB:       config.OIDCSessionDB,
-		userDB:              config.UserDB,
-		tenantsDB:           config.TenantsDB,
-		systemProviders:     config.SystemProviders,
-		providerFactory:     config.ProviderFactory,
-		publicURL:           config.PublicURL,
-		logger:              config.Logger,
-	}
-}
-
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)
 func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (string, error) {
 	domain, err := extractEmailDomain(email)
@@ -66,7 +38,7 @@ func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (stri
 		return "", fmt.Errorf("invalid email format: %w", err)
 	}
 
-	providerConfigs, err := s.oidcProviderService.GetOIDCProvidersByDomain(ctx, domain)
+	providerConfigs, err := s.OIDCProviderService.GetOIDCProvidersByDomain(ctx, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup SSO provider: %w", err)
 	}
@@ -78,7 +50,7 @@ func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (stri
 	// Use the first enabled provider config
 	providerConfig := providerConfigs[0]
 
-	provider, err := s.providerFactory.NewProvider(
+	provider, err := s.ProviderFactory.NewProvider(
 		ctx,
 		providerConfig.IssuerURL,
 		providerConfig.ClientID,
@@ -107,12 +79,12 @@ func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (stri
 		CodeVerifier:   codeVerifier,
 		OIDCProviderID: &providerConfig.ID, // Corporate SSO - reference provider config
 		ProviderType:   nil,                // Not a system-wide provider
-		RedirectURI:    oauthCallbackURL(s.publicURL),
+		RedirectURI:    oauthCallbackURL(s.PublicURL),
 		TenantID:       &providerConfig.TenantID, // Corporate SSO - store tenant ID
 		ExpiresAt:      time.Now().Add(oidcSessionExpiration),
 	}
 
-	_, err = s.oidcSessionDB.CreateOIDCSession(ctx, session)
+	_, err = s.OIDCSessionDB.CreateOIDCSession(ctx, session)
 	if err != nil {
 		return "", fmt.Errorf("failed to create OIDC session: %w", err)
 	}
@@ -129,7 +101,7 @@ func (s *OIDCAuthService) StartSSOLogin(ctx context.Context, email string) (stri
 // StartOIDCLogin initiates an OIDC login flow for individual OAuth registration
 func (s *OIDCAuthService) StartOIDCLogin(ctx context.Context, providerType sdk.OIDCProviderType) (string, error) {
 	// Use system-wide provider for individual OAuth registration
-	oidcProvider, ok := s.systemProviders[providerType]
+	oidcProvider, ok := s.SystemProviders[providerType]
 	if !ok {
 		return "", ErrOIDCProviderNotConfigured
 	}
@@ -152,12 +124,12 @@ func (s *OIDCAuthService) StartOIDCLogin(ctx context.Context, providerType sdk.O
 		CodeVerifier:   codeVerifier,
 		OIDCProviderID: nil,           // Not a tenant-specific provider
 		ProviderType:   &providerType, // System-wide provider (Google, GitHub, etc.)
-		RedirectURI:    oauthCallbackURL(s.publicURL),
+		RedirectURI:    oauthCallbackURL(s.PublicURL),
 		TenantID:       nil, // Tenant determined during callback
 		ExpiresAt:      time.Now().Add(oidcSessionExpiration),
 	}
 
-	_, err = s.oidcSessionDB.CreateOIDCSession(ctx, session)
+	_, err = s.OIDCSessionDB.CreateOIDCSession(ctx, session)
 	if err != nil {
 		return "", fmt.Errorf("failed to create OIDC session: %w", err)
 	}
@@ -173,15 +145,15 @@ func (s *OIDCAuthService) StartOIDCLogin(ctx context.Context, providerType sdk.O
 // ProcessCallback processes the OAuth callback and authenticates the user
 func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code string) (*User, error) {
 	// Get the OIDC session by state
-	session, err := s.oidcSessionDB.GetOIDCSessionByState(ctx, state)
+	session, err := s.OIDCSessionDB.GetOIDCSessionByState(ctx, state)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired state: %w", err)
 	}
 
 	// Clean up the OIDC session after callback completes
 	defer func() {
-		if err := s.oidcSessionDB.DeleteOIDCSession(ctx, session.ID); err != nil {
-			s.logger.ErrorContext(ctx, "failed to delete OIDC session", "error", err)
+		if err := s.OIDCSessionDB.DeleteOIDCSession(ctx, session.ID); err != nil {
+			s.Logger.ErrorContext(ctx, "failed to delete OIDC session", "error", err)
 		}
 	}()
 
@@ -191,13 +163,13 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 	if session.OIDCProviderID != nil {
 		user, _, err = s.handleSSOCallback(ctx, session, code)
 		if err != nil {
-			s.logger.InfoContext(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
+			s.Logger.InfoContext(ctx, events.SSOLoginFailed, "error", err.Error(), "provider_id", *session.OIDCProviderID)
 			return nil, err
 		}
 	} else if session.ProviderType != nil {
 		user, err = s.handleIndividualOAuthCallback(ctx, session, code)
 		if err != nil {
-			s.logger.InfoContext(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
+			s.Logger.InfoContext(ctx, events.OAuthLoginFailed, "error", err.Error(), "provider_type", *session.ProviderType)
 			return nil, err
 		}
 	} else {
@@ -210,13 +182,13 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 // handleSSOCallback processes corporate SSO callbacks
 func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
 	// Get tenant-specific provider configuration
-	providerConfig, err := s.oidcProviderService.GetOIDCProvider(ctx, *session.OIDCProviderID)
+	providerConfig, err := s.OIDCProviderService.GetOIDCProvider(ctx, *session.OIDCProviderID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get tenant OIDC provider: %w", err)
 	}
 
 	// Create provider instance
-	oidcProvider, err := s.providerFactory.NewProvider(
+	oidcProvider, err := s.ProviderFactory.NewProvider(
 		ctx,
 		providerConfig.IssuerURL,
 		providerConfig.ClientID,
@@ -240,7 +212,7 @@ func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSe
 	}
 
 	// Check if this provider account is already linked
-	existingLink, err := s.oidcLinkDB.GetOIDCLinkByProvider(ctx, *session.OIDCProviderID, userInfo.Sub)
+	existingLink, err := s.OIDCLinkDB.GetOIDCLinkByProvider(ctx, *session.OIDCProviderID, userInfo.Sub)
 	if err != nil && err != ErrOIDCLinkNotFound {
 		return nil, nil, fmt.Errorf("failed to check existing OIDC link: %w", err)
 	}
@@ -255,12 +227,12 @@ func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSe
 
 // handleExistingSSOUser processes login for users with existing SSO links
 func (s *OIDCAuthService) handleExistingSSOUser(ctx context.Context, link *OIDCLink) (*User, *OIDCLink, error) {
-	if err := s.oidcLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
-		s.logger.ErrorContext(ctx, "failed to update OIDC link last used", "error", err)
+	if err := s.OIDCLinkDB.UpdateOIDCLinkLastUsed(ctx, link.ID); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to update OIDC link last used", "error", err)
 	}
 
 	// Get user by link's UserID to support email changes at provider
-	user, err := s.userDB.GetUser(ctx, link.UserID)
+	user, err := s.UserDB.GetUser(ctx, link.UserID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -280,7 +252,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 		}
 	}
 
-	existingUser, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
+	existingUser, err := s.UserDB.GetUserByEmail(ctx, userInfo.Email)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
 		return nil, nil, fmt.Errorf("failed to check existing user: %w", err)
 	}
@@ -288,7 +260,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 	if existingUser != nil {
 		// Email exists but provider sub is different → likely email reassignment
 		// Require admin to manually deactivate old account before new employee can login
-		s.logger.ErrorContext(ctx, "SSO login blocked: email exists with different provider sub",
+		s.Logger.ErrorContext(ctx, "SSO login blocked: email exists with different provider sub",
 			"email", userInfo.Email,
 			"existing_user_id", existingUser.ID,
 			"existing_status", existingUser.Status,
@@ -304,7 +276,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 		Status:   UserStatusActive,
 	}
 
-	user, err = s.userDB.CreateUser(ctx, user)
+	user, err = s.UserDB.CreateUser(ctx, user)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -317,7 +289,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 		ProviderMetadata: userInfo.Metadata,
 	}
 
-	link, err = s.oidcLinkDB.CreateOIDCLink(ctx, link)
+	link, err = s.OIDCLinkDB.CreateOIDCLink(ctx, link)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create OIDC link: %w", err)
 	}
@@ -328,7 +300,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 // handleIndividualOAuthCallback processes individual OAuth callbacks
 func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, session *OIDCSession, code string) (*User, error) {
 	// Get system-wide provider
-	oidcProvider, ok := s.systemProviders[*session.ProviderType]
+	oidcProvider, ok := s.SystemProviders[*session.ProviderType]
 	if !ok {
 		return nil, fmt.Errorf("OIDC provider not configured: %s", *session.ProviderType)
 	}
@@ -346,7 +318,7 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 	}
 
 	// Check if user already exists by email
-	existingUser, err := s.userDB.GetUserByEmail(ctx, userInfo.Email)
+	existingUser, err := s.UserDB.GetUserByEmail(ctx, userInfo.Email)
 	if err != nil && err != ErrUserNotFound {
 		return nil, fmt.Errorf("failed to check existing user: %w", err)
 	}
@@ -362,12 +334,12 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 	}
 
 	// Bootstrap new tenant with user and System Admin role
-	tenant, user, err := s.tenantsDB.BootstrapTenant(ctx, userInfo.Email, UserStatusActive)
+	tenant, user, err := s.TenantsDB.BootstrapTenant(ctx, userInfo.Email, UserStatusActive)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenant.ID, "email", userInfo.Email)
+	s.Logger.InfoContext(ctx, events.TenantCreated, "user_id", user.ID, "tenant_id", tenant.ID, "email", userInfo.Email)
 
 	return user, nil
 }

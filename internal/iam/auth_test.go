@@ -218,7 +218,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 	jwtService := newMockJWTService()
 	sessionService := &mockSessionStorageService{}
 
-	service := NewAuthService(&AuthServiceConfig{
+	service := &AuthService{
 		PasswordService: passwordService,
 		OIDCService:     oidcService,
 		UserService:     userService,
@@ -227,7 +227,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 		JWTService:      jwtService,
 		SessionService:  sessionService,
 		Logger:          &mockLogger{},
-	})
+	}
 
 	return &authServiceTestFixture{
 		service:         service,

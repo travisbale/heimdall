@@ -49,32 +49,18 @@ type refreshTokenDB interface {
 
 // SessionService manages refresh token storage for session management
 type SessionService struct {
-	refreshTokenDB refreshTokenDB
-	logger         logger
-}
-
-// SessionServiceConfig contains dependencies for SessionService
-type SessionServiceConfig struct {
 	RefreshTokenDB refreshTokenDB
 	Logger         logger
 }
 
-// NewSessionService creates a new session service
-func NewSessionService(config *SessionServiceConfig) *SessionService {
-	return &SessionService{
-		refreshTokenDB: config.RefreshTokenDB,
-		logger:         config.Logger,
-	}
-}
-
 // StoreSession stores a refresh token in the database
 func (s *SessionService) StoreSession(ctx context.Context, rt *RefreshToken) error {
-	_, err := s.refreshTokenDB.Create(ctx, rt)
+	_, err := s.RefreshTokenDB.Create(ctx, rt)
 	if err != nil {
 		return fmt.Errorf("failed to store session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.SessionCreated, "user_id", rt.UserID, "user_agent", rt.UserAgent)
+	s.Logger.InfoContext(ctx, events.SessionCreated, "user_id", rt.UserID, "user_agent", rt.UserAgent)
 	return nil
 }
 
@@ -82,13 +68,13 @@ func (s *SessionService) StoreSession(ctx context.Context, rt *RefreshToken) err
 func (s *SessionService) ValidateSession(ctx context.Context, refreshToken string) (*RefreshToken, error) {
 	tokenHash := token.Hash(refreshToken)
 
-	storedToken, err := s.refreshTokenDB.GetByHash(ctx, tokenHash)
+	storedToken, err := s.RefreshTokenDB.GetByHash(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.refreshTokenDB.UpdateLastUsed(ctx, storedToken.ID); err != nil {
-		s.logger.ErrorContext(ctx, "failed to update session last used", "error", err, "session_id", storedToken.ID)
+	if err := s.RefreshTokenDB.UpdateLastUsed(ctx, storedToken.ID); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to update session last used", "error", err, "session_id", storedToken.ID)
 		// Non-fatal: continue even if update fails
 	}
 
@@ -101,26 +87,26 @@ func (s *SessionService) RotateSession(ctx context.Context, refreshToken string)
 	tokenHash := token.Hash(refreshToken)
 
 	// Get token including revoked ones for reuse detection
-	storedToken, err := s.refreshTokenDB.GetByHashIncludingRevoked(ctx, tokenHash)
+	storedToken, err := s.RefreshTokenDB.GetByHashIncludingRevoked(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
 
 	// REUSE DETECTION: If token already revoked, it's being replayed (theft)
 	if storedToken.RevokedAt != nil {
-		s.logger.WarnContext(ctx, events.TokenReuseDetected, "family_id", storedToken.FamilyID)
+		s.Logger.WarnContext(ctx, events.TokenReuseDetected, "family_id", storedToken.FamilyID)
 
 		// Revoke entire token family to invalidate attacker's tokens too
-		if err := s.refreshTokenDB.RevokeByFamilyID(ctx, storedToken.FamilyID); err != nil {
-			s.logger.ErrorContext(ctx, "failed to revoke token family", "error", err, "family_id", storedToken.FamilyID)
+		if err := s.RefreshTokenDB.RevokeByFamilyID(ctx, storedToken.FamilyID); err != nil {
+			s.Logger.ErrorContext(ctx, "failed to revoke token family", "error", err, "family_id", storedToken.FamilyID)
 		}
 
 		return nil, ErrTokenReused
 	}
 
 	// Revoke old token (rotation) - this makes it detectable if reused
-	if err := s.refreshTokenDB.RevokeByHash(ctx, tokenHash); err != nil {
-		s.logger.ErrorContext(ctx, "failed to revoke rotated token", "error", err)
+	if err := s.RefreshTokenDB.RevokeByHash(ctx, tokenHash); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to revoke rotated token", "error", err)
 		// Continue anyway - token validation already passed
 	}
 
@@ -129,16 +115,16 @@ func (s *SessionService) RotateSession(ctx context.Context, refreshToken string)
 
 // ListSessions returns all active sessions for a user
 func (s *SessionService) ListSessions(ctx context.Context, userID uuid.UUID) ([]*RefreshToken, error) {
-	return s.refreshTokenDB.ListByUserID(ctx, userID)
+	return s.RefreshTokenDB.ListByUserID(ctx, userID)
 }
 
 // RevokeSession revokes a specific session by ID
 func (s *SessionService) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
-	if err := s.refreshTokenDB.RevokeByID(ctx, sessionID); err != nil {
+	if err := s.RefreshTokenDB.RevokeByID(ctx, sessionID); err != nil {
 		return fmt.Errorf("failed to revoke session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.SessionRevoked, "session_id", sessionID)
+	s.Logger.InfoContext(ctx, events.SessionRevoked, "session_id", sessionID)
 	return nil
 }
 
@@ -146,30 +132,30 @@ func (s *SessionService) RevokeSession(ctx context.Context, sessionID uuid.UUID)
 func (s *SessionService) RevokeSessionByToken(ctx context.Context, refreshToken string) error {
 	tokenHash := token.Hash(refreshToken)
 
-	if err := s.refreshTokenDB.RevokeByHash(ctx, tokenHash); err != nil {
+	if err := s.RefreshTokenDB.RevokeByHash(ctx, tokenHash); err != nil {
 		return fmt.Errorf("failed to revoke session: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.SessionRevoked)
+	s.Logger.InfoContext(ctx, events.SessionRevoked)
 	return nil
 }
 
 // RevokeAllSessions revokes all sessions for a user (sign out everywhere)
 func (s *SessionService) RevokeAllSessions(ctx context.Context, userID uuid.UUID) error {
-	if err := s.refreshTokenDB.RevokeAllByUserID(ctx, userID); err != nil {
+	if err := s.RefreshTokenDB.RevokeAllByUserID(ctx, userID); err != nil {
 		return fmt.Errorf("failed to revoke all sessions: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.AllSessionsRevoked, "user_id", userID)
+	s.Logger.InfoContext(ctx, events.AllSessionsRevoked, "user_id", userID)
 	return nil
 }
 
 // DeleteExpiredSessions cleans up expired and old revoked tokens
 func (s *SessionService) DeleteExpiredSessions(ctx context.Context) error {
-	if err := s.refreshTokenDB.DeleteExpired(ctx); err != nil {
+	if err := s.RefreshTokenDB.DeleteExpired(ctx); err != nil {
 		return fmt.Errorf("failed to delete expired sessions: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, events.ExpiredSessionsDeleted)
+	s.Logger.InfoContext(ctx, events.ExpiredSessionsDeleted)
 	return nil
 }

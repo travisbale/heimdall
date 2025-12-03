@@ -44,8 +44,7 @@ type userPermissionDB interface {
 	GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*EffectivePermission, error)
 }
 
-// RBACServiceConfig holds the dependencies for creating an RBACService
-type RBACServiceConfig struct {
+type RBACService struct {
 	RolesDB           roleDB
 	PermissionsDB     permissionDB
 	RolePermissionsDB rolePermissionDB
@@ -54,30 +53,9 @@ type RBACServiceConfig struct {
 	Logger            logger
 }
 
-type RBACService struct {
-	rolesDB           roleDB
-	permissionsDB     permissionDB
-	rolePermissionsDB rolePermissionDB
-	userRolesDB       userRoleDB
-	userPermissionsDB userPermissionDB
-	logger            logger
-}
-
-// NewRBACService creates a new RBACService
-func NewRBACService(config *RBACServiceConfig) *RBACService {
-	return &RBACService{
-		rolesDB:           config.RolesDB,
-		permissionsDB:     config.PermissionsDB,
-		rolePermissionsDB: config.RolePermissionsDB,
-		userRolesDB:       config.UserRolesDB,
-		userPermissionsDB: config.UserPermissionsDB,
-		logger:            config.Logger,
-	}
-}
-
 // GetUserScopes returns all effective permission scopes for a user
 func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error) {
-	permissions, err := s.permissionsDB.GetUserPermissions(ctx, userID)
+	permissions, err := s.PermissionsDB.GetUserPermissions(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -107,93 +85,93 @@ func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Sc
 
 // CreateRole creates a new role
 func (s *RBACService) CreateRole(ctx context.Context, role *Role) (*Role, error) {
-	role, err := s.rolesDB.CreateRole(ctx, role)
+	role, err := s.RolesDB.CreateRole(ctx, role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.RoleCreated, "role_id", role.ID, "name", role.Name)
+	s.Logger.AuditContext(ctx, events.RoleCreated, "role_id", role.ID, "name", role.Name)
 	return role, nil
 }
 
 // GetRole retrieves a role by ID
 func (s *RBACService) GetRole(ctx context.Context, roleID uuid.UUID) (*Role, error) {
-	return s.rolesDB.GetRoleByID(ctx, roleID)
+	return s.RolesDB.GetRoleByID(ctx, roleID)
 }
 
 // ListRoles lists all roles for the current tenant
 func (s *RBACService) ListRoles(ctx context.Context) ([]*Role, error) {
-	return s.rolesDB.ListRoles(ctx)
+	return s.RolesDB.ListRoles(ctx)
 }
 
 // UpdateRole updates a role
 func (s *RBACService) UpdateRole(ctx context.Context, params UpdateRoleParams) (*Role, error) {
-	role, err := s.rolesDB.UpdateRole(ctx, params)
+	role, err := s.RolesDB.UpdateRole(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update role: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.RoleUpdated, "role_id", params.ID)
+	s.Logger.AuditContext(ctx, events.RoleUpdated, "role_id", params.ID)
 	return role, nil
 }
 
 // DeleteRole deletes a role
 func (s *RBACService) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
-	if err := s.rolesDB.DeleteRole(ctx, roleID); err != nil {
+	if err := s.RolesDB.DeleteRole(ctx, roleID); err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.RoleDeleted, "role_id", roleID)
+	s.Logger.AuditContext(ctx, events.RoleDeleted, "role_id", roleID)
 	return nil
 }
 
 // GetRolePermissions retrieves all permissions for a role
 func (s *RBACService) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*Permission, error) {
-	return s.rolePermissionsDB.GetRolePermissions(ctx, roleID)
+	return s.RolePermissionsDB.GetRolePermissions(ctx, roleID)
 }
 
 // SetRolePermissions replaces all permissions for a role (bulk update)
 func (s *RBACService) SetRolePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
-	if err := s.rolePermissionsDB.SetRolePermissions(ctx, roleID, permissionIDs); err != nil {
+	if err := s.RolePermissionsDB.SetRolePermissions(ctx, roleID, permissionIDs); err != nil {
 		return fmt.Errorf("failed to set role permissions: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.RolePermissionsUpdated, "role_id", roleID, "permission_count", len(permissionIDs))
+	s.Logger.AuditContext(ctx, events.RolePermissionsUpdated, "role_id", roleID, "permission_count", len(permissionIDs))
 	return nil
 }
 
 // SetUserRoles sets all roles for a user (replaces existing roles)
 func (s *RBACService) SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
-	if err := s.userRolesDB.SetUserRoles(ctx, userID, roleIDs); err != nil {
+	if err := s.UserRolesDB.SetUserRoles(ctx, userID, roleIDs); err != nil {
 		return fmt.Errorf("failed to set user roles: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.UserRolesUpdated, "user_id", userID, "role_count", len(roleIDs))
+	s.Logger.AuditContext(ctx, events.UserRolesUpdated, "user_id", userID, "role_count", len(roleIDs))
 	return nil
 }
 
 // GetUserRoles retrieves all roles for a user
 func (s *RBACService) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*Role, error) {
-	return s.userRolesDB.GetUserRoles(ctx, userID)
+	return s.UserRolesDB.GetUserRoles(ctx, userID)
 }
 
 // SetDirectPermissions sets all direct permissions for a user (replaces existing direct permissions)
 func (s *RBACService) SetDirectPermissions(ctx context.Context, userID uuid.UUID, permissions []DirectPermission) error {
-	if err := s.userPermissionsDB.SetDirectPermissions(ctx, userID, permissions); err != nil {
+	if err := s.UserPermissionsDB.SetDirectPermissions(ctx, userID, permissions); err != nil {
 		return fmt.Errorf("failed to set user permissions: %w", err)
 	}
-	s.logger.AuditContext(ctx, events.UserPermissionsUpdated, "user_id", userID, "permission_count", len(permissions))
+	s.Logger.AuditContext(ctx, events.UserPermissionsUpdated, "user_id", userID, "permission_count", len(permissions))
 	return nil
 }
 
 // GetDirectPermissions retrieves direct permissions assigned to a user
 func (s *RBACService) GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*EffectivePermission, error) {
-	return s.userPermissionsDB.GetDirectPermissions(ctx, userID)
+	return s.UserPermissionsDB.GetDirectPermissions(ctx, userID)
 }
 
 // ListPermissions lists all available permissions (system-wide)
 func (s *RBACService) ListPermissions(ctx context.Context) ([]*Permission, error) {
-	return s.permissionsDB.ListPermissions(ctx)
+	return s.PermissionsDB.ListPermissions(ctx)
 }
 
 // UserRolesRequireMFA checks if any of the user's assigned roles require MFA
 func (s *RBACService) UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error) {
-	roles, err := s.userRolesDB.GetUserRoles(ctx, userID)
+	roles, err := s.UserRolesDB.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}

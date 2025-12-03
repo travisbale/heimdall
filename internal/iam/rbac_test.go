@@ -25,14 +25,14 @@ func newRBACTestFixture() *rbacTestFixture {
 	userRoleRepo := &mockUserRoleRepository{}
 	userPermRepo := &mockUserPermissionRepository{}
 
-	service := NewRBACService(&RBACServiceConfig{
+	service := &RBACService{
 		RolesDB:           roleRepo,
 		PermissionsDB:     permRepo,
 		RolePermissionsDB: rolePermRepo,
 		UserRolesDB:       userRoleRepo,
 		UserPermissionsDB: userPermRepo,
 		Logger:            &mockLogger{},
-	})
+	}
 
 	return &rbacTestFixture{
 		roleRepo:     roleRepo,
@@ -77,14 +77,14 @@ func TestGetUserScopes_DenyRemovesPermission(t *testing.T) {
 		},
 	}
 
-	service := NewRBACService(&RBACServiceConfig{
+	service := &RBACService{
 		RolesDB:           newMockRoleRepository(),
 		PermissionsDB:     permRepo,
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
 		Logger:            &mockLogger{},
-	})
+	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
 	if err != nil {
@@ -134,14 +134,14 @@ func TestGetUserScopes_MultipleAllowsDeduplicated(t *testing.T) {
 		},
 	}
 
-	service := NewRBACService(&RBACServiceConfig{
+	service := &RBACService{
 		RolesDB:           newMockRoleRepository(),
 		PermissionsDB:     permRepo,
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
 		Logger:            &mockLogger{},
-	})
+	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
 	if err != nil {
@@ -174,14 +174,14 @@ func TestGetUserScopes_EmptyPermissions(t *testing.T) {
 
 	permRepo.userPermissions[userID] = []*EffectivePermission{}
 
-	service := NewRBACService(&RBACServiceConfig{
+	service := &RBACService{
 		RolesDB:           newMockRoleRepository(),
 		PermissionsDB:     permRepo,
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
 		Logger:            &mockLogger{},
-	})
+	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
 	if err != nil {
@@ -335,14 +335,14 @@ func TestListPermissions_Success(t *testing.T) {
 		Description: "Write users",
 	}
 
-	service := NewRBACService(&RBACServiceConfig{
+	service := &RBACService{
 		RolesDB:           newMockRoleRepository(),
 		PermissionsDB:     permRepo,
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
 		Logger:            &mockLogger{},
-	})
+	}
 
 	permissions, err := service.ListPermissions(context.Background())
 	if err != nil {

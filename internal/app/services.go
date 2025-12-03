@@ -57,29 +57,32 @@ func initializeServices(
 	passwordHasher := argon2.NewHasher(getArgon2Config(config.Environment))
 
 	// Login attempts service for account lockout tracking
-	loginAttemptsService := iam.NewLoginAttemptsService(dbs.loginAttempts, ulog.Default())
+	loginAttemptsService := &iam.LoginAttemptsService{
+		DB:     dbs.loginAttempts,
+		Logger: ulog.Default(),
+	}
 
 	// RBAC service for roles and permissions
-	rbacService := iam.NewRBACService(&iam.RBACServiceConfig{
+	rbacService := &iam.RBACService{
 		RolesDB:           dbs.roles,
 		PermissionsDB:     dbs.permissions,
 		RolePermissionsDB: dbs.rolePermissions,
 		UserRolesDB:       dbs.userRoles,
 		UserPermissionsDB: dbs.userPermissions,
 		Logger:            ulog.Default(),
-	})
+	}
 
 	// OIDC provider service for provider CRUD operations
-	oidcProviderService := iam.NewOIDCProviderService(&iam.OIDCProviderServiceConfig{
+	oidcProviderService := &iam.OIDCProviderService{
 		OIDCProviderDB:     dbs.oidcProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
 		Logger:             ulog.Default(),
-	})
+	}
 
 	// OIDC auth service for OAuth/SSO authentication flows
-	oidcAuthService := iam.NewOIDCAuthService(&iam.OIDCAuthServiceConfig{
+	oidcAuthService := &iam.OIDCAuthService{
 		OIDCProviderService: oidcProviderService,
 		OIDCLinkDB:          dbs.oidcLinks,
 		OIDCSessionDB:       dbs.oidcSessions,
@@ -89,20 +92,20 @@ func initializeServices(
 		ProviderFactory:     oidc.NewProviderFactory(),
 		PublicURL:           config.PublicURL,
 		Logger:              ulog.Default(),
-	})
+	}
 
 	// Password service for password authentication
-	passwordService := iam.NewPasswordService(&iam.PasswordServiceConfig{
+	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
 		Hasher:               passwordHasher,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
 		Logger:               ulog.Default(),
-	})
+	}
 
 	// User service for registration and user management
-	userService := iam.NewUserService(&iam.UserServiceConfig{
+	userService := &iam.UserService{
 		UserDB:              dbs.users,
 		TenantsDB:           dbs.tenants,
 		Hasher:              passwordHasher,
@@ -111,32 +114,32 @@ func initializeServices(
 		OIDCService:         oidcProviderService,
 		RBACService:         rbacService,
 		Logger:              ulog.Default(),
-	})
+	}
 
 	// MFA service for TOTP and backup codes
-	mfaService := iam.NewMFAService(&iam.MFAServiceConfig{
+	mfaService := &iam.MFAService{
 		MFASettingsDB: dbs.mfaSettings,
 		BackupCodesDB: dbs.mfaBackupCodes,
 		UsersDB:       dbs.users,
 		Verifier:      totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
 		Hasher:        passwordHasher,
 		Logger:        ulog.Default(),
-	})
+	}
 
 	// Session service for refresh token storage and management
-	sessionService := iam.NewSessionService(&iam.SessionServiceConfig{
+	sessionService := &iam.SessionService{
 		RefreshTokenDB: dbs.refreshTokens,
 		Logger:         ulog.Default(),
-	})
+	}
 
 	// Trusted device service for MFA bypass on trusted devices
-	trustedDeviceService := iam.NewTrustedDeviceService(&iam.TrustedDeviceServiceConfig{
+	trustedDeviceService := &iam.TrustedDeviceService{
 		TrustedDeviceDB: dbs.trustedDevices,
 		Logger:          ulog.Default(),
-	})
+	}
 
 	// Auth service orchestrates authentication flows
-	authService := iam.NewAuthService(&iam.AuthServiceConfig{
+	authService := &iam.AuthService{
 		PasswordService:       passwordService,
 		PasswordChangeService: passwordService,
 		OIDCService:           oidcAuthService,
@@ -147,7 +150,7 @@ func initializeServices(
 		SessionService:        sessionService,
 		TrustedDeviceService:  trustedDeviceService,
 		Logger:                ulog.Default(),
-	})
+	}
 
 	return &services{
 		user:          userService,
