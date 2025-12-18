@@ -19,7 +19,8 @@ type oidcAuthService interface {
 	ProcessCallback(ctx context.Context, state, code string) (*User, error)
 }
 
-type userAccountService interface {
+type userService interface {
+	GetUser(ctx context.Context, userID uuid.UUID) (*User, error)
 	VerifyEmailAndSetPassword(ctx context.Context, tokenStr, password string) (*User, error)
 }
 
@@ -63,7 +64,7 @@ type AuthService struct {
 	PasswordService       passwordService
 	PasswordChangeService passwordChangeService
 	OIDCService           oidcAuthService
-	UserService           userAccountService
+	UserService           userService
 	MFAService            mfaVerificationService
 	RBACService           rbacService
 	JWTService            jwtService

@@ -10,7 +10,7 @@ import (
 	"github.com/travisbale/knowhere/crypto/token"
 )
 
-// SessionTokens contains all tokens issued for a user session
+// SessionTokens contains all tokens for an authenticated session
 type SessionTokens struct {
 	AccessToken            string
 	RefreshToken           string

@@ -29,6 +29,8 @@ type User struct {
 	TenantID     uuid.UUID
 	Email        string
 	PasswordHash string
+	FirstName    string
+	LastName     string
 	Status       UserStatus
 	LastLoginAt  *time.Time
 }

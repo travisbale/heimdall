@@ -22,7 +22,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.UserService.Register(r.Context(), req.Email)
+	user, err := h.UserService.Register(r.Context(), req.Email, req.FirstName, req.LastName)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrDuplicateEmail):

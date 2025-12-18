@@ -21,7 +21,7 @@ func NewTenantsDB(db *DB) *TenantsDB {
 }
 
 // BootstrapTenant creates a new tenant with initial user and System Admin role
-func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status iam.UserStatus) (*iam.Tenant, *iam.User, error) {
+func (t *TenantsDB) BootstrapTenant(ctx context.Context, email, firstName, lastName string, status iam.UserStatus) (*iam.Tenant, *iam.User, error) {
 	var tenant *iam.Tenant
 	var user *iam.User
 
@@ -42,6 +42,8 @@ func (t *TenantsDB) BootstrapTenant(ctx context.Context, email string, status ia
 			TenantID:     tenantID,
 			Email:        email,
 			PasswordHash: "",
+			FirstName:    firstName,
+			LastName:     lastName,
 			Status:       status,
 		})
 		if err != nil {

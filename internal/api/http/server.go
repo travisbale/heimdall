@@ -64,6 +64,7 @@ type handlers struct {
 	auth          *AuthHandler
 	registration  *RegistrationHandler
 	passwordReset *PasswordResetHandler
+	user          *UserHandler
 	oidcAuth      *OIDCAuthHandler
 	oidcProviders *OIDCProvidersHandler
 	rbac          *RBACHandler
@@ -90,6 +91,9 @@ func initializeHandlers(config *Config) *handlers {
 		},
 		passwordReset: &PasswordResetHandler{
 			PasswordService: config.PasswordService,
+		},
+		user: &UserHandler{
+			UserService: config.UserService,
 		},
 		oidcAuth: &OIDCAuthHandler{
 			OIDCAuthService: config.OIDCAuthService,
@@ -178,6 +182,9 @@ func registerRoutes(r chi.Router, h *handlers, auth func(http.Handler) http.Hand
 	// RBAC - Role permissions
 	r.With(require(iam.ScopeRoleRead)).Get(sdk.RouteV1RolePermissions, h.rbac.GetRolePermissions)
 	r.With(require(iam.ScopeRoleUpdate)).Put(sdk.RouteV1RolePermissions, h.rbac.SetRolePermissions)
+
+	// User endpoints
+	r.With(auth).Get(sdk.RouteV1Me, h.user.GetMe)
 
 	// RBAC - User roles
 	r.With(require(iam.ScopeUserRead)).Get(sdk.RouteV1UserRoles, h.rbac.GetUserRoles)

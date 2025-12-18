@@ -17,16 +17,20 @@ INSERT INTO users (
     tenant_id,
     email,
     password_hash,
+    first_name,
+    last_name,
     status
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 `
 
 type CreateUserParams struct {
 	TenantID     uuid.UUID      `json:"tenant_id"`
 	Email        string         `json:"email"`
 	PasswordHash string         `json:"password_hash"`
+	FirstName    string         `json:"first_name"`
+	LastName     string         `json:"last_name"`
 	Status       iam.UserStatus `json:"status"`
 }
 
@@ -35,6 +39,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.TenantID,
 		arg.Email,
 		arg.PasswordHash,
+		arg.FirstName,
+		arg.LastName,
 		arg.Status,
 	)
 	var i User
@@ -43,6 +49,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.TenantID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.FirstName,
+		&i.LastName,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -73,7 +81,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+SELECT id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 FROM users
 WHERE id = $1
 `
@@ -86,6 +94,8 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.TenantID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.FirstName,
+		&i.LastName,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -95,7 +105,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+SELECT id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 FROM users
 WHERE email = $1 AND status != 'inactive'
 `
@@ -108,6 +118,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.TenantID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.FirstName,
+		&i.LastName,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -133,7 +145,7 @@ SET password_hash = COALESCE($1, password_hash),
     status = COALESCE($2, status),
     updated_at = now()
 WHERE id = $3
-RETURNING id, tenant_id, email, password_hash, status, created_at, updated_at, last_login_at
+RETURNING id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 `
 
 type UpdateUserParams struct {
@@ -150,6 +162,8 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.TenantID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.FirstName,
+		&i.LastName,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,

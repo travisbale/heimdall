@@ -75,7 +75,7 @@ func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid
 }
 
 // Register creates new user with email verification, rejects SSO-enforced domains
-func (s *UserService) Register(ctx context.Context, email string) (*User, error) {
+func (s *UserService) Register(ctx context.Context, email, firstName, lastName string) (*User, error) {
 	if required, err := s.OIDCService.IsSSORequired(ctx, email); err != nil {
 		return nil, err
 	} else if required {
@@ -89,7 +89,7 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			_, user, err = s.TenantsDB.BootstrapTenant(ctx, email, UserStatusUnverified)
+			_, user, err = s.TenantsDB.BootstrapTenant(ctx, email, firstName, lastName, UserStatusUnverified)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 			}
@@ -114,6 +114,7 @@ func (s *UserService) Register(ctx context.Context, email string) (*User, error)
 		return nil, ErrDuplicateEmail
 	}
 
+	// User has already been created but not verified, resend the verification email
 	verificationToken, err := token.Generate(32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate verification token: %w", err)
@@ -176,6 +177,11 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 	s.Logger.InfoContext(ctx, events.EmailVerified, "user_id", user.ID, "email", user.Email)
 
 	return user, nil
+}
+
+// GetUser retrieves a user by ID
+func (s *UserService) GetUser(ctx context.Context, userID uuid.UUID) (*User, error) {
+	return s.UserDB.GetUser(ctx, userID)
 }
 
 func (s *UserService) createVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {

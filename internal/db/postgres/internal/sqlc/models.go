@@ -326,6 +326,8 @@ type User struct {
 	TenantID     uuid.UUID      `json:"tenant_id"`
 	Email        string         `json:"email"`
 	PasswordHash string         `json:"password_hash"`
+	FirstName    string         `json:"first_name"`
+	LastName     string         `json:"last_name"`
 	Status       iam.UserStatus `json:"status"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`

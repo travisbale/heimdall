@@ -10,7 +10,8 @@ import (
 
 // userService defines the interface for user registration and management operations
 type userService interface {
-	Register(ctx context.Context, email string) (*iam.User, error)
+	Register(ctx context.Context, email, firstName, lastName string) (*iam.User, error)
+	GetUser(ctx context.Context, userID uuid.UUID) (*iam.User, error)
 }
 
 // passwordService defines the interface for password authentication operations

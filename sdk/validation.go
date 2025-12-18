@@ -2,10 +2,15 @@ package sdk
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
 )
+
+// emailRegex is a basic email validation pattern
+// Matches standard email format: localpart@domain
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 // validateEmail checks if the email has a valid format
 func validateEmail(email string) error {

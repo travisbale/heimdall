@@ -7,6 +7,21 @@ import (
 	"github.com/travisbale/knowhere/crypto/password"
 )
 
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// User represents a user in API responses
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Status    string    `json:"status"`
+}
+
 // LoginRequest represents the login request body
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -59,12 +74,20 @@ type CreateUserResponse struct {
 // RegisterRequest represents the registration request body
 // Password is set during email verification, not during initial registration
 type RegisterRequest struct {
-	Email string `json:"email"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // Validate validates the registration request
 func (r *RegisterRequest) Validate(ctx context.Context) error {
-	return validateEmail(r.Email)
+	if err := validateEmail(r.Email); err != nil {
+		return err
+	}
+	if err := validateRequired(r.FirstName, "first name"); err != nil {
+		return err
+	}
+	return validateRequired(r.LastName, "last name")
 }
 
 // RegisterResponse represents the registration response

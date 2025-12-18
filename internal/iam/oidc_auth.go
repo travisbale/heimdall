@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -333,8 +334,11 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 		return nil, err
 	}
 
+	// Parse name into first and last names (simple split on first space)
+	firstName, lastName := parseFullName(userInfo.Name)
+
 	// Bootstrap new tenant with user and System Admin role
-	tenant, user, err := s.TenantsDB.BootstrapTenant(ctx, userInfo.Email, UserStatusActive)
+	tenant, user, err := s.TenantsDB.BootstrapTenant(ctx, userInfo.Email, firstName, lastName, UserStatusActive)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap tenant: %w", err)
 	}
@@ -366,4 +370,19 @@ func (s *OIDCAuthService) verifyEmailVerified(ctx context.Context, provider OIDC
 	}
 
 	return nil
+}
+
+// parseFullName splits a full name into first and last names
+// Simple heuristic: everything before the first space is first name, rest is last name
+func parseFullName(fullName string) (string, string) {
+	fullName = strings.TrimSpace(fullName)
+	if fullName == "" {
+		return "", ""
+	}
+
+	parts := strings.SplitN(fullName, " ", 2)
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], parts[1]
 }

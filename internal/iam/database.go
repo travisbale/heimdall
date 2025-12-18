@@ -19,7 +19,7 @@ type userDB interface {
 
 // tenantsDB provides database operations for tenants
 type tenantsDB interface {
-	BootstrapTenant(ctx context.Context, email string, status UserStatus) (*Tenant, *User, error)
+	BootstrapTenant(ctx context.Context, email, firstName, lastName string, status UserStatus) (*Tenant, *User, error)
 }
 
 // tokenDB provides database operations for email verification and password reset tokens

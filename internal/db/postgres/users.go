@@ -143,6 +143,8 @@ func convertUserToDomain(dbUser sqlc.User) (*iam.User, error) {
 		TenantID:     dbUser.TenantID,
 		Email:        dbUser.Email,
 		PasswordHash: dbUser.PasswordHash,
+		FirstName:    dbUser.FirstName,
+		LastName:     dbUser.LastName,
 		Status:       dbUser.Status,
 		LastLoginAt:  dbUser.LastLoginAt,
 	}, nil

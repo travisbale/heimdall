@@ -3,9 +3,11 @@ INSERT INTO users (
     tenant_id,
     email,
     password_hash,
+    first_name,
+    last_name,
     status
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6
 ) RETURNING *;
 
 -- name: GetUser :one

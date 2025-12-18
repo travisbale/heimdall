@@ -19,9 +19,9 @@ type validatable interface {
 
 // HTTPClient is an HTTP client for the heimdall API
 type HTTPClient struct {
-	baseURL     string
-	httpClient  *http.Client
-	accessToken string
+	*http.Client // Embedded for direct access to http.Client methods
+	baseURL      string
+	accessToken  string
 }
 
 // Option is a functional option for configuring the HTTPClient
@@ -32,7 +32,7 @@ type Option func(*HTTPClient)
 // ensure it has a cookie jar configured
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *HTTPClient) {
-		c.httpClient = httpClient
+		c.Client = httpClient
 	}
 }
 
@@ -40,7 +40,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 // Useful for tests that need to inspect cookies (e.g., capturing refresh tokens).
 func WithCookieJar(jar *cookiejar.Jar) Option {
 	return func(c *HTTPClient) {
-		c.httpClient = &http.Client{
+		c.Client = &http.Client{
 			Jar:     jar,
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -54,7 +54,7 @@ func WithCookieJar(jar *cookiejar.Jar) Option {
 // This is useful for development with self-signed certificates
 func WithInsecureSkipVerify() Option {
 	return func(c *HTTPClient) {
-		if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+		if transport, ok := c.Transport.(*http.Transport); ok {
 			if transport.TLSClientConfig == nil {
 				transport.TLSClientConfig = &tls.Config{}
 			}
@@ -74,7 +74,7 @@ func NewHTTPClient(baseURL string, opts ...Option) (*HTTPClient, error) {
 
 	client := &HTTPClient{
 		baseURL: baseURL,
-		httpClient: &http.Client{
+		Client: &http.Client{
 			Timeout: 30 * time.Second,
 			Jar:     jar,
 			Transport: &http.Transport{
@@ -101,7 +101,7 @@ func (c *HTTPClient) Health(ctx context.Context) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -138,6 +138,15 @@ func (c *HTTPClient) Logout(ctx context.Context) (*LogoutResponse, error) {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// GetMe retrieves the current authenticated user's profile
+func (c *HTTPClient) GetMe(ctx context.Context) (*User, error) {
+	var user User
+	if err := c.doRequest(ctx, http.MethodGet, RouteV1Me, nil, &user); err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 // RefreshToken refreshes the access token using the refresh token cookie
@@ -505,7 +514,7 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}

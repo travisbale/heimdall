@@ -63,7 +63,7 @@ func TestRegister(t *testing.T) {
 		f := newUserServiceTestFixture()
 		ctx := context.Background()
 
-		user, err := f.service.Register(ctx, "newuser@example.com")
+		user, err := f.service.Register(ctx, "newuser@example.com", "Test", "User")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -107,7 +107,7 @@ func TestRegister(t *testing.T) {
 		addUserToMockDB(f.userDB, existingUser)
 
 		// Register again with same email
-		user, err := f.service.Register(ctx, "existing@example.com")
+		user, err := f.service.Register(ctx, "existing@example.com", "Test", "User")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -133,7 +133,7 @@ func TestRegister(t *testing.T) {
 
 		f.oidcService.ssoRequired = true
 
-		_, err := f.service.Register(ctx, "user@company.com")
+		_, err := f.service.Register(ctx, "user@company.com", "Test", "User")
 		if !errors.Is(err, ErrSSORequired) {
 			t.Errorf("expected ErrSSORequired, got %v", err)
 		}
@@ -153,7 +153,7 @@ func TestRegister(t *testing.T) {
 		}
 		addUserToMockDB(f.userDB, existingUser)
 
-		_, err := f.service.Register(ctx, "active@example.com")
+		_, err := f.service.Register(ctx, "active@example.com", "Test", "User")
 		if !errors.Is(err, ErrDuplicateEmail) {
 			t.Errorf("expected ErrDuplicateEmail, got %v", err)
 		}

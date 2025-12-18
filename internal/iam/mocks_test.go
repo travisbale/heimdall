@@ -284,7 +284,7 @@ func (m *mockTenantsDB) setDependencies(userDB *mockUserDB) {
 	m.userDB = userDB
 }
 
-func (m *mockTenantsDB) BootstrapTenant(ctx context.Context, email string, status UserStatus) (*Tenant, *User, error) {
+func (m *mockTenantsDB) BootstrapTenant(ctx context.Context, email, firstName, lastName string, status UserStatus) (*Tenant, *User, error) {
 	tenant := &Tenant{
 		ID: uuid.New(),
 	}
@@ -294,6 +294,8 @@ func (m *mockTenantsDB) BootstrapTenant(ctx context.Context, email string, statu
 		ID:           uuid.New(),
 		TenantID:     tenant.ID,
 		Email:        email,
+		FirstName:    firstName,
+		LastName:     lastName,
 		Status:       status,
 		PasswordHash: "",
 	}

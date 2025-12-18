@@ -40,6 +40,13 @@ type mockUserAccountService struct {
 	err  error
 }
 
+func (m *mockUserAccountService) GetUser(ctx context.Context, userID uuid.UUID) (*User, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.user, nil
+}
+
 func (m *mockUserAccountService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr, password string) (*User, error) {
 	if m.err != nil {
 		return nil, m.err
