@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/knowhere/clog"
 	"github.com/travisbale/knowhere/identity"
 	"github.com/travisbale/knowhere/jwt"
 )
@@ -33,7 +32,6 @@ func NewServer(config *Config) *Server {
 	r.Use(identity.RequestID)
 	r.Use(identity.ClientIP(config.TrustedProxyMode))
 	r.Use(identity.UserAgent)
-	r.Use(clog.Middleware(config.Logger))
 
 	// CORS enabled only when origins specified (browser-based clients require this)
 	if len(config.CORSAllowedOrigins) > 0 {

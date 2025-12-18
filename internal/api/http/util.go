@@ -1,89 +1,23 @@
 package http
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log/slog"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/knowhere/identity"
+	"github.com/travisbale/knowhere/api"
 )
 
-// respondJSON sends JSON response with given status code
-func respondJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.ErrorContext(context.Background(), "Failed to encode JSON response", "error", err)
-	}
-}
-
-// decodeJSON decodes JSON from request body, rejects unknown fields
-func decodeJSON(r *http.Request, v any) error {
-	if r.Body == nil {
-		return fmt.Errorf("request body is empty")
-	}
-	defer r.Body.Close() //nolint:errcheck
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields() // Catch typos in client requests
-
-	if err := decoder.Decode(v); err != nil {
-		return fmt.Errorf("failed to decode JSON: %w", err)
-	}
-
-	return nil
-}
-
-// validator is an interface for types that can validate themselves
-type validator interface {
-	Validate(ctx context.Context) error
-}
-
-// decodeAndValidateJSON decodes and validates JSON, returns false if error response was sent
-func decodeAndValidateJSON(w http.ResponseWriter, r *http.Request, req validator) bool {
-	if err := decodeJSON(r, req); err != nil {
-		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: "Invalid request body"})
-		return false
-	}
-
-	if err := req.Validate(r.Context()); err != nil {
-		respondJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: err.Error()})
-		return false
-	}
-
-	return true
-}
-
-// getAuthenticatedActorID extracts the actor ID from context, returns false if unauthorized
-// The actor is the authenticated user performing the action
-func getAuthenticatedActorID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	actorID, err := identity.GetActor(r.Context())
-	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Unauthorized"})
-		return uuid.Nil, false
-	}
-	return actorID, true
-}
-
-// parseUUID parses UUID from string, returns uuid.Nil on invalid input
-func parseUUID(s string) uuid.UUID {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.Nil
-	}
-	return id
-}
+const (
+	refreshTokenCookie = "refresh_token"
+	deviceTrustCookie  = "device_trust"
+)
 
 // encodeSessionResponse encodes session tokens into HTTP response (cookies + JSON)
 func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *iam.SessionTokens, secureCookies bool) {
 	// MFA setup required - user's role requires MFA but they haven't set it up yet
 	if tokens.RequiresMFASetup() {
-		respondJSON(w, http.StatusOK, sdk.LoginResponse{
+		api.RespondJSON(w, http.StatusOK, sdk.LoginResponse{
 			MFASetupToken: tokens.MFASetupToken,
 			ExpiresIn:     int(tokens.MFASetupExpiration.Seconds()),
 		})
@@ -92,7 +26,7 @@ func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *iam.S
 
 	// MFA verification required - user has MFA enabled
 	if tokens.RequiresMFA() {
-		respondJSON(w, http.StatusOK, sdk.LoginResponse{
+		api.RespondJSON(w, http.StatusOK, sdk.LoginResponse{
 			MFAChallengeToken: tokens.MFAChallengeToken,
 			ExpiresIn:         int(tokens.MFAChallengeExpiration.Seconds()),
 		})
@@ -114,7 +48,7 @@ func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *iam.S
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	respondJSON(w, http.StatusOK, sdk.LoginResponse{
+	api.RespondJSON(w, http.StatusOK, sdk.LoginResponse{
 		AccessToken: tokens.AccessToken,
 		TokenType:   "Bearer",
 		ExpiresIn:   int(tokens.AccessExpiration.Seconds()),

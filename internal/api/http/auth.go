@@ -6,10 +6,8 @@ import (
 
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/knowhere/api"
 )
-
-const refreshTokenCookie = "refresh_token"
-const deviceTrustCookie = "device_trust"
 
 // AuthHandler handles authentication HTTP requests
 type AuthHandler struct {
@@ -20,7 +18,7 @@ type AuthHandler struct {
 // Login handles user login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req sdk.LoginRequest
-	if !decodeAndValidateJSON(w, r, &req) {
+	if !api.DecodeAndValidateJSON(w, r, &req) {
 		return
 	}
 
@@ -34,13 +32,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
-			respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Authentication failed"})
+			api.RespondError(w, http.StatusUnauthorized, "Authentication failed", err)
 		case errors.Is(err, iam.ErrEmailNotVerified):
-			respondJSON(w, http.StatusForbidden, sdk.ErrorResponse{Error: "Please verify your email address before logging in"})
+			api.RespondError(w, http.StatusForbidden, "Please verify your email address before logging in", err)
 		case errors.Is(err, iam.ErrAccountLocked):
-			respondJSON(w, http.StatusTooManyRequests, sdk.ErrorResponse{Error: "Too many failed login attempts. Please try again later."})
+			api.RespondError(w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
 		default:
-			respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to authenticate user"})
+			api.RespondError(w, http.StatusInternalServerError, "Failed to authenticate user", err)
 		}
 		return
 	}
@@ -52,12 +50,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(refreshTokenCookie)
 	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
+		api.RespondError(w, http.StatusUnauthorized, "Missing refresh token", err)
 		return
 	}
 
 	if err := h.AuthService.Logout(r.Context(), cookie.Value); err != nil {
-		respondJSON(w, http.StatusInternalServerError, sdk.ErrorResponse{Error: "Failed to revoke session"})
+		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke session", err)
 		return
 	}
 
@@ -76,7 +74,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	respondJSON(w, http.StatusOK, sdk.LogoutResponse{
+	api.RespondJSON(w, http.StatusOK, sdk.LogoutResponse{
 		Message: "Logged out successfully",
 	})
 }
@@ -85,13 +83,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(refreshTokenCookie)
 	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Missing refresh token"})
+		api.RespondError(w, http.StatusUnauthorized, "Missing refresh token", err)
 		return
 	}
 
 	tokens, err := h.AuthService.RefreshSession(r.Context(), cookie.Value)
 	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, sdk.ErrorResponse{Error: "Invalid or expired refresh token"})
+		api.RespondError(w, http.StatusUnauthorized, "Invalid or expired refresh token", err)
 		return
 	}
 
