@@ -53,7 +53,7 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):
-			api.RespondError(w, http.StatusNotFound, "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login.", err)
+			api.RespondError(w, http.StatusBadRequest, "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login.", err)
 		default:
 			api.RespondError(w, http.StatusInternalServerError, "Failed to start SSO login", err)
 		}
