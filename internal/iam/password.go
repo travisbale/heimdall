@@ -42,7 +42,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 			if err := s.LoginAttemptsService.RecordFailedLogin(ctx, email, nil, nil); err != nil {
 				s.Logger.ErrorContext(ctx, "failed to record login attempt for non-existent user", "email", email, "error", err)
 			}
-			return nil, ErrInvalidCredentials
+			return nil, fmt.Errorf("%w: %v", ErrInvalidCredentials, err)
 		default:
 			return nil, fmt.Errorf("failed to get user: %w", err)
 		}
@@ -54,7 +54,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 			if err := s.LoginAttemptsService.RecordFailedLogin(ctx, email, &user.ID, user.LastLoginAt); err != nil {
 				s.Logger.ErrorContext(ctx, "failed to record login attempt", "email", email, "error", err)
 			}
-			return nil, ErrInvalidCredentials
+			return nil, fmt.Errorf("%w: %v", ErrInvalidCredentials, err)
 		}
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
@@ -149,7 +149,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 
 	if err := s.Hasher.Verify(oldPassword, user.PasswordHash); err != nil {
 		if errors.Is(err, ErrMismatchedHash) {
-			return ErrInvalidCredentials
+			return fmt.Errorf("%w: %v", ErrInvalidCredentials, err)
 		}
 		return fmt.Errorf("failed to verify password: %w", err)
 	}
