@@ -49,8 +49,9 @@ func encodeSessionResponse(w http.ResponseWriter, r *http.Request, tokens *iam.S
 	})
 
 	api.RespondJSON(w, http.StatusOK, sdk.LoginResponse{
-		AccessToken: tokens.AccessToken,
-		TokenType:   "Bearer",
-		ExpiresIn:   int(tokens.AccessExpiration.Seconds()),
+		AccessToken:      tokens.AccessToken,
+		TokenType:        "Bearer",
+		ExpiresIn:        int(tokens.AccessExpiration.Seconds()),
+		RefreshExpiresIn: int(tokens.RefreshExpiration.Seconds()),
 	})
 }

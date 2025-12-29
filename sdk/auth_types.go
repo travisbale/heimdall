@@ -43,7 +43,8 @@ type LoginResponse struct {
 	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA verification is required
 	MFASetupToken     string `json:"mfa_setup_token,omitempty"`     // Set when role requires MFA but user hasn't set it up
 	TokenType         string `json:"token_type,omitempty"`          // "Bearer" for access tokens, omitted for challenge/setup tokens
-	ExpiresIn         int    `json:"expires_in"`                    // seconds until token expires
+	ExpiresIn         int    `json:"expires_in"`                    // Seconds until access token expires (OAuth 2.0 standard)
+	RefreshExpiresIn  int    `json:"refresh_expires_in,omitempty"`  // Seconds until refresh token expires (extension to standard)
 }
 
 // LogoutResponse represents the logout response
