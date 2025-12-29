@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/cors v1.2.2
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.8.0
 	github.com/pquerna/otp v1.5.0
 	github.com/travisbale/knowhere v0.0.0-00010101000000-000000000000
 	github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f
