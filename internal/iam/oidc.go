@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/heimdall/sdk"
 )
 
 // defaultOIDCScopes returns a fresh copy of standard OIDC scopes
@@ -13,9 +12,9 @@ func defaultOIDCScopes() []string {
 	return []string{"openid", "email", "profile"}
 }
 
-// oauthCallbackURL constructs the OAuth callback URL from a base public URL
-func oauthCallbackURL(publicURL string) string {
-	return publicURL + sdk.RouteV1OAuthCallback
+// OAuthCallbackURL constructs the OAuth callback URL from frontend base URL
+func OAuthCallbackURL(publicURL string) string {
+	return publicURL + "/oauth/callback"
 }
 
 // oidcSessionExpiration is the timeout for OIDC flow sessions (CSRF/PKCE state)

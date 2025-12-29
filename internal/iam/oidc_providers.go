@@ -67,7 +67,7 @@ func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, pro
 	}
 
 	// Perform dynamic client registration (RFC 7591)
-	callbackURL := oauthCallbackURL(s.PublicURL)
+	callbackURL := OAuthCallbackURL(s.PublicURL)
 	clientName := fmt.Sprintf("Heimdall - %s", provider.ProviderName)
 
 	registration, err := s.RegistrationClient.Register(ctx, metadata.RegistrationEndpoint, callbackURL, clientName, accessToken, provider.Scopes)

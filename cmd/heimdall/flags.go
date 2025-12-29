@@ -153,6 +153,7 @@ var (
 	GoogleIssuerURLFlag = &cli.StringFlag{
 		Name:        "google-issuer-url",
 		Usage:       "Google OIDC issuer URL (optional, defaults to https://accounts.google.com, mainly for testing)",
+		Value:       "https://accounts.google.com",
 		EnvVars:     []string{"GOOGLE_ISSUER_URL"},
 		Destination: &config.GoogleIssuerURL,
 	}

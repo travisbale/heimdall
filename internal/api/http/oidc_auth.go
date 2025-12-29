@@ -29,7 +29,7 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
-			api.RespondError(w, http.StatusNotFound, fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType), err)
+			api.RespondError(w, http.StatusBadRequest, fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType), err)
 		default:
 			api.RespondError(w, http.StatusInternalServerError, "Failed to start OAuth login", err)
 		}
@@ -53,7 +53,7 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):
-			api.RespondError(w, http.StatusBadRequest, "SSO is not configured for your domain. Please contact your administrator or use individual OAuth login.", err)
+			api.RespondError(w, http.StatusBadRequest, "SSO is not configured for your domain", nil)
 		default:
 			api.RespondError(w, http.StatusInternalServerError, "Failed to start SSO login", err)
 		}

@@ -15,8 +15,8 @@ import (
 func initializeSystemProviders(ctx context.Context, config *Config) (map[sdk.OIDCProviderType]iam.OIDCProvider, error) {
 	systemProviders := make(map[sdk.OIDCProviderType]iam.OIDCProvider)
 
-	// OAuth callback redirect URI (same for all providers)
-	redirectURI := config.PublicURL + "/v1/oauth/callback"
+	// OAuth callback redirect URI (same for all providers) - points to frontend
+	redirectURI := iam.OAuthCallbackURL(config.PublicURL)
 
 	// Configure Google OAuth provider if credentials are provided
 	if config.GoogleClientID != "" && config.GoogleClientSecret != "" {
