@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,7 +34,7 @@ type trustedDeviceDB interface {
 // TrustedDeviceService manages trusted device operations
 type TrustedDeviceService struct {
 	TrustedDeviceDB trustedDeviceDB
-	Logger          logger
+	Logger          *slog.Logger
 }
 
 // CreateTrustedDevice creates a new trusted device entry and returns the raw token.

@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,7 +37,7 @@ type loginAttemptsDB interface {
 // LoginAttemptsService handles login attempt tracking and account lockout logic
 type LoginAttemptsService struct {
 	DB     loginAttemptsDB
-	Logger logger
+	Logger *slog.Logger
 }
 
 // IsAccountLocked checks if an email is currently locked out and when the lock expires

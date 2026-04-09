@@ -1,6 +1,8 @@
 package iam
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -23,7 +25,7 @@ func newTestOIDCServices(
 		RegistrationClient: nil, // Not needed for these tests
 		ProviderFactory:    factory,
 		PublicURL:          "http://localhost:8080",
-		Logger:             &mockLogger{},
+		Logger:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	authService := &OIDCAuthService{
@@ -35,7 +37,7 @@ func newTestOIDCServices(
 		SystemProviders:     systemProviders,
 		ProviderFactory:     factory,
 		PublicURL:           "http://localhost:8080",
-		Logger:              &mockLogger{},
+		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	return providerService, authService

@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ type OIDCProviderService struct {
 	RegistrationClient oidcRegistrationClient
 	ProviderFactory    oidcProviderFactory
 	PublicURL          string
-	Logger             logger
+	Logger             *slog.Logger
 }
 
 // CreateOIDCProvider creates a new OIDC provider configuration manually or dynamically
@@ -49,7 +50,7 @@ func (s *OIDCProviderService) createManualOIDCProvider(ctx context.Context, prov
 		return nil, err
 	}
 
-	s.Logger.AuditContext(ctx, events.OIDCProviderCreated,
+	s.Logger.InfoContext(ctx, events.OIDCProviderCreated,
 		"provider_id", provider.ID,
 		"provider_name", provider.ProviderName,
 		"registration_method", "manual",
@@ -103,7 +104,7 @@ func (s *OIDCProviderService) createDynamicOIDCProvider(ctx context.Context, pro
 		return nil, err
 	}
 
-	s.Logger.AuditContext(ctx, events.OIDCProviderCreated,
+	s.Logger.InfoContext(ctx, events.OIDCProviderCreated,
 		"provider_id", provider.ID,
 		"provider_name", provider.ProviderName,
 		"registration_method", "dynamic",
@@ -129,7 +130,7 @@ func (s *OIDCProviderService) UpdateOIDCProvider(ctx context.Context, params *Up
 		return nil, err
 	}
 
-	s.Logger.AuditContext(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
+	s.Logger.InfoContext(ctx, events.OIDCProviderUpdated, "provider_id", provider.ID, "provider_name", provider.ProviderName)
 
 	return provider, nil
 }
@@ -156,7 +157,7 @@ func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID
 		return err
 	}
 
-	s.Logger.AuditContext(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
+	s.Logger.InfoContext(ctx, events.OIDCProviderDeleted, "provider_id", providerID, "provider_name", provider.ProviderName)
 
 	return nil
 }

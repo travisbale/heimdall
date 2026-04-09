@@ -2,6 +2,8 @@ package iam
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,7 +33,7 @@ func newRBACTestFixture() *rbacTestFixture {
 		RolePermissionsDB: rolePermRepo,
 		UserRolesDB:       userRoleRepo,
 		UserPermissionsDB: userPermRepo,
-		Logger:            &mockLogger{},
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	return &rbacTestFixture{
@@ -83,7 +85,7 @@ func TestGetUserScopes_DenyRemovesPermission(t *testing.T) {
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
-		Logger:            &mockLogger{},
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
@@ -140,7 +142,7 @@ func TestGetUserScopes_MultipleAllowsDeduplicated(t *testing.T) {
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
-		Logger:            &mockLogger{},
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
@@ -180,7 +182,7 @@ func TestGetUserScopes_EmptyPermissions(t *testing.T) {
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
-		Logger:            &mockLogger{},
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	permissions, err := service.GetUserScopes(context.Background(), userID)
@@ -341,7 +343,7 @@ func TestListPermissions_Success(t *testing.T) {
 		RolePermissionsDB: &mockRolePermissionRepository{},
 		UserRolesDB:       &mockUserRoleRepository{},
 		UserPermissionsDB: &mockUserPermissionRepository{},
-		Logger:            &mockLogger{},
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	permissions, err := service.ListPermissions(context.Background())

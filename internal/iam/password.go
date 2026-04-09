@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,7 +25,7 @@ type PasswordService struct {
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
 	LoginAttemptsService loginAttemptsService
-	Logger               logger
+	Logger               *slog.Logger
 }
 
 // VerifyCredentials verifies user credentials and returns the active user account

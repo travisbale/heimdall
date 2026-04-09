@@ -53,8 +53,10 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, err
 	}
 
+	logger := slog.Default()
+
 	// Initialize business logic services
-	services, err := initializeServices(config, dbs, systemProviders, emailClient, cipher)
+	services, err := initializeServices(config, dbs, systemProviders, emailClient, cipher, logger)
 	if err != nil {
 		db.Close()
 		emailClient.Close()
@@ -77,14 +79,14 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Environment:         config.Environment,
 		TrustedProxyMode:    config.TrustedProxyMode,
 		CORSAllowedOrigins:  config.CORSAllowedOrigins,
-		Logger:              slog.Default(),
+		Logger:              logger,
 	})
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
 		Addr:        config.GRPCAddress,
 		AuthService: services.user,
-		Logger:      slog.Default(),
+		Logger:      logger,
 	})
 
 	return &Server{

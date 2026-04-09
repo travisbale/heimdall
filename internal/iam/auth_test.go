@@ -3,6 +3,8 @@ package iam
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -233,7 +235,7 @@ func newAuthServiceTestFixture() *authServiceTestFixture {
 		RBACService:     rbacService,
 		JWTService:      jwtService,
 		SessionService:  sessionService,
-		Logger:          &mockLogger{},
+		Logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	return &authServiceTestFixture{

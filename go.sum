@@ -88,6 +88,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15 h1:oogFDD4PdA8ww3szApt/x4xA+AOcAunOzpKghlpLkgM=
+github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15/go.mod h1:jJjkT0alXf4nAhAgxPQ/DmG36UAytldeYRJivThKeo8=
 github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f h1:RhrRnzuIbOIJZ9aPvs+t/nUSTtk+gLj70BAJmKg1ZgA=
 github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f/go.mod h1:G2DP99cvn/RPKH0lb988IlwKEpERt55/J6BnRIQvaFo=
 github.com/ulule/limiter/v3 v3.11.2 h1:P4yOrxoEMJbOTfRJR2OzjL90oflzYPPmWg+dvwN2tHA=

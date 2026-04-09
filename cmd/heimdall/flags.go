@@ -104,14 +104,6 @@ var (
 		Destination: &config.MailmanGRPCAddress,
 	}
 
-	UatuGRPCAddressFlag = &cli.StringFlag{
-		Name:        "uatu-grpc-address",
-		Usage:       "Uatu audit logging gRPC server address",
-		Value:       "localhost:9091",
-		EnvVars:     []string{"UATU_GRPC_ADDRESS"},
-		Destination: &config.UatuGRPCAddress,
-	}
-
 	TrustedProxyModeFlag = &cli.BoolFlag{
 		Name:        "trusted-proxy-mode",
 		Usage:       "Enable IP extraction from X-Forwarded-For when behind trusted reverse proxy (nginx, cloudflare, etc). Security warning: only enable if proxy strips/validates headers.",

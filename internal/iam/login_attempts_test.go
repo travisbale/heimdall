@@ -2,6 +2,8 @@ package iam
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -64,7 +66,7 @@ func (m *mockLoginAttemptsDB) DeleteLoginAttempts(ctx context.Context, userID uu
 // Helper function to create test service
 func createTestLoginAttemptsService() (*LoginAttemptsService, *mockLoginAttemptsDB) {
 	db := &mockLoginAttemptsDB{}
-	logger := &mockLogger{}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	service := &LoginAttemptsService{
 		DB:     db,
 		Logger: logger,

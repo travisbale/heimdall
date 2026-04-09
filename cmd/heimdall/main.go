@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/travisbale/uatu/ulog"
+	"github.com/travisbale/knowhere/identity"
 	"github.com/urfave/cli/v2"
 )
-
-// logHandler holds the ulog handler for cleanup on shutdown
-var logHandler *ulog.Handler
 
 func main() {
 	app := &cli.App{
@@ -19,22 +17,9 @@ func main() {
 			DebugFlag,
 			LogFormatFlag,
 			DatabaseURLFlag,
-			UatuGRPCAddressFlag,
 		},
 		Before: func(c *cli.Context) error {
-			var err error
-			logHandler, err = ulog.Init(&ulog.InitConfig{
-				Service: "heimdall",
-				Address: config.UatuGRPCAddress,
-				Format:  config.LogFormat,
-				Debug:   config.Debug,
-			})
-			return err
-		},
-		After: func(c *cli.Context) error {
-			if logHandler != nil {
-				return logHandler.Close()
-			}
+			initLogger(config.LogFormat, config.Debug)
 			return nil
 		},
 		Commands: []*cli.Command{
@@ -49,4 +34,22 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Application error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func initLogger(format string, debug bool) {
+	var level slog.Level
+	if debug {
+		level = slog.LevelDebug
+	}
+
+	opts := &slog.HandlerOptions{Level: level}
+
+	var handler slog.Handler
+	if format == "json" {
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	slog.SetDefault(slog.New(identity.LogHandler(handler)))
 }

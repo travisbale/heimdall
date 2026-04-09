@@ -1,10 +1,9 @@
+// Package events defines structured log message constants for heimdall.
 package events
 
-// Info events are system/operational events logged locally for debugging and monitoring.
-// These are not sent to uatu as they're not relevant to end-user audit trails.
-
-// Authentication Info Events
+// Authentication Events
 const (
+	LoginSucceeded         = "login_succeeded"
 	PasswordResetRequested = "password_reset_requested"
 	PasswordResetCompleted = "password_reset_completed"
 	PasswordChanged        = "password_changed"
@@ -12,25 +11,34 @@ const (
 	AccountLocked          = "account_locked"
 )
 
-// User Management Info Events
+// User Management Events
 const (
 	TenantCreated  = "tenant_created"
 	UserRegistered = "user_registered"
 	UserCreated    = "user_created"
 )
 
-// OAuth/OIDC Info Events
+// RBAC Events
 const (
-	OAuthLoginFailed = "oauth_login_failed"
-	SSOLoginFailed   = "sso_login_failed"
+	RoleCreated            = "role_created"
+	RoleUpdated            = "role_updated"
+	RoleDeleted            = "role_deleted"
+	RolePermissionsUpdated = "role_permissions_updated"
+	UserRolesUpdated       = "user_roles_updated"
+	UserPermissionsUpdated = "user_permissions_updated"
 )
 
-// OIDC Provider Info Events
+// OAuth/OIDC Events
 const (
+	OAuthLoginFailed         = "oauth_login_failed"
+	SSOLoginFailed           = "sso_login_failed"
+	OIDCProviderCreated      = "oidc_provider_created"
+	OIDCProviderUpdated      = "oidc_provider_updated"
+	OIDCProviderDeleted      = "oidc_provider_deleted"
 	OIDCProviderUnregistered = "oidc_provider_unregistered"
 )
 
-// MFA Info Events
+// MFA Events
 const (
 	MFASetupStarted        = "mfa_setup_started"
 	MFAEnabled             = "mfa_enabled"
@@ -42,7 +50,7 @@ const (
 	BackupCodesRegenerated = "backup_codes_regenerated"
 )
 
-// Session Info Events
+// Session Events
 const (
 	SessionCreated          = "session_created"
 	SessionRevoked          = "session_revoked"
@@ -52,7 +60,7 @@ const (
 	TokenReuseDetected      = "token_reuse_detected"
 )
 
-// Trusted Device Info Events
+// Trusted Device Events
 const (
 	TrustedDeviceCreated    = "trusted_device_created"
 	TrustedDeviceAllRevoked = "trusted_device_all_revoked"

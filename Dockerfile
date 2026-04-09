@@ -6,16 +6,12 @@ RUN apk add --no-cache git make
 
 WORKDIR /build
 
-# Copy local dependencies first (for replace directives)
-COPY knowhere /knowhere
-COPY uatu /uatu
-
-# Copy go mod files
-COPY heimdall/go.mod heimdall/go.sum ./
+# Copy go mod files and download dependencies
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY heimdall/ .
+COPY . .
 
 # Build the application
 RUN make build

@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ type refreshTokenDB interface {
 // SessionService manages refresh token storage for session management
 type SessionService struct {
 	RefreshTokenDB refreshTokenDB
-	Logger         logger
+	Logger         *slog.Logger
 }
 
 // StoreSession stores a refresh token in the database

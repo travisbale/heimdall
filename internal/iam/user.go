@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ type UserService struct {
 	VerificationTokenDB tokenDB
 	OIDCService         oidcService
 	RBACService         rbacService
-	Logger              logger
+	Logger              *slog.Logger
 }
 
 // CreateUser creates a new user and assigns specified roles

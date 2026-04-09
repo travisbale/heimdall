@@ -10,9 +10,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/pquerna/otp v1.5.0
-	github.com/travisbale/knowhere v0.0.0-00010101000000-000000000000
+	github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15
 	github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f
-	github.com/travisbale/uatu v0.0.0-00010101000000-000000000000
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/oauth2 v0.33.0
@@ -44,7 +43,3 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 )
-
-replace github.com/travisbale/knowhere => ../knowhere
-
-replace github.com/travisbale/uatu => ../uatu

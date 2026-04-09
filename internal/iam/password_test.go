@@ -3,6 +3,8 @@ package iam
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -31,7 +33,7 @@ func newPasswordServiceTestFixture() *passwordServiceTestFixture {
 		PasswordResetTokenDB: passwordResetTokenDB,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttempts,
-		Logger:               &mockLogger{},
+		Logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	return &passwordServiceTestFixture{

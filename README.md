@@ -335,7 +335,6 @@ Environment variables:
 - `JWT_EXPIRATION` - Refresh token lifetime (default: `24h`)
 - `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
 - `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
-- `UATU_GRPC_ADDRESS` - Uatu audit logging gRPC address (default: `localhost:9091`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `TRUSTED_PROXY_MODE` - Enable IP extraction from X-Forwarded-For headers (default: `false`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins

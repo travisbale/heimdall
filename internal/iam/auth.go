@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,7 +71,7 @@ type AuthService struct {
 	JWTService            jwtService
 	SessionService        sessionStorageService
 	TrustedDeviceService  trustedDeviceService
-	Logger                logger
+	Logger                *slog.Logger
 }
 
 // ============================================================================
@@ -391,7 +392,7 @@ func (s *AuthService) createSessionFamily(ctx context.Context, familyID, tenantI
 	}
 
 	// Log successful authentication - user is now fully authenticated
-	s.Logger.AuditContext(ctx, events.LoginSucceeded)
+	s.Logger.InfoContext(ctx, events.LoginSucceeded)
 
 	return &SessionTokens{
 		AccessToken:       accessToken,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -29,7 +30,7 @@ type OIDCAuthService struct {
 	SystemProviders     map[sdk.OIDCProviderType]OIDCProvider
 	ProviderFactory     oidcProviderFactory
 	PublicURL           string
-	Logger              logger
+	Logger              *slog.Logger
 }
 
 // StartSSOLogin initiates an OIDC login flow for corporate SSO (domain-based discovery)

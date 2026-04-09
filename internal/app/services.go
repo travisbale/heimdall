@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/travisbale/heimdall/internal/email/mailman"
@@ -11,7 +12,6 @@ import (
 	"github.com/travisbale/knowhere/crypto/aes"
 	"github.com/travisbale/knowhere/crypto/argon2"
 	"github.com/travisbale/knowhere/jwt"
-	"github.com/travisbale/uatu/ulog"
 )
 
 // services holds all business logic service instances
@@ -36,6 +36,7 @@ func initializeServices(
 	systemProviders map[sdk.OIDCProviderType]iam.OIDCProvider,
 	emailClient *mailman.Client,
 	cipher *aes.Cipher,
+	logger *slog.Logger,
 ) (*services, error) {
 	// JWT service for token issuance and validation
 	jwtConfig := &jwt.Config{
@@ -59,7 +60,7 @@ func initializeServices(
 	// Login attempts service for account lockout tracking
 	loginAttemptsService := &iam.LoginAttemptsService{
 		DB:     dbs.loginAttempts,
-		Logger: ulog.Default(),
+		Logger: logger,
 	}
 
 	// RBAC service for roles and permissions
@@ -69,7 +70,7 @@ func initializeServices(
 		RolePermissionsDB: dbs.rolePermissions,
 		UserRolesDB:       dbs.userRoles,
 		UserPermissionsDB: dbs.userPermissions,
-		Logger:            ulog.Default(),
+		Logger:            logger,
 	}
 
 	// OIDC provider service for provider CRUD operations
@@ -78,7 +79,7 @@ func initializeServices(
 		RegistrationClient: oidc.NewRegistrationClient(),
 		ProviderFactory:    oidc.NewProviderFactory(),
 		PublicURL:          config.PublicURL,
-		Logger:             ulog.Default(),
+		Logger:             logger,
 	}
 
 	// OIDC auth service for OAuth/SSO authentication flows
@@ -91,7 +92,7 @@ func initializeServices(
 		SystemProviders:     systemProviders,
 		ProviderFactory:     oidc.NewProviderFactory(),
 		PublicURL:           config.PublicURL,
-		Logger:              ulog.Default(),
+		Logger:              logger,
 	}
 
 	// Password service for password authentication
@@ -101,7 +102,7 @@ func initializeServices(
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
 		LoginAttemptsService: loginAttemptsService,
-		Logger:               ulog.Default(),
+		Logger:               logger,
 	}
 
 	// User service for registration and user management
@@ -113,7 +114,7 @@ func initializeServices(
 		VerificationTokenDB: dbs.verificationTokens,
 		OIDCService:         oidcProviderService,
 		RBACService:         rbacService,
-		Logger:              ulog.Default(),
+		Logger:              logger,
 	}
 
 	// MFA service for TOTP and backup codes
@@ -123,19 +124,19 @@ func initializeServices(
 		UsersDB:       dbs.users,
 		Verifier:      totp.NewVerifier(dbs.mfaSettings, cipher, config.TOTPPeriod),
 		Hasher:        passwordHasher,
-		Logger:        ulog.Default(),
+		Logger:        logger,
 	}
 
 	// Session service for refresh token storage and management
 	sessionService := &iam.SessionService{
 		RefreshTokenDB: dbs.refreshTokens,
-		Logger:         ulog.Default(),
+		Logger:         logger,
 	}
 
 	// Trusted device service for MFA bypass on trusted devices
 	trustedDeviceService := &iam.TrustedDeviceService{
 		TrustedDeviceDB: dbs.trustedDevices,
-		Logger:          ulog.Default(),
+		Logger:          logger,
 	}
 
 	// Auth service orchestrates authentication flows
@@ -149,7 +150,7 @@ func initializeServices(
 		JWTService:            jwtService,
 		SessionService:        sessionService,
 		TrustedDeviceService:  trustedDeviceService,
-		Logger:                ulog.Default(),
+		Logger:                logger,
 	}
 
 	return &services{

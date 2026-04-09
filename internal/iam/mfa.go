@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ type MFAService struct {
 	UsersDB       userDB
 	Verifier      mfaVerifier
 	Hasher        hasher
-	Logger        logger
+	Logger        *slog.Logger
 }
 
 const backupCodeCount = 10
