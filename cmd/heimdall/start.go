@@ -27,6 +27,7 @@ var startCmd = &cli.Command{
 		EnvironmentFlag,
 		PublicURLFlag,
 		MailmanGRPCAddressFlag,
+		EmailWebhookURLFlag,
 		TrustedProxyModeFlag,
 		EncryptionKeyFlag,
 		CORSAllowedOriginsFlag,

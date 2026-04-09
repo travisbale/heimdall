@@ -8,7 +8,9 @@ import (
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/http"
 	"github.com/travisbale/heimdall/internal/db/postgres"
+	"github.com/travisbale/heimdall/internal/email/console"
 	"github.com/travisbale/heimdall/internal/email/mailman"
+	"github.com/travisbale/heimdall/internal/email/webhook"
 )
 
 // Server wraps the HTTP and gRPC servers and their dependencies
@@ -27,8 +29,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, err
 	}
 
-	// Setup email client
-	emailClient, err := mailman.NewClient(config.MailmanGRPCAddress, config.PublicURL)
+	// Setup email client based on configuration
+	emailClient, err := newEmailClient(config)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create email service: %w", err)
@@ -115,4 +117,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.db.Close()
 
 	return s.httpServer.Shutdown(ctx)
+}
+
+func newEmailClient(config *Config) (emailClient, error) {
+	switch {
+	case config.EmailWebhookURL != "":
+		return webhook.NewClient(config.EmailWebhookURL, config.PublicURL), nil
+	case config.MailmanGRPCAddress != "":
+		return mailman.NewClient(config.MailmanGRPCAddress, config.PublicURL)
+	default:
+		return console.NewClient(slog.Default(), config.PublicURL), nil
+	}
 }

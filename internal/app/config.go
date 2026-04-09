@@ -1,10 +1,18 @@
 package app
 
 import (
+	"context"
 	"time"
 
 	"github.com/travisbale/knowhere/crypto/argon2"
 )
+
+// emailClient sends verification and password reset emails
+type emailClient interface {
+	SendVerificationEmail(ctx context.Context, email, token string) error
+	SendPasswordResetEmail(ctx context.Context, email, token string) error
+	Close()
+}
 
 const (
 	// Argon2 production parameters (OWASP recommended for password hashing)
@@ -32,6 +40,7 @@ type Config struct {
 	JWTExpiration      time.Duration
 	PublicURL          string
 	MailmanGRPCAddress string
+	EmailWebhookURL    string
 	Environment        string
 	EncryptionKey      string
 	TrustedProxyMode   bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy

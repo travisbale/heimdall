@@ -4,12 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/travisbale/heimdall/internal/email"
 	"github.com/travisbale/mailman/sdk"
-)
-
-const (
-	verificationTemplateID  = "email-verification"
-	passwordResetTemplateID = "password-reset"
 )
 
 // Client sends emails via the mailman gRPC API
@@ -33,37 +29,27 @@ func NewClient(mailmanAddress, baseURL string) (*Client, error) {
 
 // SendVerificationEmail sends a verification email via mailman
 func (s *Client) SendVerificationEmail(ctx context.Context, emailAddress, token string) error {
-	req := sdk.SendEmailRequest{
-		TemplateID: verificationTemplateID,
-		To:         emailAddress,
-		Variables: map[string]string{
-			"verification_url": fmt.Sprintf("%s/verify-email?token=%s", s.publicURL, token),
-		},
-	}
-
-	_, err := s.client.SendEmail(ctx, req)
-	if err != nil {
-		return fmt.Errorf("failed to send verification email via mailman: %w", err)
-	}
-
-	return nil
+	return s.send(ctx, email.VerificationTemplate, emailAddress, map[string]string{
+		"verification_url": email.VerificationURL(s.publicURL, token),
+	})
 }
 
 // SendPasswordResetEmail sends a password reset email via mailman
 func (s *Client) SendPasswordResetEmail(ctx context.Context, emailAddress, token string) error {
-	req := sdk.SendEmailRequest{
-		TemplateID: passwordResetTemplateID,
+	return s.send(ctx, email.PasswordResetTemplate, emailAddress, map[string]string{
+		"reset_url": email.PasswordResetURL(s.publicURL, token),
+	})
+}
+
+func (s *Client) send(ctx context.Context, templateID, emailAddress string, variables map[string]string) error {
+	_, err := s.client.SendEmail(ctx, sdk.SendEmailRequest{
+		TemplateID: templateID,
 		To:         emailAddress,
-		Variables: map[string]string{
-			"reset_url": fmt.Sprintf("%s/reset-password?token=%s", s.publicURL, token),
-		},
-	}
-
-	_, err := s.client.SendEmail(ctx, req)
+		Variables:  variables,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to send password reset email via mailman: %w", err)
+		return fmt.Errorf("failed to send email via mailman: %w", err)
 	}
-
 	return nil
 }
 

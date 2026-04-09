@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/travisbale/heimdall/internal/email/mailman"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/mfa/totp"
 	"github.com/travisbale/heimdall/internal/oidc"
@@ -34,7 +33,7 @@ func initializeServices(
 	config *Config,
 	dbs *databases,
 	systemProviders map[sdk.OIDCProviderType]iam.OIDCProvider,
-	emailClient *mailman.Client,
+	emailClient emailClient,
 	cipher *aes.Cipher,
 	logger *slog.Logger,
 ) (*services, error) {

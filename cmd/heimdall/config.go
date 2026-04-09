@@ -25,6 +25,7 @@ type Config struct {
 	PublicURL string
 
 	MailmanGRPCAddress string
+	EmailWebhookURL    string
 
 	Environment string // "development", "staging", "production"
 
@@ -67,6 +68,7 @@ func (c *Config) ToAppConfig() *app.Config {
 		JWTExpiration:         c.JWTExpiration,
 		PublicURL:             c.PublicURL,
 		MailmanGRPCAddress:    c.MailmanGRPCAddress,
+		EmailWebhookURL:       c.EmailWebhookURL,
 		Environment:           c.Environment,
 		TrustedProxyMode:      c.TrustedProxyMode,
 		EncryptionKey:         c.EncryptionKey,

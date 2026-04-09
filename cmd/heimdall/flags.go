@@ -98,10 +98,16 @@ var (
 
 	MailmanGRPCAddressFlag = &cli.StringFlag{
 		Name:        "mailman-grpc-address",
-		Usage:       "Mailman gRPC server address",
-		Value:       "localhost:50051",
+		Usage:       "Mailman gRPC server address for email delivery",
 		EnvVars:     []string{"MAILMAN_GRPC_ADDRESS"},
 		Destination: &config.MailmanGRPCAddress,
+	}
+
+	EmailWebhookURLFlag = &cli.StringFlag{
+		Name:        "email-webhook-url",
+		Usage:       "HTTP webhook URL for email delivery (receives JSON POST with email events)",
+		EnvVars:     []string{"EMAIL_WEBHOOK_URL"},
+		Destination: &config.EmailWebhookURL,
 	}
 
 	TrustedProxyModeFlag = &cli.BoolFlag{
