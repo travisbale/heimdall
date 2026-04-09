@@ -13,6 +13,7 @@ import (
 )
 
 func TestTenantIsolation_Roles(t *testing.T) {
+	t.Parallel()
 	// Two admin users in separate tenants
 	tenantA := CreateAdminUser(t, "iso-roles-a")
 	tenantB := CreateAdminUser(t, "iso-roles-b")
@@ -52,6 +53,7 @@ func TestTenantIsolation_Roles(t *testing.T) {
 }
 
 func TestTenantIsolation_UserRoles(t *testing.T) {
+	t.Parallel()
 	tenantA := CreateAdminUser(t, "iso-userroles-a")
 	tenantB := CreateAdminUser(t, "iso-userroles-b")
 	ctx := context.Background()
@@ -97,6 +99,7 @@ func TestTenantIsolation_UserRoles(t *testing.T) {
 }
 
 func TestTenantIsolation_Permissions(t *testing.T) {
+	t.Parallel()
 	tenantA := CreateAdminUser(t, "iso-perms-a")
 	tenantB := CreateAdminUser(t, "iso-perms-b")
 	ctx := context.Background()
@@ -115,6 +118,7 @@ func TestTenantIsolation_Permissions(t *testing.T) {
 }
 
 func TestTenantIsolation_Sessions(t *testing.T) {
+	t.Parallel()
 	tenantA := CreateVerifiedUser(t, "iso-sessions-a")
 	tenantB := CreateVerifiedUser(t, "iso-sessions-b")
 	ctx := context.Background()

@@ -15,6 +15,7 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
+	t.Parallel()
 	client := harness.NewClient(t)
 
 	err := client.Health(context.Background())
@@ -22,6 +23,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestRegistration(t *testing.T) {
+	t.Parallel()
 	client := harness.NewClient(t)
 	email, password := GenerateTestCredentials(t, "register")
 
@@ -76,6 +78,7 @@ func TestRegistration(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "login")
 	client := harness.NewClient(t)
 
@@ -108,6 +111,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestPasswordReset(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "reset")
 	client := harness.NewClient(t)
 
@@ -139,6 +143,7 @@ func TestPasswordReset(t *testing.T) {
 }
 
 func TestAccountLockout(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "lockout")
 	client := harness.NewClient(t)
 
@@ -165,6 +170,7 @@ func TestAccountLockout(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "logout")
 
 	t.Run("logout invalidates refresh token", func(t *testing.T) {
@@ -178,6 +184,7 @@ func TestLogout(t *testing.T) {
 }
 
 func TestRefreshToken(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "refresh")
 
 	t.Run("refresh returns new access token", func(t *testing.T) {
@@ -191,137 +198,143 @@ func TestRefreshToken(t *testing.T) {
 // Server-side input validation tests (bypass SDK client-side validation)
 
 func TestLoginValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing email", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"password":"test"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 
 	t.Run("invalid email format", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"email":"not-email","password":"test"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 
 	t.Run("missing password", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"email":"user@example.com"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "password")
 	})
 
 	t.Run("malformed JSON", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{bad json`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 	})
 }
 
 func TestRegistrationValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing email", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
 			`{"first_name":"Test","last_name":"User"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 
 	t.Run("invalid email format", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
 			`{"email":"bad","first_name":"Test","last_name":"User"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 
 	t.Run("missing first name", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
 			`{"email":"user@example.com","last_name":"User"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "first name")
 	})
 
 	t.Run("missing last name", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
 			`{"email":"user@example.com","first_name":"Test"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "last name")
 	})
 }
 
 func TestVerifyEmailValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing token", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 			`{"password":"Xe9#mK2pLq!vR4"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "token")
 	})
 
 	t.Run("missing password", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 			`{"token":"abc123"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "password")
 	})
 
 	t.Run("weak password", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 			`{"token":"abc123","password":"short"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "password")
 	})
 }
 
 func TestForgotPasswordValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing email", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ForgotPassword, `{}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 
 	t.Run("invalid email format", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ForgotPassword,
 			`{"email":"not-email"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "email")
 	})
 }
 
 func TestResetPasswordValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing token", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ResetPassword,
 			`{"new_password":"Xe9#mK2pLq!vR4"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "token")
 	})
 
 	t.Run("weak password", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ResetPassword,
 			`{"token":"abc123","new_password":"weak"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "password")
 	})
 }
 
 func TestAuthRequired(t *testing.T) {
+	t.Parallel()
 	t.Run("MFA setup", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodPost, sdk.RouteV1MFASetup, `{}`, "")
-		assert.Equal(t, 401, status)
+		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("MFA status", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1MFAStatus, "", "")
-		assert.Equal(t, 401, status)
+		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("list sessions", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Sessions, "", "")
-		assert.Equal(t, 401, status)
+		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("list roles", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Roles, "", "")
-		assert.Equal(t, 401, status)
+		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("list permissions", func(t *testing.T) {
 		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Permissions, "", "")
-		assert.Equal(t, 401, status)
+		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 }

@@ -14,6 +14,7 @@ import (
 )
 
 func TestListPermissions(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "perms-list")
 	ctx := context.Background()
 
@@ -31,6 +32,7 @@ func TestListPermissions(t *testing.T) {
 }
 
 func TestRoleCRUD(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "role-crud")
 	ctx := context.Background()
 
@@ -85,6 +87,7 @@ func TestRoleCRUD(t *testing.T) {
 }
 
 func TestRolePermissions(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "role-perms")
 	ctx := context.Background()
 
@@ -123,6 +126,7 @@ func TestRolePermissions(t *testing.T) {
 }
 
 func TestUserRoles(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "user-roles")
 	ctx := context.Background()
 
@@ -163,6 +167,7 @@ func TestUserRoles(t *testing.T) {
 }
 
 func TestDirectPermissions(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "direct-perms")
 	ctx := context.Background()
 
@@ -205,6 +210,7 @@ func TestDirectPermissions(t *testing.T) {
 }
 
 func TestUnauthorizedRBACAccess(t *testing.T) {
+	t.Parallel()
 	// Create an admin user, then create a second user in the same tenant without roles.
 	// BootstrapTenant gives the first user System Admin, but users created via gRPC
 	// within the tenant get no roles by default.
@@ -236,20 +242,21 @@ func TestUnauthorizedRBACAccess(t *testing.T) {
 // Server-side input validation tests (bypass SDK client-side validation)
 
 func TestCreateRoleValidation(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "val-create-role")
 	token := getAccessToken(t, admin)
 
 	t.Run("missing name", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Roles,
 			`{"description":"test"}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "name")
 	})
 
 	t.Run("missing description", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Roles,
 			`{"name":"test"}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "description")
 	})
 }

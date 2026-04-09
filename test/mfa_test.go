@@ -53,6 +53,7 @@ func enableMFA(t *testing.T, client *sdk.HTTPClient) *sdk.MFASetupResponse {
 }
 
 func TestMFAEnrollment(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-enroll")
 	ctx := context.Background()
 
@@ -119,6 +120,7 @@ func TestMFAEnrollment(t *testing.T) {
 }
 
 func TestMFALogin(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-login")
 	ctx := context.Background()
 
@@ -185,6 +187,7 @@ func TestMFALogin(t *testing.T) {
 }
 
 func TestMFABackupCodes(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-backup")
 	ctx := context.Background()
 
@@ -227,6 +230,7 @@ func TestMFABackupCodes(t *testing.T) {
 }
 
 func TestMFADisable(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-disable")
 	ctx := context.Background()
 
@@ -255,6 +259,7 @@ func TestMFADisable(t *testing.T) {
 }
 
 func TestTOTPReplayPrevention(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-replay")
 	ctx := context.Background()
 
@@ -296,6 +301,7 @@ func TestTOTPReplayPrevention(t *testing.T) {
 }
 
 func TestTrustedDevice(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "mfa-trusted")
 	ctx := context.Background()
 
@@ -338,61 +344,64 @@ func TestTrustedDevice(t *testing.T) {
 // Server-side input validation tests (bypass SDK client-side validation)
 
 func TestMFAVerifyValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("missing challenge token", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
 			`{"code":"123456"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "challenge_token")
 	})
 
 	t.Run("missing code", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
 			`{"challenge_token":"token"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "code")
 	})
 
 	t.Run("invalid code length", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
 			`{"challenge_token":"token","code":"1234"}`, "")
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "code")
 	})
 }
 
 func TestMFAEnableValidation(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "val-mfa-enable")
 	token := getAccessToken(t, admin)
 
 	t.Run("missing code", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAEnable, `{}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "code")
 	})
 
 	t.Run("wrong length code", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAEnable,
 			`{"code":"12345"}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "code")
 	})
 }
 
 func TestMFADisableValidation(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "val-mfa-disable")
 	token := getAccessToken(t, admin)
 
 	t.Run("missing password", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodDelete, sdk.RouteV1MFADisable,
 			`{"code":"123456"}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "password")
 	})
 
 	t.Run("missing code", func(t *testing.T) {
 		status, body := RawRequest(t, http.MethodDelete, sdk.RouteV1MFADisable,
 			`{"password":"test"}`, token)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "code")
 	})
 }

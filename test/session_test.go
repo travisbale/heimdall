@@ -12,6 +12,7 @@ import (
 )
 
 func TestListSessions(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "sessions-list")
 	ctx := context.Background()
 
@@ -43,6 +44,7 @@ func TestListSessions(t *testing.T) {
 }
 
 func TestRevokeSession(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "sessions-revoke")
 	ctx := context.Background()
 
@@ -73,6 +75,7 @@ func TestRevokeSession(t *testing.T) {
 }
 
 func TestRevokeAllSessions(t *testing.T) {
+	t.Parallel()
 	user := CreateVerifiedUser(t, "sessions-revoke-all")
 	ctx := context.Background()
 
@@ -106,6 +109,7 @@ func TestRevokeAllSessions(t *testing.T) {
 }
 
 func TestTokenRotation(t *testing.T) {
+	t.Parallel()
 	user, jar := CreateVerifiedUserWithJar(t, "token-rotation")
 	ctx := context.Background()
 

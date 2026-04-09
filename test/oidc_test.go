@@ -17,6 +17,7 @@ import (
 )
 
 func TestOIDCProviderCRUD(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "oidc-crud")
 	ctx := context.Background()
 
@@ -96,6 +97,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 }
 
 func TestOIDCProviderValidation(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "oidc-validation")
 
 	token := getAccessToken(t, admin)
@@ -111,7 +113,7 @@ func TestOIDCProviderValidation(t *testing.T) {
 			"client_secret": "test-client-secret",
 			"allowed_domains": ["example.com"]
 		}`)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "provider_name")
 	})
 
@@ -122,7 +124,7 @@ func TestOIDCProviderValidation(t *testing.T) {
 			"client_id": "test-client-id",
 			"client_secret": "test-client-secret"
 		}`)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "allowed domain")
 	})
 
@@ -133,7 +135,7 @@ func TestOIDCProviderValidation(t *testing.T) {
 			"client_id": "test-client-id",
 			"allowed_domains": ["example.com"]
 		}`)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "client_secret")
 	})
 
@@ -145,12 +147,13 @@ func TestOIDCProviderValidation(t *testing.T) {
 			"client_secret": "test-client-secret",
 			"allowed_domains": ["example.com"]
 		}`)
-		assert.Equal(t, 400, status)
+		assert.Equal(t, http.StatusBadRequest, status)
 		assert.Contains(t, body, "HTTPS")
 	})
 }
 
 func TestListSupportedOIDCProviderTypes(t *testing.T) {
+	t.Parallel()
 	client := harness.NewClient(t)
 	ctx := context.Background()
 
@@ -168,6 +171,7 @@ func TestListSupportedOIDCProviderTypes(t *testing.T) {
 }
 
 func TestSSOFlow(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "sso-flow")
 	ctx := context.Background()
 
@@ -220,6 +224,7 @@ func TestSSOFlow(t *testing.T) {
 }
 
 func TestSSOAutoProvisioningDisabled(t *testing.T) {
+	t.Parallel()
 	admin := CreateAdminUser(t, "sso-no-autoprov")
 	ctx := context.Background()
 
@@ -251,6 +256,7 @@ func TestSSOAutoProvisioningDisabled(t *testing.T) {
 }
 
 func TestIndividualOAuthLogin(t *testing.T) {
+	t.Parallel()
 	client := harness.NewClient(t)
 	ctx := context.Background()
 
