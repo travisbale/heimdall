@@ -59,10 +59,7 @@ jobs:
           cache: true
 
       - name: Run tests with race detector
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Display coverage
-        run: go tool cover -func=coverage.out
+        run: go test -v -race -tags integration -timeout 5m ./...
 
   security:
     name: Security Scan

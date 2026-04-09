@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/knowhere/identity"
@@ -56,6 +58,9 @@ func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*iam.Role,
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		result, err := q.GetRoleByID(ctx, roleID)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return iam.ErrRoleNotFound
+			}
 			return err
 		}
 

@@ -1,4 +1,4 @@
-.PHONY: build dev test coverage-html clean sqlc protoc fmt lint tidy download docker-build migrate-up migrate-down help
+.PHONY: build dev test unit coverage-html clean sqlc protoc fmt lint tidy download docker-build migrate-up migrate-down help
 
 # Version is derived from git tags
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -15,9 +15,14 @@ dev: fmt
 	@go build -ldflags="-X 'main.Version=$(VERSION)'" -o bin/heimdall ./cmd/heimdall
 	@echo "Build complete: bin/heimdall"
 
-# Run all tests
+# Run all tests (requires Docker)
 test:
-	@echo "Running tests..."
+	@echo "Running all tests..."
+	@go test -v -race -tags integration -timeout 5m ./...
+
+# Run unit tests only
+unit:
+	@echo "Running unit tests..."
 	@go test -race -coverprofile=coverage.out -covermode=atomic \
 		$$(go list ./... | grep -v -e '/internal/api' -e '/internal/db' -e '/internal/pb' -e '/cmd/' -e '/internal/email')
 	@echo "Unit test coverage: $$(go tool cover -func=coverage.out | grep total | awk '{print $$3}')"
@@ -90,7 +95,8 @@ help:
 	@echo "  build          - Build production binary"
 	@echo "  dev            - Build with debug symbols (faster compilation)"
 	@echo "  run            - Build and run the service"
-	@echo "  test           - Run all tests with coverage"
+	@echo "  test           - Run all tests (requires Docker)"
+	@echo "  unit           - Run unit tests only"
 	@echo "  coverage-html  - Generate HTML coverage report"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  deps           - Install and tidy Go dependencies"
