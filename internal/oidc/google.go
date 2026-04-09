@@ -39,17 +39,17 @@ func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI st
 		}
 	}
 
-	return g.baseOIDCProvider.getAuthorizationURL(state, codeVerifier, redirectURI, extraParams...)
+	return g.getAuthorizationURL(state, codeVerifier, redirectURI, extraParams...)
 }
 
 // ExchangeCode exchanges authorization code for tokens with PKCE verification
 func (g *GoogleProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
-	return g.baseOIDCProvider.exchangeCode(ctx, code, codeVerifier, redirectURI)
+	return g.exchangeCode(ctx, code, codeVerifier, redirectURI)
 }
 
 // GetUserInfo retrieves user information from the provider
 func (g *GoogleProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
-	userInfo, err := g.baseOIDCProvider.getUserInfo(ctx, accessToken)
+	userInfo, err := g.getUserInfo(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -93,5 +93,5 @@ func (g *GoogleProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 
 // ValidateIDToken validates and parses an ID token
 func (g *GoogleProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
-	return g.baseOIDCProvider.validateIDToken(ctx, idToken)
+	return g.validateIDToken(ctx, idToken)
 }

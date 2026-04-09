@@ -39,17 +39,17 @@ func (m *MicrosoftProvider) GetAuthorizationURL(state, codeVerifier, redirectURI
 		oauth2.SetAuthURLParam("response_mode", "query"),
 	}
 
-	return m.baseOIDCProvider.getAuthorizationURL(state, codeVerifier, redirectURI, extraParams...)
+	return m.getAuthorizationURL(state, codeVerifier, redirectURI, extraParams...)
 }
 
 // ExchangeCode exchanges an authorization code for tokens
 func (m *MicrosoftProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
-	return m.baseOIDCProvider.exchangeCode(ctx, code, codeVerifier, redirectURI)
+	return m.exchangeCode(ctx, code, codeVerifier, redirectURI)
 }
 
 // GetUserInfo retrieves user information from the provider
 func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
-	userInfo, err := m.baseOIDCProvider.getUserInfo(ctx, accessToken)
+	userInfo, err := m.getUserInfo(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -84,5 +84,5 @@ func (m *MicrosoftProvider) GetUserInfo(ctx context.Context, accessToken string)
 
 // ValidateIDToken validates and parses an ID token
 func (m *MicrosoftProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
-	return m.baseOIDCProvider.validateIDToken(ctx, idToken)
+	return m.validateIDToken(ctx, idToken)
 }

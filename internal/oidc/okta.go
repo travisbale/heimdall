@@ -34,17 +34,17 @@ func NewOktaProvider(ctx context.Context, domain, clientID, clientSecret, redire
 
 // GetAuthorizationURL generates the OAuth authorization URL with PKCE
 func (o *OktaProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
-	return o.baseOIDCProvider.getAuthorizationURL(state, codeVerifier, redirectURI)
+	return o.getAuthorizationURL(state, codeVerifier, redirectURI)
 }
 
 // ExchangeCode exchanges an authorization code for tokens
 func (o *OktaProvider) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iam.OIDCTokenResponse, error) {
-	return o.baseOIDCProvider.exchangeCode(ctx, code, codeVerifier, redirectURI)
+	return o.exchangeCode(ctx, code, codeVerifier, redirectURI)
 }
 
 // GetUserInfo retrieves user information from the provider
 func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*iam.OIDCUserInfo, error) {
-	userInfo, err := o.baseOIDCProvider.getUserInfo(ctx, accessToken)
+	userInfo, err := o.getUserInfo(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -94,5 +94,5 @@ func (o *OktaProvider) GetUserInfo(ctx context.Context, accessToken string) (*ia
 
 // ValidateIDToken validates and parses an ID token
 func (o *OktaProvider) ValidateIDToken(ctx context.Context, idToken string) (*iam.OIDCClaims, error) {
-	return o.baseOIDCProvider.validateIDToken(ctx, idToken)
+	return o.validateIDToken(ctx, idToken)
 }
