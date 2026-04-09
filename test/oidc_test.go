@@ -5,50 +5,28 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// newMockOIDCServer creates a minimal OIDC discovery server for provider CRUD tests.
-// Returns the server (caller must defer Close) and its issuer URL.
-func newMockOIDCServer(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	mux := http.NewServeMux()
-	var issuerURL string
-
-	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"issuer":                 issuerURL,
-			"authorization_endpoint": issuerURL + "/authorize",
-			"token_endpoint":         issuerURL + "/token",
-			"userinfo_endpoint":      issuerURL + "/userinfo",
-			"jwks_uri":               issuerURL + "/jwks",
-		})
-	})
-
-	server := httptest.NewServer(mux)
-	issuerURL = server.URL
-	return server
-}
-
 func TestOIDCProviderCRUD(t *testing.T) {
 	admin := CreateAdminUser(t, "oidc-crud")
 	ctx := context.Background()
 
-	oidcServer := newMockOIDCServer(t)
-	defer oidcServer.Close()
+	// Use the mock OIDC server's default issuer for provider CRUD tests
+	issuerURL := harness.OIDCMockURL + "/default"
 
 	t.Run("create manual OIDC provider", func(t *testing.T) {
 		provider, err := admin.Client.CreateOIDCProvider(ctx, sdk.CreateOIDCProviderRequest{
 			ProviderName:             "Test Okta",
-			IssuerURL:                oidcServer.URL,
+			IssuerURL:                issuerURL,
 			ClientID:                 "test-client-id",
 			ClientSecret:             "test-client-secret",
 			Scopes:                   []string{"openid", "profile", "email"},
@@ -60,7 +38,7 @@ func TestOIDCProviderCRUD(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, provider.ID)
 		assert.Equal(t, "Test Okta", provider.ProviderName)
-		assert.Equal(t, oidcServer.URL, provider.IssuerURL)
+		assert.Equal(t, issuerURL, provider.IssuerURL)
 		assert.Equal(t, "test-client-id", provider.ClientID)
 		assert.True(t, provider.Enabled)
 		assert.Equal(t, []string{"example.com"}, provider.AllowedDomains)
@@ -120,8 +98,6 @@ func TestOIDCProviderCRUD(t *testing.T) {
 func TestOIDCProviderValidation(t *testing.T) {
 	admin := CreateAdminUser(t, "oidc-validation")
 
-	// Send raw HTTP requests to bypass SDK client-side validation
-	// and test the server's own validation responses
 	token := getAccessToken(t, admin)
 	post := func(t *testing.T, body string) (int, string) {
 		t.Helper()
@@ -189,4 +165,181 @@ func TestListSupportedOIDCProviderTypes(t *testing.T) {
 	assert.True(t, names[sdk.OIDCProviderTypeGoogle], "should include Google")
 	assert.True(t, names[sdk.OIDCProviderTypeMicrosoft], "should include Microsoft")
 	assert.True(t, names[sdk.OIDCProviderTypeGitHub], "should include GitHub")
+}
+
+func TestSSOFlow(t *testing.T) {
+	admin := CreateAdminUser(t, "sso-flow")
+	ctx := context.Background()
+
+	// Create OIDC provider pointing at the mock server's default issuer
+	_, err := admin.Client.CreateOIDCProvider(ctx, sdk.CreateOIDCProviderRequest{
+		ProviderName:             "Acme Corp SSO",
+		IssuerURL:                harness.OIDCMockURL + "/default",
+		ClientID:                 "test-client-id",
+		ClientSecret:             "test-client-secret",
+		Scopes:                   []string{"openid", "email", "profile"},
+		Enabled:                  true,
+		AllowedDomains:           []string{"acmecorp.com"},
+		AutoCreateUsers:          true,
+		RequireEmailVerification: false,
+	})
+	require.NoError(t, err)
+
+	t.Run("complete SSO flow with new user", func(t *testing.T) {
+		ssoEmail := fmt.Sprintf("alice-%d@acmecorp.com", time.Now().UnixNano())
+
+		// Initiate SSO login
+		authResp, err := admin.Client.SSOLogin(ctx, sdk.SSOLoginRequest{
+			Email: ssoEmail,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, authResp.AuthorizationURL)
+
+		// Follow the OAuth flow through the mock OIDC server
+		tokenResp := followOAuthFlow(t, authResp.AuthorizationURL)
+		assert.NotEmpty(t, tokenResp.AccessToken, "should receive access token")
+		assert.Equal(t, "Bearer", tokenResp.TokenType)
+	})
+
+	t.Run("returning SSO user authenticates successfully", func(t *testing.T) {
+		// The mock default issuer always returns mockuser@example.com
+		// but domain matching is on the SSO email, not the IdP email
+		ssoEmail := fmt.Sprintf("returning-%d@acmecorp.com", time.Now().UnixNano())
+
+		// First login
+		authResp, err := admin.Client.SSOLogin(ctx, sdk.SSOLoginRequest{Email: ssoEmail})
+		require.NoError(t, err)
+		followOAuthFlow(t, authResp.AuthorizationURL)
+
+		// Second login — same user should authenticate
+		authResp, err = admin.Client.SSOLogin(ctx, sdk.SSOLoginRequest{Email: ssoEmail})
+		require.NoError(t, err)
+		tokenResp := followOAuthFlow(t, authResp.AuthorizationURL)
+		assert.NotEmpty(t, tokenResp.AccessToken)
+	})
+}
+
+func TestSSOAutoProvisioningDisabled(t *testing.T) {
+	admin := CreateAdminUser(t, "sso-no-autoprov")
+	ctx := context.Background()
+
+	// Create OIDC provider with auto-provisioning disabled
+	_, err := admin.Client.CreateOIDCProvider(ctx, sdk.CreateOIDCProviderRequest{
+		ProviderName:             "Restricted Corp SSO",
+		IssuerURL:                harness.OIDCMockURL + "/github",
+		ClientID:                 "test-client-id",
+		ClientSecret:             "test-client-secret",
+		Scopes:                   []string{"openid", "email", "profile"},
+		Enabled:                  true,
+		AllowedDomains:           []string{"users.noreply.github.com"},
+		AutoCreateUsers:          false,
+		RequireEmailVerification: false,
+	})
+	require.NoError(t, err)
+
+	t.Run("new user rejected when auto-provisioning disabled", func(t *testing.T) {
+		ssoEmail := "githubuser@users.noreply.github.com"
+		authResp, err := admin.Client.SSOLogin(ctx, sdk.SSOLoginRequest{Email: ssoEmail})
+		require.NoError(t, err)
+		require.NotEmpty(t, authResp.AuthorizationURL)
+
+		resp := completeOAuthFlow(t, authResp.AuthorizationURL)
+		defer func() { _ = resp.Body.Close() }()
+		assert.True(t, resp.StatusCode >= 400,
+			"should reject new user when auto-provisioning disabled, got %d", resp.StatusCode)
+	})
+}
+
+func TestIndividualOAuthLogin(t *testing.T) {
+	client := harness.NewClient(t)
+	ctx := context.Background()
+
+	t.Run("initiate Google OAuth", func(t *testing.T) {
+		resp, err := client.OAuthLogin(ctx, sdk.OIDCLoginRequest{
+			ProviderType: sdk.OIDCProviderTypeGoogle,
+		})
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AuthorizationURL)
+		assert.Contains(t, resp.AuthorizationURL, "google")
+	})
+
+	t.Run("initiate Microsoft OAuth", func(t *testing.T) {
+		resp, err := client.OAuthLogin(ctx, sdk.OIDCLoginRequest{
+			ProviderType: sdk.OIDCProviderTypeMicrosoft,
+		})
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AuthorizationURL)
+		assert.Contains(t, resp.AuthorizationURL, "microsoft")
+	})
+
+	t.Run("initiate GitHub OAuth", func(t *testing.T) {
+		resp, err := client.OAuthLogin(ctx, sdk.OIDCLoginRequest{
+			ProviderType: sdk.OIDCProviderTypeGitHub,
+		})
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AuthorizationURL)
+		assert.Contains(t, resp.AuthorizationURL, "github")
+	})
+}
+
+// completeOAuthFlow follows the OAuth authorization flow through the mock OIDC server,
+// intercepts the frontend callback redirect, extracts the code and state,
+// and calls the backend API directly. Returns the raw backend response.
+func completeOAuthFlow(t *testing.T, authorizationURL string) *http.Response {
+	t.Helper()
+
+	// Intercept the redirect to the frontend callback URL (/oauth/callback)
+	// since there's no frontend running in tests
+	var callbackURL string
+	httpClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.Path == "/oauth/callback" {
+				callbackURL = req.URL.String()
+				return http.ErrUseLastResponse
+			}
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := httpClient.Get(authorizationURL)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	require.NotEmpty(t, callbackURL, "should have been redirected to callback URL")
+
+	// Extract code and state, then call the backend directly
+	parsed, err := url.Parse(callbackURL)
+	require.NoError(t, err)
+	code := parsed.Query().Get("code")
+	state := parsed.Query().Get("state")
+	require.NotEmpty(t, code, "callback should contain authorization code")
+	require.NotEmpty(t, state, "callback should contain state")
+
+	backendURL := fmt.Sprintf("%s%s?code=%s&state=%s",
+		harness.BaseURL, sdk.RouteV1OAuthCallback,
+		url.QueryEscape(code), url.QueryEscape(state))
+
+	backendResp, err := http.Get(backendURL)
+	require.NoError(t, err)
+
+	return backendResp
+}
+
+// followOAuthFlow completes the OAuth flow and returns the parsed token response
+func followOAuthFlow(t *testing.T, authorizationURL string) *sdk.LoginResponse {
+	t.Helper()
+
+	resp := completeOAuthFlow(t, authorizationURL)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode, "OAuth callback should return 200")
+
+	var tokenResp sdk.LoginResponse
+	err := json.NewDecoder(resp.Body).Decode(&tokenResp)
+	require.NoError(t, err, "should decode token response")
+
+	return &tokenResp
 }

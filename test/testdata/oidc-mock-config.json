@@ -1,0 +1,77 @@
+{
+  "interactiveLogin": false,
+  "tokenCallbacks": [
+    {
+      "issuerId": "default",
+      "tokenExpiry": 120,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "*",
+          "claims": {
+            "sub": "mock-user-123",
+            "email": "mockuser@example.com",
+            "email_verified": true,
+            "name": "Mock User",
+            "given_name": "Mock",
+            "family_name": "User"
+          }
+        }
+      ]
+    },
+    {
+      "issuerId": "google",
+      "tokenExpiry": 120,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "*",
+          "claims": {
+            "sub": "google-user-456",
+            "email": "googleuser@gmail.com",
+            "email_verified": true,
+            "name": "Google Test User",
+            "given_name": "Google",
+            "family_name": "User"
+          }
+        }
+      ]
+    },
+    {
+      "issuerId": "microsoft",
+      "tokenExpiry": 120,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "*",
+          "claims": {
+            "sub": "microsoft-user-789",
+            "email": "msuser@outlook.com",
+            "email_verified": true,
+            "name": "Microsoft Test User",
+            "given_name": "Microsoft",
+            "family_name": "User"
+          }
+        }
+      ]
+    },
+    {
+      "issuerId": "github",
+      "tokenExpiry": 120,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "*",
+          "claims": {
+            "sub": "github-user-101112",
+            "email": "githubuser@users.noreply.github.com",
+            "email_verified": true,
+            "name": "GitHub Test User",
+            "login": "githubuser",
+            "avatar_url": "https://example.com/github-avatar.png"
+          }
+        }
+      ]
+    }
+  ]
+}

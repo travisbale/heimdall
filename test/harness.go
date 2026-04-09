@@ -28,9 +28,10 @@ import (
 
 // Harness holds all shared state for integration tests
 type Harness struct {
-	BaseURL   string
-	DB        *pgxpool.Pool
-	Validator *jwt.Validator
+	BaseURL     string
+	DB          *pgxpool.Pool
+	Validator   *jwt.Validator
+	OIDCMockURL string // Base URL of the mock OIDC server (e.g. http://localhost:12345)
 }
 
 var harness *Harness
@@ -48,10 +49,11 @@ func (h *Harness) NewClient(t *testing.T, opts ...sdk.Option) *sdk.HTTPClient {
 // setup initializes the test infrastructure: postgres container, RSA keys, and heimdall server
 func setup(ctx context.Context) (h *Harness, cleanup func(), err error) {
 	var (
-		pgContainer *postgres.PostgresContainer
-		pool        *pgxpool.Pool
-		tmpDir      string
-		server      *app.Server
+		pgContainer   *postgres.PostgresContainer
+		oidcContainer testcontainers.Container
+		pool          *pgxpool.Pool
+		tmpDir        string
+		server        *app.Server
 	)
 
 	// If setup fails partway through, clean up everything allocated so far
@@ -65,6 +67,9 @@ func setup(ctx context.Context) (h *Harness, cleanup func(), err error) {
 			}
 			if pool != nil {
 				pool.Close()
+			}
+			if oidcContainer != nil {
+				_ = oidcContainer.Terminate(ctx)
 			}
 			if pgContainer != nil {
 				_ = pgContainer.Terminate(ctx)
@@ -109,6 +114,12 @@ func setup(ctx context.Context) (h *Harness, cleanup func(), err error) {
 		return nil, nil, fmt.Errorf("failed to generate encryption key: %w", err)
 	}
 
+	var oidcMockURL string
+	oidcContainer, oidcMockURL, err = startOIDCMock(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	server, err = app.NewServer(ctx, &app.Config{
 		DatabaseURL:       dbURL,
 		HTTPAddress:       ":8080",
@@ -121,6 +132,21 @@ func setup(ctx context.Context) (h *Harness, cleanup func(), err error) {
 		Environment:       "test",
 		EncryptionKey:     hex.EncodeToString(encryptionKey),
 		TOTPPeriod:        3,
+
+		// System OAuth providers pointed at mock OIDC server
+		GoogleClientID:     "mock-google-client-id",
+		GoogleClientSecret: "mock-google-client-secret",
+		GoogleIssuerURL:    oidcMockURL + "/google",
+
+		MicrosoftClientID:     "mock-microsoft-client-id",
+		MicrosoftClientSecret: "mock-microsoft-client-secret",
+		MicrosoftIssuerURL:    oidcMockURL + "/microsoft",
+
+		GitHubClientID:     "mock-github-client-id",
+		GitHubClientSecret: "mock-github-client-secret",
+		GitHubAuthURL:      oidcMockURL + "/github/authorize",
+		GitHubTokenURL:     oidcMockURL + "/github/token",
+		GitHubAPIBase:      oidcMockURL + "/github/api",
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create server: %w", err)
@@ -133,15 +159,17 @@ func setup(ctx context.Context) (h *Harness, cleanup func(), err error) {
 	}
 
 	h = &Harness{
-		BaseURL:   "http://localhost:8080",
-		DB:        pool,
-		Validator: validator,
+		BaseURL:     "http://localhost:8080",
+		DB:          pool,
+		Validator:   validator,
+		OIDCMockURL: oidcMockURL,
 	}
 
 	cleanup = func() {
 		_ = server.Shutdown(ctx)
 		os.RemoveAll(tmpDir)
 		pool.Close()
+		_ = oidcContainer.Terminate(ctx)
 		_ = pgContainer.Terminate(ctx)
 	}
 
@@ -207,6 +235,50 @@ func createAppUser(ctx context.Context, container testcontainers.Container, admi
 	}
 
 	return fmt.Sprintf("postgres://heimdall:test_password@%s:%s/heimdall_test?sslmode=disable", host, port.Port()), nil
+}
+
+func startOIDCMock(ctx context.Context) (testcontainers.Container, string, error) {
+	configPath, err := filepath.Abs("testdata/oidc-mock-config.json")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to resolve OIDC mock config path: %w", err)
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image:        "ghcr.io/navikt/mock-oauth2-server:2.1.1",
+			ExposedPorts: []string{"8080/tcp"},
+			Files: []testcontainers.ContainerFile{
+				{
+					HostFilePath:      configPath,
+					ContainerFilePath: "/config.json",
+				},
+			},
+			Env: map[string]string{
+				"JSON_CONFIG_PATH": "/config.json",
+			},
+			WaitingFor: wait.ForHTTP("/.well-known/openid-configuration").
+				WithPort("8080/tcp").
+				WithStartupTimeout(30 * time.Second),
+		},
+		Started: true,
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to start OIDC mock container: %w", err)
+	}
+
+	host, err := container.Host(ctx)
+	if err != nil {
+		_ = container.Terminate(ctx)
+		return nil, "", fmt.Errorf("failed to get OIDC mock host: %w", err)
+	}
+	port, err := container.MappedPort(ctx, "8080")
+	if err != nil {
+		_ = container.Terminate(ctx)
+		return nil, "", fmt.Errorf("failed to get OIDC mock port: %w", err)
+	}
+
+	mockURL := fmt.Sprintf("http://%s:%s", host, port.Port())
+	return container, mockURL, nil
 }
 
 func waitForReady(addr string, timeout time.Duration) error {
