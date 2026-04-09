@@ -4,14 +4,18 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/identity"
@@ -243,6 +247,41 @@ func ExtractMFAChallengeClaims(t *testing.T, token string) *jwt.Claims {
 	return claims
 }
 
+// RawRequest sends an HTTP request directly to the server, bypassing SDK client-side validation.
+// Returns the response status code and body as a string.
+func RawRequest(t *testing.T, method, path, body, accessToken string) (int, string) {
+	t.Helper()
+
+	req, err := http.NewRequest(method, harness.BaseURL+path, strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	return resp.StatusCode, string(respBody)
+}
+
+// getAccessToken logs in and returns the raw access token for use in raw HTTP requests
+func getAccessToken(t *testing.T, user *UserClient) string {
+	t.Helper()
+	client := harness.NewClient(t)
+	resp, err := client.Login(context.Background(), sdk.LoginRequest{
+		Email:    user.Email,
+		Password: user.Password,
+	})
+	require.NoError(t, err)
+	return resp.AccessToken
+}
+
 // GenerateTestCredentials generates unique email and password using nanosecond timestamps
 func GenerateTestCredentials(t *testing.T, name string) (string, string) {
 	t.Helper()
@@ -252,4 +291,17 @@ func GenerateTestCredentials(t *testing.T, name string) (string, string) {
 	password := fmt.Sprintf("TestPass-%d!", ts)
 
 	return email, password
+}
+
+// AssertAPIError validates that an error is an APIError with the expected status code
+func AssertAPIError(t *testing.T, err error, statusCode int, message string) {
+	t.Helper()
+	if !assert.Error(t, err, message) {
+		return
+	}
+	apiErr, ok := errors.AsType[*sdk.APIError](err)
+	if !assert.True(t, ok, "expected APIError, got: %T", err) {
+		return
+	}
+	assert.Equal(t, statusCode, apiErr.StatusCode, message)
 }

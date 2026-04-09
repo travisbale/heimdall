@@ -4,6 +4,7 @@ package test
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -91,7 +92,7 @@ func TestMFAEnrollment(t *testing.T) {
 		enableMFA(t, user.Client)
 
 		_, err := user.Client.SetupMFA(ctx)
-		AssertStatus409(t, err, "setup should fail when MFA already enabled")
+		AssertAPIError(t, err, http.StatusConflict, "setup should fail when MFA already enabled")
 	})
 
 	t.Run("enable fails with invalid code", func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestMFAEnrollment(t *testing.T) {
 		require.NoError(t, err)
 
 		err = user.Client.EnableMFA(ctx, sdk.EnableMFARequest{Code: "000000"})
-		AssertStatus400(t, err, "enabling with invalid code should fail")
+		AssertAPIError(t, err, http.StatusBadRequest, "enabling with invalid code should fail")
 
 		// Should still be able to enable with valid code
 		code := generateTOTPCode(t, setupResp.Secret)
@@ -113,7 +114,7 @@ func TestMFAEnrollment(t *testing.T) {
 		user := CreateVerifiedUser(t, "mfa-no-setup")
 
 		err := user.Client.EnableMFA(ctx, sdk.EnableMFARequest{Code: "123456"})
-		AssertStatus404(t, err, "enabling without setup should fail")
+		AssertAPIError(t, err, http.StatusNotFound, "enabling without setup should fail")
 	})
 }
 
@@ -166,7 +167,7 @@ func TestMFALogin(t *testing.T) {
 			ChallengeToken: loginResp.MFAChallengeToken,
 			Code:           "000000",
 		})
-		AssertStatus401(t, err, "should fail with invalid TOTP code")
+		AssertAPIError(t, err, http.StatusUnauthorized, "should fail with invalid TOTP code")
 	})
 
 	t.Run("cannot access protected resources with challenge token", func(t *testing.T) {
@@ -179,7 +180,7 @@ func TestMFALogin(t *testing.T) {
 
 		// Challenge token should not grant access to protected endpoints
 		_, err = client.GetMFAStatus(ctx)
-		AssertStatus401(t, err, "challenge token should not access protected resources")
+		AssertAPIError(t, err, http.StatusUnauthorized, "challenge token should not access protected resources")
 	})
 }
 
@@ -331,5 +332,67 @@ func TestTrustedDevice(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, loginResp2.AccessToken, "should get access token directly on trusted device")
 		assert.Empty(t, loginResp2.MFAChallengeToken, "should not get MFA challenge on trusted device")
+	})
+}
+
+// Server-side input validation tests (bypass SDK client-side validation)
+
+func TestMFAVerifyValidation(t *testing.T) {
+	t.Run("missing challenge token", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
+			`{"code":"123456"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "challenge_token")
+	})
+
+	t.Run("missing code", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
+			`{"challenge_token":"token"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "code")
+	})
+
+	t.Run("invalid code length", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAVerify,
+			`{"challenge_token":"token","code":"1234"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "code")
+	})
+}
+
+func TestMFAEnableValidation(t *testing.T) {
+	admin := CreateAdminUser(t, "val-mfa-enable")
+	token := getAccessToken(t, admin)
+
+	t.Run("missing code", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAEnable, `{}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "code")
+	})
+
+	t.Run("wrong length code", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1MFAEnable,
+			`{"code":"12345"}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "code")
+	})
+}
+
+func TestMFADisableValidation(t *testing.T) {
+	admin := CreateAdminUser(t, "val-mfa-disable")
+	token := getAccessToken(t, admin)
+
+	t.Run("missing password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodDelete, sdk.RouteV1MFADisable,
+			`{"code":"123456"}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "password")
+	})
+
+	t.Run("missing code", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodDelete, sdk.RouteV1MFADisable,
+			`{"password":"test"}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "code")
 	})
 }

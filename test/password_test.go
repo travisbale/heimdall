@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -70,7 +71,7 @@ func TestRegistration(t *testing.T) {
 			FirstName: "Test",
 			LastName:  "User",
 		})
-		AssertStatus409(t, err, "duplicate registration should fail")
+		AssertAPIError(t, err, http.StatusConflict, "duplicate registration should fail")
 	})
 }
 
@@ -94,7 +95,7 @@ func TestLogin(t *testing.T) {
 			Email:    fmt.Sprintf("nonexistent-%d@test.example.com", time.Now().UnixNano()),
 			Password: "SomePassword123!",
 		})
-		AssertStatus401(t, err, "login should fail with invalid email")
+		AssertAPIError(t, err, http.StatusUnauthorized, "login should fail with invalid email")
 	})
 
 	t.Run("wrong password returns 401", func(t *testing.T) {
@@ -102,7 +103,7 @@ func TestLogin(t *testing.T) {
 			Email:    user.Email,
 			Password: "WrongPassword123!",
 		})
-		AssertStatus401(t, err, "login should fail with wrong password")
+		AssertAPIError(t, err, http.StatusUnauthorized, "login should fail with wrong password")
 	})
 }
 
@@ -159,7 +160,7 @@ func TestAccountLockout(t *testing.T) {
 			Email:    user.Email,
 			Password: user.Password,
 		})
-		AssertStatus429(t, err, "account should be locked after 5 failed attempts")
+		AssertAPIError(t, err, http.StatusTooManyRequests, "account should be locked after 5 failed attempts")
 	})
 }
 
@@ -184,5 +185,143 @@ func TestRefreshToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.AccessToken)
 		assert.Equal(t, "Bearer", resp.TokenType)
+	})
+}
+
+// Server-side input validation tests (bypass SDK client-side validation)
+
+func TestLoginValidation(t *testing.T) {
+	t.Run("missing email", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"password":"test"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+
+	t.Run("invalid email format", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"email":"not-email","password":"test"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+
+	t.Run("missing password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{"email":"user@example.com"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "password")
+	})
+
+	t.Run("malformed JSON", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodPost, sdk.RouteV1Login, `{bad json`, "")
+		assert.Equal(t, 400, status)
+	})
+}
+
+func TestRegistrationValidation(t *testing.T) {
+	t.Run("missing email", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
+			`{"first_name":"Test","last_name":"User"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+
+	t.Run("invalid email format", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
+			`{"email":"bad","first_name":"Test","last_name":"User"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+
+	t.Run("missing first name", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
+			`{"email":"user@example.com","last_name":"User"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "first name")
+	})
+
+	t.Run("missing last name", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Register,
+			`{"email":"user@example.com","first_name":"Test"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "last name")
+	})
+}
+
+func TestVerifyEmailValidation(t *testing.T) {
+	t.Run("missing token", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
+			`{"password":"Xe9#mK2pLq!vR4"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "token")
+	})
+
+	t.Run("missing password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
+			`{"token":"abc123"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "password")
+	})
+
+	t.Run("weak password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
+			`{"token":"abc123","password":"short"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "password")
+	})
+}
+
+func TestForgotPasswordValidation(t *testing.T) {
+	t.Run("missing email", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ForgotPassword, `{}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+
+	t.Run("invalid email format", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ForgotPassword,
+			`{"email":"not-email"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "email")
+	})
+}
+
+func TestResetPasswordValidation(t *testing.T) {
+	t.Run("missing token", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ResetPassword,
+			`{"new_password":"Xe9#mK2pLq!vR4"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "token")
+	})
+
+	t.Run("weak password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1ResetPassword,
+			`{"token":"abc123","new_password":"weak"}`, "")
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "password")
+	})
+}
+
+func TestAuthRequired(t *testing.T) {
+	t.Run("MFA setup", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodPost, sdk.RouteV1MFASetup, `{}`, "")
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("MFA status", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1MFAStatus, "", "")
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("list sessions", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Sessions, "", "")
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("list roles", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Roles, "", "")
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("list permissions", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Permissions, "", "")
+		assert.Equal(t, 401, status)
 	})
 }

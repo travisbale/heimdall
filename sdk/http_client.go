@@ -528,14 +528,14 @@ func (c *HTTPClient) doRequest(ctx context.Context, method, route string, req va
 	if resp.StatusCode >= 400 {
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("failed to read error response: %w", err)
+			return &APIError{StatusCode: resp.StatusCode, Message: "failed to read error response"}
 		}
 
 		var errResp map[string]string
 		if err := json.Unmarshal(respBody, &errResp); err != nil {
-			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+			return &APIError{StatusCode: resp.StatusCode, Message: string(respBody)}
 		}
-		return fmt.Errorf("API error (%d): %s", resp.StatusCode, errResp["error"])
+		return &APIError{StatusCode: resp.StatusCode, Message: errResp["error"]}
 	}
 
 	// If no result expected (e.g., 204 No Content), return early

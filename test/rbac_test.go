@@ -4,6 +4,7 @@ package test
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
@@ -78,7 +79,7 @@ func TestRoleCRUD(t *testing.T) {
 
 			// Verify it's gone
 			_, err = admin.Client.GetRole(ctx, sdk.GetRoleRequest{RoleID: role.ID})
-			AssertStatus404(t, err, "deleted role should not be found")
+			AssertAPIError(t, err, http.StatusNotFound, "deleted role should not be found")
 		})
 	})
 }
@@ -215,7 +216,7 @@ func TestUnauthorizedRBACAccess(t *testing.T) {
 
 	t.Run("cannot list permissions without role:read", func(t *testing.T) {
 		_, err := unprivileged.Client.ListPermissions(ctx)
-		AssertStatus403(t, err, "should be forbidden")
+		AssertAPIError(t, err, http.StatusForbidden, "should be forbidden")
 	})
 
 	t.Run("cannot create role without role:create", func(t *testing.T) {
@@ -223,11 +224,32 @@ func TestUnauthorizedRBACAccess(t *testing.T) {
 			Name:        "Unauthorized Role",
 			Description: "Should fail",
 		})
-		AssertStatus403(t, err, "should be forbidden")
+		AssertAPIError(t, err, http.StatusForbidden, "should be forbidden")
 	})
 
 	t.Run("cannot list roles without role:read", func(t *testing.T) {
 		_, err := unprivileged.Client.ListRoles(ctx)
-		AssertStatus403(t, err, "should be forbidden")
+		AssertAPIError(t, err, http.StatusForbidden, "should be forbidden")
+	})
+}
+
+// Server-side input validation tests (bypass SDK client-side validation)
+
+func TestCreateRoleValidation(t *testing.T) {
+	admin := CreateAdminUser(t, "val-create-role")
+	token := getAccessToken(t, admin)
+
+	t.Run("missing name", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Roles,
+			`{"description":"test"}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "name")
+	})
+
+	t.Run("missing description", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1Roles,
+			`{"name":"test"}`, token)
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "description")
 	})
 }

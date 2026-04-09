@@ -7,6 +7,16 @@ import (
 	"github.com/travisbale/knowhere/crypto/password"
 )
 
+// APIError is returned when the server responds with an HTTP error status code
+type APIError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	return e.Message
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
