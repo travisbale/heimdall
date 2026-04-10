@@ -1,9 +1,12 @@
-# Heimdall
-
-[![CI](https://github.com/travisbale/heimdall/actions/workflows/ci.yml/badge.svg)](https://github.com/travisbale/heimdall/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/travisbale/heimdall)](https://goreportcard.com/report/github.com/travisbale/heimdall)
-[![Go Version](https://img.shields.io/badge/go-1.26-blue.svg)](https://go.dev/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+<p align="center">
+  <img src="logo.png" alt="Heimdall" width="350" />
+</p>
+<p align="center">
+  <a href="https://github.com/travisbale/heimdall/actions/workflows/ci.yml"><img src="https://github.com/travisbale/heimdall/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://goreportcard.com/report/github.com/travisbale/heimdall"><img src="https://goreportcard.com/badge/github.com/travisbale/heimdall" alt="Go Report Card" /></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/go-1.26-blue.svg" alt="Go Version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
+</p>
 
 Authentication and authorization service written in Go. Handles user accounts, password hashing (Argon2), JWT issuance and validation, and multi-tenant access control for all tenant applications.
 
