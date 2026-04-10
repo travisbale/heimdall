@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/travisbale/heimdall/actions/workflows/ci.yml/badge.svg)](https://github.com/travisbale/heimdall/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/travisbale/heimdall)](https://goreportcard.com/report/github.com/travisbale/heimdall)
-[![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-1.26-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 Authentication and authorization service written in Go. Handles user accounts, password hashing (Argon2), JWT issuance and validation, and multi-tenant access control for all tenant applications.
 
-Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the all-seeing guardian of the Bifröst who protects the realms from unwanted intrusion.
+Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the all-seeing guardian of the Bifrost who protects the realms from unwanted intrusion.
 
 ## Features
 
@@ -18,7 +18,7 @@ Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the 
 - **Required MFA Enforcement** - Roles can require MFA; users are guided through setup on first login
 - **Session Management** - List active sessions, revoke individual sessions, or sign out everywhere
 - **Refresh Token Rotation** - Family-based tracking with automatic theft detection
-- **Email Verification** - Registration flow with email verification via mailman
+- **Email Verification** - Registration flow with pluggable email delivery (webhook, mailman, or console logging)
 - **Password Reset** - Secure token-based password reset via email
 - **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
 - **OAuth/OIDC Login** - Support for Google, Microsoft, GitHub, and custom OIDC providers
@@ -42,17 +42,16 @@ Named after [Heimdall](https://en.wikipedia.org/wiki/Heimdall_(character)), the 
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - PostgreSQL 16+
 - protoc (Protocol Buffers compiler)
-- golangci-lint
-- Docker (optional)
+- Docker (required for linting, integration tests, and code generation)
 
 ### Setup
 
 ```bash
 # Install dependencies
-make download
+make deps
 
 # Generate code (sqlc + protobuf)
 make sqlc
@@ -61,13 +60,16 @@ make protoc
 # Build development binary
 make dev
 
-# Run linters
-make lint
-
 # Format code
 make fmt
 
-# Run tests
+# Run linters
+make lint
+
+# Run unit tests only (no Docker needed)
+make unit
+
+# Run all tests including integration (requires Docker)
 make test
 ```
 
@@ -105,8 +107,13 @@ make test
   --jwt-public-key "/path/to/public-key.pem" \
   --jwt-expiration "24h" \
   --public-url "http://localhost:8080" \
-  --mailman-grpc-address "localhost:50051" \
   --environment "development"
+```
+
+With no email configuration, tokens are logged to stdout (console mode). To send emails via webhook:
+
+```bash
+./bin/heimdall start ... --email-webhook-url "https://your-email-service/api/send"
 ```
 
 ### Docker
@@ -136,7 +143,7 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `POST /v1/register` - Register new user (sends verification email)
 - `POST /v1/verify-email` - Verify email address
 - `POST /v1/login` - Authenticate user, returns JWT
-- `POST /v1/logout` - Logout (invalidates refresh token)
+- `DELETE /v1/refresh` - Logout (invalidates refresh token)
 - `POST /v1/refresh` - Refresh access token (rotates refresh token)
 
 **Session Management:**
@@ -175,6 +182,10 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `PUT /v1/oauth/providers/{id}` - Update OIDC provider configuration
 - `DELETE /v1/oauth/providers/{id}` - Delete OIDC provider
 
+**User Profile:**
+
+- `GET /v1/users/me` - Get current user profile
+
 **RBAC** (requires authentication):
 
 - `GET /v1/permissions` - List all system permissions
@@ -196,29 +207,28 @@ docker run -p 8080:8080 -p 9090:9090 \
   - Returns: user_id, email, tenant_id, verification_token
 - `GetUserByID(user_id)` - Retrieve user by ID (used by other services)
 
+## Testing
+
+The project has both unit tests and integration tests:
+
+- **Unit tests** (`make unit`) - Fast, no external dependencies
+- **Integration tests** (`make test`) - Full end-to-end tests using testcontainers (PostgreSQL + mock OIDC server). Requires Docker.
+
+The integration test suite covers authentication, RBAC, MFA, sessions, OIDC/SSO flows, tenant isolation, and server-side input validation.
+
 ## CI/CD Pipeline
 
 The project uses GitHub Actions for continuous integration:
 
 ### Automated Checks
 
-1. **Linting** - `golangci-lint` with timeout
+1. **Linting** - `golangci-lint`
 2. **Build** - Compile and verify binary works
-3. **Tests** - Run with race detector and coverage
+3. **Tests** - Unit and integration tests with race detector (includes testcontainers)
 4. **Security** - `govulncheck` for known vulnerabilities
 5. **Code Generation** - Verify sqlc/protobuf are up-to-date
 6. **Docker Build** - Validate Dockerfile builds
 7. **Migrations** - Test SQL migrations against PostgreSQL
-
-### Pre-commit Hook
-
-A Git pre-commit hook automatically runs:
-
-- Code formatting (`make fmt`)
-- Linting (`make lint`)
-- Build verification (`make dev`)
-
-This ensures code quality before commits.
 
 ### Dependabot
 
@@ -227,45 +237,6 @@ Automated dependency updates run weekly for:
 - Go modules
 - Docker base images
 - GitHub Actions versions
-
-## Project Structure
-
-```txt
-heimdall/
-├── cmd/heimdall/          # CLI commands (start, migrate, cleanup, version)
-├── internal/
-│   ├── api/              # HTTP and gRPC handlers
-│   │   ├── http/         # HTTP REST API handlers (auth, MFA, OIDC, RBAC, sessions)
-│   │   └── grpc/         # gRPC service implementation
-│   ├── app/              # Server setup and lifecycle
-│   ├── iam/              # Identity and access management (all business logic)
-│   ├── events/           # Event constants for structured logging and audit trails
-│   ├── db/postgres/      # Database layer with RLS
-│   │   ├── migrations/   # SQL schema migrations (001-006)
-│   │   ├── queries/      # SQL queries (input to sqlc)
-│   │   └── internal/sqlc/# Generated type-safe queries
-│   ├── email/            # Email service integrations
-│   │   └── mailman/      # Mailman gRPC client
-│   ├── mfa/              # Multi-Factor Authentication utilities
-│   │   └── totp/         # TOTP verification logic
-│   └── oidc/             # OIDC provider implementations
-├── sdk/                   # Client SDK and route definitions
-├── proto/                 # Protocol Buffer definitions
-├── .github/
-│   ├── workflows/        # CI/CD pipelines
-│   └── dependabot.yml    # Dependency automation
-├── Dockerfile             # Multi-stage Docker build
-├── Makefile               # Build commands
-└── sqlc.yaml              # sqlc configuration
-
-# Shared utilities in github.com/travisbale/knowhere:
-#   - clog/        (structured logging middleware)
-#   - crypto/      (AES, Argon2, password validation, token generation)
-#   - db/          (database migrations)
-#   - db/postgres/ (generic PostgreSQL connection pool with tenant context)
-#   - identity/    (context helpers, request ID, client IP, tenant extraction)
-#   - jwt/         (JWT issuance and validation)
-```
 
 ## Security Considerations
 
@@ -334,12 +305,15 @@ Environment variables:
 - `JWT_PUBLIC_KEY_PATH` - Path to RSA public key (PEM format)
 - `JWT_EXPIRATION` - Refresh token lifetime (default: `24h`)
 - `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
-- `MAILMAN_GRPC_ADDRESS` - Mailman gRPC address (default: `localhost:50051`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `TRUSTED_PROXY_MODE` - Enable IP extraction from X-Forwarded-For headers (default: `false`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 - `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets, MFA TOTP secrets)
 - `TOTP_PERIOD` - TOTP time window in seconds (default: `30`)
+
+**Email Delivery** (if neither is set, tokens are logged to stdout):
+- `EMAIL_WEBHOOK_URL` - HTTP webhook URL for email delivery (receives JSON POST with email events)
+- `MAILMAN_GRPC_ADDRESS` - Mailman gRPC server address
 
 **OAuth Provider Configuration** (optional):
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - Google OAuth credentials
