@@ -9,26 +9,20 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// AuthHandler handles authentication HTTP requests
-type AuthHandler struct {
-	AuthService   authService
-	SecureCookies bool
-}
-
 // Login handles user login
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req sdk.LoginRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) login(w http.ResponseWriter, req *http.Request) {
+	var body sdk.LoginRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
 	// Read device trust cookie if present (for MFA bypass on trusted devices)
 	var deviceToken string
-	if cookie, err := r.Cookie(deviceTrustCookie); err == nil {
+	if cookie, err := req.Cookie(deviceTrustCookie); err == nil {
 		deviceToken = cookie.Value
 	}
 
-	tokens, err := h.AuthService.AuthenticateWithPassword(r.Context(), req.Email, req.Password, deviceToken)
+	tokens, err := r.AuthService.AuthenticateWithPassword(req.Context(), body.Email, body.Password, deviceToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -43,24 +37,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }
 
 // Logout handles user logout by revoking tokens
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(refreshTokenCookie)
+func (r *Router) logout(w http.ResponseWriter, req *http.Request) {
+	cookie, err := req.Cookie(refreshTokenCookie)
 	if err != nil {
 		api.RespondError(w, http.StatusUnauthorized, "Missing refresh token", err)
 		return
 	}
 
-	if err := h.AuthService.Logout(r.Context(), cookie.Value); err != nil {
+	if err := r.AuthService.Logout(req.Context(), cookie.Value); err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke session", err)
 		return
 	}
 
 	// Construct cookie path using X-Forwarded-Prefix if available
-	prefix := r.Header.Get("X-Forwarded-Prefix")
+	prefix := req.Header.Get("X-Forwarded-Prefix")
 	cookiePath := prefix + sdk.RouteV1Refresh
 
 	// Clear the refresh token cookie by setting MaxAge to -1
@@ -70,7 +64,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Path:     cookiePath,
 		MaxAge:   -1, // Deletes the cookie
 		HttpOnly: true,
-		Secure:   h.SecureCookies,
+		Secure:   r.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -80,18 +74,18 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshToken handles token refresh using the refresh token from HTTP-only cookie
-func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(refreshTokenCookie)
+func (r *Router) refreshToken(w http.ResponseWriter, req *http.Request) {
+	cookie, err := req.Cookie(refreshTokenCookie)
 	if err != nil {
 		api.RespondError(w, http.StatusUnauthorized, "Missing refresh token", err)
 		return
 	}
 
-	tokens, err := h.AuthService.RefreshSession(r.Context(), cookie.Value)
+	tokens, err := r.AuthService.RefreshSession(req.Context(), cookie.Value)
 	if err != nil {
 		api.RespondError(w, http.StatusUnauthorized, "Invalid or expired refresh token", err)
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }

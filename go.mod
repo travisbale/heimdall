@@ -4,8 +4,6 @@ go 1.26
 
 require (
 	github.com/coreos/go-oidc/v3 v3.16.0
-	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-chi/cors v1.2.2
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
@@ -13,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
-	github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15
+	github.com/travisbale/knowhere v0.0.0-20260410035545-1b06fe8a739a
 	github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/urfave/cli/v2 v2.27.7

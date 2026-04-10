@@ -6,17 +6,13 @@ import (
 	"time"
 )
 
-type HealthHandler struct {
-	DB database
-}
-
 // HandleHealth handles health check requests
-func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
+func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
 	// Check database connectivity with 2 second timeout
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
 	defer cancel()
 
-	if err := h.DB.Health(ctx); err != nil {
+	if err := r.DB.Health(ctx); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

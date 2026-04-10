@@ -45,10 +45,6 @@ github.com/ebitengine/purego v0.10.0 h1:QIw4xfpWT6GWTzaW5XEKy3HXoqrJGx1ijYHzTF0/
 github.com/ebitengine/purego v0.10.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/go-chi/chi/v5 v5.2.3 h1:WQIt9uxdsAbgIYgid+BpYc+liqQZGMHRaUwp0JUcvdE=
-github.com/go-chi/chi/v5 v5.2.3/go.mod h1:L2yAIGWB3H+phAw1NxKwWM+7eUH/lU8pOMm5hHcoops=
-github.com/go-chi/cors v1.2.2 h1:Jmey33TE+b+rB7fT8MUy1u0I4L+NARQlK6LhzKPSyQE=
-github.com/go-chi/cors v1.2.2/go.mod h1:sSbTewc+6wYHBBCW7ytsFSn836hqM7JxpglAy2Vzc58=
 github.com/go-jose/go-jose/v4 v4.1.3 h1:CVLmWDhDVRa6Mi/IgCgaopNosCaHz7zrMeF9MlZRkrs=
 github.com/go-jose/go-jose/v4 v4.1.3/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -154,8 +150,8 @@ github.com/tklauser/go-sysconf v0.3.16 h1:frioLaCQSsF5Cy1jgRBrzr6t502KIIwQ0MArYI
 github.com/tklauser/go-sysconf v0.3.16/go.mod h1:/qNL9xxDhc7tx3HSRsLWNnuzbVfh3e7gh/BmM179nYI=
 github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9RXw=
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
-github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15 h1:oogFDD4PdA8ww3szApt/x4xA+AOcAunOzpKghlpLkgM=
-github.com/travisbale/knowhere v0.0.0-20260409160441-2de65aff5d15/go.mod h1:jJjkT0alXf4nAhAgxPQ/DmG36UAytldeYRJivThKeo8=
+github.com/travisbale/knowhere v0.0.0-20260410035545-1b06fe8a739a h1:bbX+YbaUN37iCEbPdjDpJNUWqgATNKgxWlI9RwDaJ4g=
+github.com/travisbale/knowhere v0.0.0-20260410035545-1b06fe8a739a/go.mod h1:jJjkT0alXf4nAhAgxPQ/DmG36UAytldeYRJivThKeo8=
 github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f h1:RhrRnzuIbOIJZ9aPvs+t/nUSTtk+gLj70BAJmKg1ZgA=
 github.com/travisbale/mailman v0.0.0-20251106223728-73ef06ca487f/go.mod h1:G2DP99cvn/RPKH0lb988IlwKEpERt55/J6BnRIQvaFo=
 github.com/ulule/limiter/v3 v3.11.2 h1:P4yOrxoEMJbOTfRJR2OzjL90oflzYPPmWg+dvwN2tHA=

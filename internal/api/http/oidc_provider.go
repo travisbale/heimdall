@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/api"
@@ -37,31 +36,26 @@ func ListSupportedProviders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// OIDCProvidersHandler handles tenant-specific OIDC provider CRUD operations for corporate SSO
-type OIDCProvidersHandler struct {
-	OIDCProviderService oidcProviderService
-}
-
 // CreateOIDCProvider creates a new OAuth provider configuration for corporate SSO
-func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http.Request) {
-	var req sdk.CreateOIDCProviderRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) createOIDCProvider(w http.ResponseWriter, req *http.Request) {
+	var body sdk.CreateOIDCProviderRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
 	provider := &iam.OIDCProviderConfig{
-		ProviderName:             req.ProviderName,
-		IssuerURL:                req.IssuerURL,
-		ClientID:                 req.ClientID,
-		ClientSecret:             req.ClientSecret,
-		Scopes:                   req.Scopes,
-		Enabled:                  req.Enabled,
-		AllowedDomains:           req.AllowedDomains,
-		AutoCreateUsers:          req.AutoCreateUsers,
-		RequireEmailVerification: req.RequireEmailVerification,
+		ProviderName:             body.ProviderName,
+		IssuerURL:                body.IssuerURL,
+		ClientID:                 body.ClientID,
+		ClientSecret:             body.ClientSecret,
+		Scopes:                   body.Scopes,
+		Enabled:                  body.Enabled,
+		AllowedDomains:           body.AllowedDomains,
+		AutoCreateUsers:          body.AutoCreateUsers,
+		RequireEmailVerification: body.RequireEmailVerification,
 	}
 
-	result, err := h.OIDCProviderService.CreateOIDCProvider(r.Context(), provider, req.AccessToken)
+	result, err := r.OIDCProviderService.CreateOIDCProvider(req.Context(), provider, body.AccessToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCDiscoveryFailed):
@@ -80,17 +74,17 @@ func (h *OIDCProvidersHandler) CreateOIDCProvider(w http.ResponseWriter, r *http
 }
 
 // GetOIDCProvider retrieves an OIDC provider by ID
-func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Request) {
-	req := sdk.GetOIDCProviderRequest{
-		ProviderID: api.ParseUUID(chi.URLParam(r, "providerID")),
+func (r *Router) getOIDCProvider(w http.ResponseWriter, req *http.Request) {
+	body := sdk.GetOIDCProviderRequest{
+		ProviderID: api.ParseUUID(req.PathValue("providerID")),
 	}
 
-	if err := req.Validate(r.Context()); err != nil {
+	if err := body.Validate(req.Context()); err != nil {
 		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
-	provider, err := h.OIDCProviderService.GetOIDCProvider(r.Context(), req.ProviderID)
+	provider, err := r.OIDCProviderService.GetOIDCProvider(req.Context(), body.ProviderID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):
@@ -105,8 +99,8 @@ func (h *OIDCProvidersHandler) GetOIDCProvider(w http.ResponseWriter, r *http.Re
 }
 
 // ListOIDCProviders lists all OAuth providers for the tenant
-func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
-	providers, err := h.OIDCProviderService.ListOIDCProviders(r.Context())
+func (r *Router) listOIDCProviders(w http.ResponseWriter, req *http.Request) {
+	providers, err := r.OIDCProviderService.ListOIDCProviders(req.Context())
 	if err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to list OAuth providers", err)
 		return
@@ -123,32 +117,32 @@ func (h *OIDCProvidersHandler) ListOIDCProviders(w http.ResponseWriter, r *http.
 }
 
 // UpdateOIDCProvider updates an OAuth provider configuration
-func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http.Request) {
-	var req sdk.UpdateOIDCProviderRequest
-	if err := api.DecodeJSON(r, &req); err != nil {
+func (r *Router) updateOIDCProvider(w http.ResponseWriter, req *http.Request) {
+	var body sdk.UpdateOIDCProviderRequest
+	if err := api.DecodeJSON(req, &body); err != nil {
 		api.RespondError(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	req.ProviderID = api.ParseUUID(chi.URLParam(r, "providerID"))
+	body.ProviderID = api.ParseUUID(req.PathValue("providerID"))
 
-	if err := req.Validate(r.Context()); err != nil {
+	if err := body.Validate(req.Context()); err != nil {
 		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	params := &iam.UpdateOIDCProviderParams{
-		ID:                       req.ProviderID,
-		ProviderName:             req.ProviderName,
-		ClientSecret:             req.ClientSecret,
-		Scopes:                   req.Scopes,
-		Enabled:                  req.Enabled,
-		AllowedDomains:           req.AllowedDomains,
-		AutoCreateUsers:          req.AutoCreateUsers,
-		RequireEmailVerification: req.RequireEmailVerification,
+		ID:                       body.ProviderID,
+		ProviderName:             body.ProviderName,
+		ClientSecret:             body.ClientSecret,
+		Scopes:                   body.Scopes,
+		Enabled:                  body.Enabled,
+		AllowedDomains:           body.AllowedDomains,
+		AutoCreateUsers:          body.AutoCreateUsers,
+		RequireEmailVerification: body.RequireEmailVerification,
 	}
 
-	result, err := h.OIDCProviderService.UpdateOIDCProvider(r.Context(), params)
+	result, err := r.OIDCProviderService.UpdateOIDCProvider(req.Context(), params)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):
@@ -163,17 +157,17 @@ func (h *OIDCProvidersHandler) UpdateOIDCProvider(w http.ResponseWriter, r *http
 }
 
 // DeleteOIDCProvider deletes an OAuth provider
-func (h *OIDCProvidersHandler) DeleteOIDCProvider(w http.ResponseWriter, r *http.Request) {
-	req := sdk.DeleteOIDCProviderRequest{
-		ProviderID: api.ParseUUID(chi.URLParam(r, "providerID")),
+func (r *Router) deleteOIDCProvider(w http.ResponseWriter, req *http.Request) {
+	body := sdk.DeleteOIDCProviderRequest{
+		ProviderID: api.ParseUUID(req.PathValue("providerID")),
 	}
 
-	if err := req.Validate(r.Context()); err != nil {
+	if err := body.Validate(req.Context()); err != nil {
 		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
-	err := h.OIDCProviderService.DeleteOIDCProvider(r.Context(), req.ProviderID)
+	err := r.OIDCProviderService.DeleteOIDCProvider(req.Context(), body.ProviderID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotFound):

@@ -9,33 +9,28 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// PasswordResetHandler handles password reset HTTP requests
-type PasswordResetHandler struct {
-	PasswordService passwordService
-}
-
 // ForgotPassword handles password reset initiation
-func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
-	var req sdk.ForgotPasswordRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) forgotPassword(w http.ResponseWriter, req *http.Request) {
+	var body sdk.ForgotPasswordRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
 	// Always return success regardless of outcome (prevent user enumeration)
-	_ = h.PasswordService.InitiatePasswordReset(r.Context(), req.Email)
+	_ = r.PasswordService.InitiatePasswordReset(req.Context(), body.Email)
 	api.RespondJSON(w, http.StatusOK, sdk.ForgotPasswordResponse{
 		Message: "If an account exists with this email, a password reset link has been sent.",
 	})
 }
 
 // ResetPassword handles password reset completion
-func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	var req sdk.ResetPasswordRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) resetPassword(w http.ResponseWriter, req *http.Request) {
+	var body sdk.ResetPasswordRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	err := h.PasswordService.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	err := r.PasswordService.ResetPassword(req.Context(), body.Token, body.NewPassword)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrPasswordResetTokenNotFound):

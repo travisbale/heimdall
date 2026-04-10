@@ -10,26 +10,19 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// OIDCAuthHandler handles OAuth/OIDC authentication flows (individual OAuth and corporate SSO)
-type OIDCAuthHandler struct {
-	OIDCAuthService oidcAuthService
-	AuthService     authService
-	SecureCookies   bool
-}
-
-// Login initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
-func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req sdk.OIDCLoginRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+// OAuthLogin initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
+func (r *Router) oauthLogin(w http.ResponseWriter, req *http.Request) {
+	var body sdk.OIDCLoginRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
 	// Start individual OAuth login flow using system-wide provider configuration
-	authURL, err := h.OIDCAuthService.StartOIDCLogin(r.Context(), req.ProviderType)
+	authURL, err := r.OIDCAuthService.StartOIDCLogin(req.Context(), body.ProviderType)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
-			api.RespondError(w, http.StatusBadRequest, fmt.Sprintf("OAuth provider '%s' is not configured on this server", req.ProviderType), err)
+			api.RespondError(w, http.StatusBadRequest, fmt.Sprintf("OAuth provider '%s' is not configured on this server", body.ProviderType), err)
 		default:
 			api.RespondError(w, http.StatusInternalServerError, "Failed to start OAuth login", err)
 		}
@@ -42,14 +35,14 @@ func (h *OIDCAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // SSOLogin initiates a corporate SSO login flow for enterprise domains
-func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
-	var req sdk.SSOLoginRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) ssoLogin(w http.ResponseWriter, req *http.Request) {
+	var body sdk.SSOLoginRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
 	// Start corporate SSO login flow using tenant-specific provider
-	authURL, err := h.OIDCAuthService.StartSSOLogin(r.Context(), req.Email)
+	authURL, err := r.OIDCAuthService.StartSSOLogin(req.Context(), body.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):
@@ -67,12 +60,12 @@ func (h *OIDCAuthHandler) SSOLogin(w http.ResponseWriter, r *http.Request) {
 
 // Callback handles the OAuth callback after user authorization at the provider
 // Exchanges authorization code for tokens and creates or links user account
-func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
+func (r *Router) oauthCallback(w http.ResponseWriter, req *http.Request) {
 	// Parse callback parameters from OAuth provider redirect
-	state := r.URL.Query().Get("state")
-	code := r.URL.Query().Get("code")
-	errorCode := r.URL.Query().Get("error")
-	errorDescription := r.URL.Query().Get("error_description")
+	state := req.URL.Query().Get("state")
+	code := req.URL.Query().Get("code")
+	errorCode := req.URL.Query().Get("error")
+	errorDescription := req.URL.Query().Get("error_description")
 
 	// Handle authorization denial or provider errors
 	if errorCode != "" {
@@ -91,7 +84,7 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Exchange code for tokens, fetch user info, create/link account, and create session
-	tokens, err := h.AuthService.AuthenticateWithOIDC(r.Context(), state, code)
+	tokens, err := r.AuthService.AuthenticateWithOIDC(req.Context(), state, code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCSessionNotFound):
@@ -115,5 +108,5 @@ func (h *OIDCAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }

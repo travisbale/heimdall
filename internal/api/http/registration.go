@@ -9,21 +9,14 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// RegistrationHandler handles user registration HTTP requests
-type RegistrationHandler struct {
-	UserService   userService
-	AuthService   authService
-	SecureCookies bool
-}
-
 // Register handles user registration (email only, password set during verification)
-func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req sdk.RegisterRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) register(w http.ResponseWriter, req *http.Request) {
+	var body sdk.RegisterRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	user, err := h.UserService.Register(r.Context(), req.Email, req.FirstName, req.LastName)
+	user, err := r.UserService.Register(req.Context(), body.Email, body.FirstName, body.LastName)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrDuplicateEmail):
@@ -46,13 +39,13 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // ConfirmRegistration handles email verification, sets password, and returns JWT tokens for auto-login
-func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
-	var req sdk.VerifyEmailRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) confirmRegistration(w http.ResponseWriter, req *http.Request) {
+	var body sdk.VerifyEmailRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	tokens, err := h.AuthService.CompleteRegistration(r.Context(), req.Token, req.Password)
+	tokens, err := r.AuthService.CompleteRegistration(req.Context(), body.Token, body.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrVerificationTokenNotFound):
@@ -67,5 +60,5 @@ func (h *RegistrationHandler) ConfirmRegistration(w http.ResponseWriter, r *http
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }

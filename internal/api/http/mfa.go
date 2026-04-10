@@ -10,28 +10,20 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// MFAHandler handles MFA HTTP requests
-type MFAHandler struct {
-	MFAService    mfaService
-	AuthService   authService
-	SecureCookies bool
-	Logger        logger
-}
-
 // Setup initiates MFA setup by generating secret, QR code, and backup codes
-func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) setupMFA(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	enrollment, err := h.MFAService.SetupMFA(r.Context(), userID)
+	enrollment, err := r.MFAService.SetupMFA(req.Context(), userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			api.RespondError(w, http.StatusConflict, "MFA is already enabled", err)
 		default:
-			h.Logger.ErrorContext(r.Context(), "failed to setup MFA", "user_id", userID, "error", err)
+			r.Logger.ErrorContext(req.Context(), "failed to setup MFA", "user_id", userID, "error", err)
 			api.RespondError(w, http.StatusInternalServerError, "Failed to setup MFA", err)
 		}
 		return
@@ -45,18 +37,18 @@ func (h *MFAHandler) Setup(w http.ResponseWriter, r *http.Request) {
 }
 
 // Enable validates TOTP code and enables MFA
-func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
-	var req sdk.EnableMFARequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) enableMFA(w http.ResponseWriter, req *http.Request) {
+	var body sdk.EnableMFARequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	err := h.MFAService.EnableMFA(r.Context(), userID, req.Code)
+	err := r.MFAService.EnableMFA(req.Context(), userID, body.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidMFACode):
@@ -75,18 +67,18 @@ func (h *MFAHandler) Enable(w http.ResponseWriter, r *http.Request) {
 }
 
 // Disable disables MFA for a user (requires password and TOTP/backup code)
-func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
-	var req sdk.DisableMFARequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) disableMFA(w http.ResponseWriter, req *http.Request) {
+	var body sdk.DisableMFARequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	err := h.MFAService.DisableMFA(r.Context(), userID, req.Password, req.Code)
+	err := r.MFAService.DisableMFA(req.Context(), userID, body.Password, body.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -107,13 +99,13 @@ func (h *MFAHandler) Disable(w http.ResponseWriter, r *http.Request) {
 }
 
 // Status returns MFA status for the authenticated user
-func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) mfaStatus(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	status, err := h.MFAService.GetStatus(r.Context(), userID)
+	status, err := r.MFAService.GetStatus(req.Context(), userID)
 	if err != nil {
 		if errors.Is(err, iam.ErrMFANotEnabled) {
 			api.RespondError(w, http.StatusNotFound, "MFA is not enabled", err)
@@ -130,18 +122,18 @@ func (h *MFAHandler) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 // RegenerateCodes generates new backup codes (requires password)
-func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
-	var req sdk.RegenerateBackupCodesRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) regenerateCodes(w http.ResponseWriter, req *http.Request) {
+	var body sdk.RegenerateBackupCodesRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	codes, err := h.MFAService.RegenerateBackupCodes(r.Context(), userID, req.Password)
+	codes, err := r.MFAService.RegenerateBackupCodes(req.Context(), userID, body.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
@@ -159,16 +151,16 @@ func (h *MFAHandler) RegenerateCodes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Login verifies MFA code during login and issues full access tokens
-func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req sdk.VerifyMFACodeRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+// MFALogin verifies MFA code during login and issues full access tokens
+func (r *Router) mfaLogin(w http.ResponseWriter, req *http.Request) {
+	var body sdk.VerifyMFACodeRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	tokens, err := h.AuthService.AuthenticateWithMFA(r.Context(), req.ChallengeToken, req.Code, req.TrustDevice)
+	tokens, err := r.AuthService.AuthenticateWithMFA(req.Context(), body.ChallengeToken, body.Code, body.TrustDevice)
 	if err != nil {
-		h.Logger.WarnContext(r.Context(), events.MFAVerificationFailed, "error", err.Error())
+		r.Logger.WarnContext(req.Context(), events.MFAVerificationFailed, "error", err.Error())
 		switch {
 		case errors.Is(err, iam.ErrInvalidChallengeToken):
 			api.RespondError(w, http.StatusUnauthorized, "Invalid or expired challenge token", err)
@@ -188,7 +180,7 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Logger.InfoContext(r.Context(), events.MFAVerificationSuccess)
+	r.Logger.InfoContext(req.Context(), events.MFAVerificationSuccess)
 
 	// Set device trust cookie if a device token was generated
 	if tokens.DeviceToken != "" {
@@ -197,24 +189,24 @@ func (h *MFAHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Value:    tokens.DeviceToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   h.SecureCookies,
+			Secure:   r.SecureCookies,
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   30 * 24 * 60 * 60, // 30 days
 		})
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }
 
 // RequiredSetup handles MFA setup when user's role requires MFA but they haven't set it up.
 // This is an unauthenticated endpoint that validates the MFA setup token from login response.
-func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
-	var req sdk.RequiredMFASetupRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) requiredSetup(w http.ResponseWriter, req *http.Request) {
+	var body sdk.RequiredMFASetupRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	enrollment, err := h.AuthService.SetupRequiredMFA(r.Context(), req.SetupToken)
+	enrollment, err := r.AuthService.SetupRequiredMFA(req.Context(), body.SetupToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidSetupToken):
@@ -222,7 +214,7 @@ func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFAAlreadyEnabled):
 			api.RespondError(w, http.StatusConflict, "MFA is already enabled", err)
 		default:
-			h.Logger.ErrorContext(r.Context(), "failed to setup required MFA", "error", err)
+			r.Logger.ErrorContext(req.Context(), "failed to setup required MFA", "error", err)
 			api.RespondError(w, http.StatusInternalServerError, "Failed to setup MFA", err)
 		}
 		return
@@ -237,13 +229,13 @@ func (h *MFAHandler) RequiredSetup(w http.ResponseWriter, r *http.Request) {
 
 // RequiredEnable enables MFA after required setup and completes the login flow.
 // This is an unauthenticated endpoint that validates the MFA setup token from login response.
-func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
-	var req sdk.RequiredMFAEnableRequest
-	if !api.DecodeAndValidateJSON(w, r, &req) {
+func (r *Router) requiredEnable(w http.ResponseWriter, req *http.Request) {
+	var body sdk.RequiredMFAEnableRequest
+	if !api.DecodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
-	tokens, err := h.AuthService.EnableRequiredMFA(r.Context(), req.SetupToken, req.Code)
+	tokens, err := r.AuthService.EnableRequiredMFA(req.Context(), body.SetupToken, body.Code)
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidSetupToken):
@@ -255,11 +247,11 @@ func (h *MFAHandler) RequiredEnable(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, iam.ErrMFANotEnabled):
 			api.RespondError(w, http.StatusNotFound, "MFA setup not found. Please start MFA setup first.", err)
 		default:
-			h.Logger.ErrorContext(r.Context(), "failed to enable required MFA", "error", err)
+			r.Logger.ErrorContext(req.Context(), "failed to enable required MFA", "error", err)
 			api.RespondError(w, http.StatusInternalServerError, "Failed to enable MFA", err)
 		}
 		return
 	}
 
-	encodeSessionResponse(w, r, tokens, h.SecureCookies)
+	encodeSessionResponse(w, req, tokens, r.SecureCookies)
 }

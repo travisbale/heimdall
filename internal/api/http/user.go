@@ -7,19 +7,14 @@ import (
 	"github.com/travisbale/knowhere/api"
 )
 
-// UserHandler handles user profile endpoints
-type UserHandler struct {
-	UserService userService
-}
-
 // GetMe retrieves the current authenticated user's profile
-func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) getMe(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	user, err := h.UserService.GetUser(r.Context(), userID)
+	user, err := r.UserService.GetUser(req.Context(), userID)
 	if err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to retrieve user profile", err)
 		return

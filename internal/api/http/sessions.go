@@ -3,27 +3,19 @@ package http
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/api"
 )
 
-// SessionsHandler handles session management HTTP requests
-type SessionsHandler struct {
-	SessionService sessionService
-	AuthService    authService
-	SecureCookies  bool
-}
-
 // ListSessions returns all active sessions for the authenticated user
-func (h *SessionsHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	sessions, err := h.SessionService.ListSessions(r.Context(), userID)
+	sessions, err := r.SessionService.ListSessions(req.Context(), userID)
 	if err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to list sessions", err)
 		return
@@ -47,13 +39,13 @@ func (h *SessionsHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 // RevokeSession revokes a specific session by ID
-func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) revokeSession(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	sessionIDStr := chi.URLParam(r, "sessionID")
+	sessionIDStr := req.PathValue("sessionID")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
 		api.RespondError(w, http.StatusBadRequest, "Invalid session ID", err)
@@ -61,7 +53,7 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify session belongs to user by listing their sessions first
-	sessions, err := h.SessionService.ListSessions(r.Context(), userID)
+	sessions, err := r.SessionService.ListSessions(req.Context(), userID)
 	if err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to verify session ownership", err)
 		return
@@ -80,7 +72,7 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.SessionService.RevokeSession(r.Context(), sessionID); err != nil {
+	if err := r.SessionService.RevokeSession(req.Context(), sessionID); err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke session", err)
 		return
 	}
@@ -89,20 +81,20 @@ func (h *SessionsHandler) RevokeSession(w http.ResponseWriter, r *http.Request) 
 }
 
 // RevokeAllSessions revokes all sessions for the authenticated user (sign out everywhere)
-func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, r)
+func (r *Router) revokeAllSessions(w http.ResponseWriter, req *http.Request) {
+	userID, ok := api.GetAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
 	// Use AuthService to revoke sessions and trusted devices
-	if err := h.AuthService.SignOutEverywhere(r.Context(), userID); err != nil {
+	if err := r.AuthService.SignOutEverywhere(req.Context(), userID); err != nil {
 		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke sessions", err)
 		return
 	}
 
 	// Construct cookie path using X-Forwarded-Prefix if available
-	prefix := r.Header.Get("X-Forwarded-Prefix")
+	prefix := req.Header.Get("X-Forwarded-Prefix")
 	refreshCookiePath := prefix + sdk.RouteV1Refresh
 
 	// Clear refresh token cookie
@@ -111,7 +103,7 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 		Value:    "",
 		Path:     refreshCookiePath,
 		HttpOnly: true,
-		Secure:   h.SecureCookies,
+		Secure:   r.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
@@ -122,7 +114,7 @@ func (h *SessionsHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Reque
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   h.SecureCookies,
+		Secure:   r.SecureCookies,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})

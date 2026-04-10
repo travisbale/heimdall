@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	gohttp "net/http"
+	"time"
 
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/http"
@@ -15,7 +17,7 @@ import (
 
 // Server wraps the HTTP and gRPC servers and their dependencies
 type Server struct {
-	httpServer  *http.Server
+	httpServer  *gohttp.Server
 	grpcServer  *grpc.Server
 	db          *postgres.DB
 	emailClient interface{ Close() }
@@ -65,24 +67,30 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize services: %w", err)
 	}
 
-	// Create HTTP server
-	httpServer := http.NewServer(&http.Config{
-		Address:             config.HTTPAddress,
-		Database:            db,
+	// Create HTTP router and server
+	router := &http.Router{
+		DB:                  db,
+		AuthService:         services.auth,
 		UserService:         services.user,
 		PasswordService:     services.password,
 		MFAService:          services.mfa,
 		OIDCAuthService:     services.oidcAuth,
 		OIDCProviderService: services.oidcProvider,
 		RBACService:         services.rbac,
-		AuthService:         services.auth,
 		SessionService:      services.session,
 		JWTValidator:        services.jwt,
+		SecureCookies:       config.Environment != "development" && config.Environment != "test",
 		Environment:         config.Environment,
 		TrustedProxyMode:    config.TrustedProxyMode,
 		CORSAllowedOrigins:  config.CORSAllowedOrigins,
 		Logger:              logger,
-	})
+	}
+
+	httpServer := &gohttp.Server{
+		Addr:              config.HTTPAddress,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
