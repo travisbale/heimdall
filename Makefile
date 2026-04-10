@@ -18,7 +18,7 @@ dev: fmt
 # Run all tests (requires Docker)
 test:
 	@echo "Running all tests..."
-	@go test -v -race -tags integration -timeout 5m ./...
+	@go test -v -race -count=1 -tags integration -timeout 5m ./...
 
 # Run unit tests only
 unit:
