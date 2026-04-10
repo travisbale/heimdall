@@ -117,9 +117,30 @@ func CreateAdminUser(t *testing.T, name string) *UserClient {
 	return user
 }
 
-// CreateUserInTenant creates a user in an existing tenant via gRPC (no roles assigned).
-// The admin user's tenant is used. Returns an authenticated client for the new user.
+// CreateUserInTenant creates a user in an existing tenant via gRPC, verifies email, and logs in.
 func CreateUserInTenant(t *testing.T, admin *UserClient, name string) *UserClient {
+	t.Helper()
+
+	user := createUserInTenantWithRoles(t, admin, name, nil)
+
+	_, err := user.Client.Login(context.Background(), sdk.LoginRequest{
+		Email:    user.Email,
+		Password: user.Password,
+	})
+	require.NoError(t, err)
+
+	return user
+}
+
+// CreateUserInTenantWithRoles creates a user in an existing tenant with specific roles via gRPC.
+// The user is verified but NOT logged in, allowing the caller to control the login flow
+// (e.g., for testing MFA-required setup).
+func CreateUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, roleIDs []uuid.UUID) *UserClient {
+	t.Helper()
+	return createUserInTenantWithRoles(t, admin, name, roleIDs)
+}
+
+func createUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, roleIDs []uuid.UUID) *UserClient {
 	t.Helper()
 
 	email, password := GenerateTestCredentials(t, name)
@@ -132,7 +153,8 @@ func CreateUserInTenant(t *testing.T, admin *UserClient, name string) *UserClien
 	ctx := identity.WithTenant(context.Background(), tenantID)
 
 	resp, err := grpcClient.CreateUser(ctx, sdk.CreateUserRequest{
-		Email: email,
+		Email:   email,
+		RoleIDs: roleIDs,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.VerificationToken)
@@ -141,12 +163,6 @@ func CreateUserInTenant(t *testing.T, admin *UserClient, name string) *UserClien
 
 	_, err = client.VerifyEmail(context.Background(), sdk.VerifyEmailRequest{
 		Token:    resp.VerificationToken,
-		Password: password,
-	})
-	require.NoError(t, err)
-
-	_, err = client.Login(context.Background(), sdk.LoginRequest{
-		Email:    email,
 		Password: password,
 	})
 	require.NoError(t, err)

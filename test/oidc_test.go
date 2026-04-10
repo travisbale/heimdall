@@ -255,6 +255,60 @@ func TestSSOAutoProvisioningDisabled(t *testing.T) {
 	})
 }
 
+func TestSSOLoginValidation(t *testing.T) {
+	t.Parallel()
+	client := harness.NewClient(t)
+	ctx := context.Background()
+
+	t.Run("unconfigured domain returns error", func(t *testing.T) {
+		_, err := client.SSOLogin(ctx, sdk.SSOLoginRequest{
+			Email: "user@unconfigured-domain.com",
+		})
+		assert.Error(t, err, "unconfigured domain should return error")
+	})
+}
+
+func TestOAuthCallback(t *testing.T) {
+	t.Parallel()
+	client := harness.NewClient(t)
+	ctx := context.Background()
+
+	t.Run("complete Google OAuth flow", func(t *testing.T) {
+		// Initiate OAuth login
+		authResp, err := client.OAuthLogin(ctx, sdk.OIDCLoginRequest{
+			ProviderType: sdk.OIDCProviderTypeGoogle,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, authResp.AuthorizationURL)
+
+		// Complete the OAuth flow through the mock OIDC server
+		tokenResp := followOAuthFlow(t, authResp.AuthorizationURL)
+		assert.NotEmpty(t, tokenResp.AccessToken)
+		assert.Equal(t, "Bearer", tokenResp.TokenType)
+		assert.Greater(t, tokenResp.ExpiresIn, 0)
+	})
+}
+
+func TestOIDCMetadataDiscovery(t *testing.T) {
+	t.Parallel()
+
+	t.Run("mock OIDC server returns valid discovery document", func(t *testing.T) {
+		resp, err := http.Get(harness.OIDCMockURL + "/default/.well-known/openid-configuration")
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var metadata map[string]any
+		err = json.NewDecoder(resp.Body).Decode(&metadata)
+		require.NoError(t, err)
+
+		assert.NotEmpty(t, metadata["issuer"])
+		assert.NotEmpty(t, metadata["authorization_endpoint"])
+		assert.NotEmpty(t, metadata["token_endpoint"])
+	})
+}
+
 func TestIndividualOAuthLogin(t *testing.T) {
 	t.Parallel()
 	client := harness.NewClient(t)

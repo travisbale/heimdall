@@ -4,10 +4,12 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
@@ -338,6 +340,63 @@ func TestTrustedDevice(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, loginResp2.AccessToken, "should get access token directly on trusted device")
 		assert.Empty(t, loginResp2.MFAChallengeToken, "should not get MFA challenge on trusted device")
+	})
+}
+
+func TestRequiredMFASetup(t *testing.T) {
+	t.Parallel()
+	admin := CreateAdminUser(t, "mfa-required")
+	ctx := context.Background()
+
+	// Create a role that requires MFA
+	role, err := admin.Client.CreateRole(ctx, sdk.CreateRoleRequest{
+		Name:        fmt.Sprintf("MFA Required Role %d", time.Now().UnixNano()),
+		Description: "Role that requires MFA",
+		MFARequired: true,
+	})
+	require.NoError(t, err)
+
+	// Create a verified user with the MFA-required role (not logged in)
+	user := CreateUserInTenantWithRoles(t, admin, "mfa-required-user", []uuid.UUID{role.ID})
+
+	t.Run("login returns setup token when MFA required", func(t *testing.T) {
+		loginResp, err := user.Client.Login(ctx, sdk.LoginRequest{
+			Email:    user.Email,
+			Password: user.Password,
+		})
+		require.NoError(t, err)
+		assert.NotEmpty(t, loginResp.MFASetupToken, "should receive MFA setup token")
+		assert.Empty(t, loginResp.AccessToken, "should not receive access token")
+		assert.Empty(t, loginResp.MFAChallengeToken, "should not receive challenge token")
+
+		t.Run("complete required MFA setup", func(t *testing.T) {
+			// Step 1: Setup MFA using setup token
+			setupResp, err := user.Client.RequiredMFASetup(ctx, sdk.RequiredMFASetupRequest{
+				SetupToken: loginResp.MFASetupToken,
+			})
+			require.NoError(t, err)
+			assert.NotEmpty(t, setupResp.Secret)
+			assert.NotEmpty(t, setupResp.BackupCodes)
+
+			// Step 2: Enable MFA
+			code := generateTOTPCode(t, setupResp.Secret)
+			enableResp, err := user.Client.RequiredMFAEnable(ctx, sdk.RequiredMFAEnableRequest{
+				SetupToken: loginResp.MFASetupToken,
+				Code:       code,
+			})
+			require.NoError(t, err)
+			assert.NotEmpty(t, enableResp.MFAChallengeToken)
+
+			// Step 3: Verify MFA to complete login
+			waitForNewTOTPWindow(t)
+			newCode := generateTOTPCode(t, setupResp.Secret)
+			verifyResp, err := user.Client.VerifyMFACode(ctx, sdk.VerifyMFACodeRequest{
+				ChallengeToken: enableResp.MFAChallengeToken,
+				Code:           newCode,
+			})
+			require.NoError(t, err)
+			assert.NotEmpty(t, verifyResp.AccessToken)
+		})
 	})
 }
 

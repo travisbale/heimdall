@@ -311,6 +311,60 @@ func TestResetPasswordValidation(t *testing.T) {
 	})
 }
 
+func TestPasswordValidation(t *testing.T) {
+	t.Parallel()
+	client := harness.NewClient(t)
+	ctx := context.Background()
+
+	email, _ := GenerateTestCredentials(t, "passval")
+
+	_, err := client.Register(ctx, sdk.RegisterRequest{
+		Email:     email,
+		FirstName: "Test",
+		LastName:  "User",
+	})
+	require.NoError(t, err)
+
+	token := GetVerificationToken(t, harness.DB, email)
+
+	t.Run("reject short password", func(t *testing.T) {
+		status, body := RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
+			fmt.Sprintf(`{"token":"%s","password":"short"}`, token), "")
+		assert.Equal(t, http.StatusBadRequest, status)
+		assert.Contains(t, body, "password")
+	})
+
+	t.Run("accept valid password", func(t *testing.T) {
+		_, err := client.VerifyEmail(ctx, sdk.VerifyEmailRequest{
+			Token:    token,
+			Password: fmt.Sprintf("ValidPass-%d!", time.Now().UnixNano()),
+		})
+		require.NoError(t, err)
+	})
+}
+
+func TestGetMe(t *testing.T) {
+	t.Parallel()
+	user := CreateVerifiedUser(t, "getme")
+	ctx := context.Background()
+
+	t.Run("returns user profile", func(t *testing.T) {
+		me, err := user.Client.GetMe(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, user.Email, me.Email)
+		assert.Equal(t, "Test", me.FirstName)
+		assert.Equal(t, "User", me.LastName)
+		assert.Equal(t, "active", me.Status)
+		assert.NotEmpty(t, me.ID)
+		assert.NotEmpty(t, me.TenantID)
+	})
+
+	t.Run("unauthenticated request fails", func(t *testing.T) {
+		status, _ := RawRequest(t, http.MethodGet, sdk.RouteV1Me, "", "")
+		assert.Equal(t, http.StatusUnauthorized, status)
+	})
+}
+
 func TestAuthRequired(t *testing.T) {
 	t.Parallel()
 	t.Run("MFA setup", func(t *testing.T) {
