@@ -6,14 +6,13 @@ import (
 
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/knowhere/api"
 )
 
 // ListPermissions retrieves all system permissions
 func (r *Router) listPermissions(w http.ResponseWriter, req *http.Request) {
 	permissions, err := r.RBACService.ListPermissions(req.Context())
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to list permissions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to list permissions", err)
 		return
 	}
 
@@ -22,7 +21,7 @@ func (r *Router) listPermissions(w http.ResponseWriter, req *http.Request) {
 		sdkPermissions[i] = toSDKPermission(perm)
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.PermissionsResponse{
+	r.writeJSON(w, http.StatusOK, sdk.PermissionsResponse{
 		Permissions: sdkPermissions,
 	})
 }
@@ -30,7 +29,7 @@ func (r *Router) listPermissions(w http.ResponseWriter, req *http.Request) {
 // CreateRole creates a new role
 func (r *Router) createRole(w http.ResponseWriter, req *http.Request) {
 	var body sdk.CreateRoleRequest
-	if !api.DecodeAndValidateJSON(w, req, &body) {
+	if !r.decodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
@@ -42,21 +41,21 @@ func (r *Router) createRole(w http.ResponseWriter, req *http.Request) {
 
 	role, err := r.RBACService.CreateRole(req.Context(), role)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to create role", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to create role", err)
 		return
 	}
 
-	api.RespondJSON(w, http.StatusCreated, toSDKRole(role))
+	r.writeJSON(w, http.StatusCreated, toSDKRole(role))
 }
 
 // GetRole retrieves a role by ID
 func (r *Router) getRole(w http.ResponseWriter, req *http.Request) {
 	body := sdk.GetRoleRequest{
-		RoleID: api.ParseUUID(req.PathValue("roleID")),
+		RoleID: parseUUID(req.PathValue("roleID")),
 	}
 
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -64,21 +63,21 @@ func (r *Router) getRole(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
-			api.RespondError(w, http.StatusNotFound, "Role not found", err)
+			r.writeError(req.Context(), w, http.StatusNotFound, "Role not found", err)
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to get role", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to get role", err)
 		}
 		return
 	}
 
-	api.RespondJSON(w, http.StatusOK, toSDKRole(role))
+	r.writeJSON(w, http.StatusOK, toSDKRole(role))
 }
 
 // ListRoles retrieves all roles for the tenant
 func (r *Router) listRoles(w http.ResponseWriter, req *http.Request) {
 	roles, err := r.RBACService.ListRoles(req.Context())
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to list roles", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to list roles", err)
 		return
 	}
 
@@ -87,7 +86,7 @@ func (r *Router) listRoles(w http.ResponseWriter, req *http.Request) {
 		sdkRoles[i] = toSDKRole(role)
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.RolesResponse{
+	r.writeJSON(w, http.StatusOK, sdk.RolesResponse{
 		Roles: sdkRoles,
 	})
 }
@@ -95,14 +94,14 @@ func (r *Router) listRoles(w http.ResponseWriter, req *http.Request) {
 // UpdateRole updates a role
 func (r *Router) updateRole(w http.ResponseWriter, req *http.Request) {
 	var body sdk.UpdateRoleRequest
-	if err := api.DecodeJSON(req, &body); err != nil {
-		api.RespondError(w, http.StatusBadRequest, "Invalid request body", err)
+	if err := decodeJSON(req, &body); err != nil {
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	body.RoleID = api.ParseUUID(req.PathValue("roleID"))
+	body.RoleID = parseUUID(req.PathValue("roleID"))
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -118,33 +117,33 @@ func (r *Router) updateRole(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
-			api.RespondError(w, http.StatusNotFound, "Role not found", err)
+			r.writeError(req.Context(), w, http.StatusNotFound, "Role not found", err)
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to update role", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to update role", err)
 		}
 		return
 	}
 
-	api.RespondJSON(w, http.StatusOK, toSDKRole(role))
+	r.writeJSON(w, http.StatusOK, toSDKRole(role))
 }
 
 // DeleteRole deletes a role
 func (r *Router) deleteRole(w http.ResponseWriter, req *http.Request) {
 	body := sdk.DeleteRoleRequest{
-		RoleID: api.ParseUUID(req.PathValue("roleID")),
+		RoleID: parseUUID(req.PathValue("roleID")),
 	}
 
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	if err := r.RBACService.DeleteRole(req.Context(), body.RoleID); err != nil {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
-			api.RespondError(w, http.StatusNotFound, "Role not found", err)
+			r.writeError(req.Context(), w, http.StatusNotFound, "Role not found", err)
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to delete role", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to delete role", err)
 		}
 		return
 	}
@@ -155,17 +154,17 @@ func (r *Router) deleteRole(w http.ResponseWriter, req *http.Request) {
 // GetRolePermissions retrieves all permissions for a role
 func (r *Router) getRolePermissions(w http.ResponseWriter, req *http.Request) {
 	body := sdk.GetRolePermissionsRequest{
-		RoleID: api.ParseUUID(req.PathValue("roleID")),
+		RoleID: parseUUID(req.PathValue("roleID")),
 	}
 
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	permissions, err := r.RBACService.GetRolePermissions(req.Context(), body.RoleID)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to get role permissions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to get role permissions", err)
 		return
 	}
 
@@ -174,7 +173,7 @@ func (r *Router) getRolePermissions(w http.ResponseWriter, req *http.Request) {
 		sdkPermissions[i] = toSDKPermission(perm)
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.PermissionsResponse{
+	r.writeJSON(w, http.StatusOK, sdk.PermissionsResponse{
 		Permissions: sdkPermissions,
 	})
 }
@@ -182,19 +181,19 @@ func (r *Router) getRolePermissions(w http.ResponseWriter, req *http.Request) {
 // SetRolePermissions sets all permissions for a role (bulk update)
 func (r *Router) setRolePermissions(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetRolePermissionsRequest
-	if err := api.DecodeJSON(req, &body); err != nil {
-		api.RespondError(w, http.StatusBadRequest, "Invalid request body", err)
+	if err := decodeJSON(req, &body); err != nil {
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	body.RoleID = api.ParseUUID(req.PathValue("roleID"))
+	body.RoleID = parseUUID(req.PathValue("roleID"))
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	if err := r.RBACService.SetRolePermissions(req.Context(), body.RoleID, body.PermissionIDs); err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to set role permissions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to set role permissions", err)
 		return
 	}
 
@@ -204,19 +203,19 @@ func (r *Router) setRolePermissions(w http.ResponseWriter, req *http.Request) {
 // SetUserRoles sets all roles for a user (replaces existing roles)
 func (r *Router) setUserRoles(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetUserRolesRequest
-	if err := api.DecodeJSON(req, &body); err != nil {
-		api.RespondError(w, http.StatusBadRequest, "Invalid request body", err)
+	if err := decodeJSON(req, &body); err != nil {
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	body.UserID = api.ParseUUID(req.PathValue("userID"))
+	body.UserID = parseUUID(req.PathValue("userID"))
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	if err := r.RBACService.SetUserRoles(req.Context(), body.UserID, body.RoleIDs); err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to set user roles", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to set user roles", err)
 		return
 	}
 
@@ -226,17 +225,17 @@ func (r *Router) setUserRoles(w http.ResponseWriter, req *http.Request) {
 // GetUserRoles retrieves all roles for a user
 func (r *Router) getUserRoles(w http.ResponseWriter, req *http.Request) {
 	body := sdk.GetUserRolesRequest{
-		UserID: api.ParseUUID(req.PathValue("userID")),
+		UserID: parseUUID(req.PathValue("userID")),
 	}
 
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	roles, err := r.RBACService.GetUserRoles(req.Context(), body.UserID)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to get user roles", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to get user roles", err)
 		return
 	}
 
@@ -245,7 +244,7 @@ func (r *Router) getUserRoles(w http.ResponseWriter, req *http.Request) {
 		sdkRoles[i] = toSDKRole(role)
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.RolesResponse{
+	r.writeJSON(w, http.StatusOK, sdk.RolesResponse{
 		Roles: sdkRoles,
 	})
 }
@@ -253,14 +252,14 @@ func (r *Router) getUserRoles(w http.ResponseWriter, req *http.Request) {
 // SetDirectPermissions sets all direct permissions for a user (replaces existing direct permissions)
 func (r *Router) setDirectPermissions(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetDirectPermissionsRequest
-	if err := api.DecodeJSON(req, &body); err != nil {
-		api.RespondError(w, http.StatusBadRequest, "Invalid request body", err)
+	if err := decodeJSON(req, &body); err != nil {
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	body.UserID = api.ParseUUID(req.PathValue("userID"))
+	body.UserID = parseUUID(req.PathValue("userID"))
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -274,7 +273,7 @@ func (r *Router) setDirectPermissions(w http.ResponseWriter, req *http.Request) 
 	}
 
 	if err := r.RBACService.SetDirectPermissions(req.Context(), body.UserID, authPerms); err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to set user permissions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to set user permissions", err)
 		return
 	}
 
@@ -284,17 +283,17 @@ func (r *Router) setDirectPermissions(w http.ResponseWriter, req *http.Request) 
 // GetDirectPermissions retrieves direct permissions assigned to a user
 func (r *Router) getDirectPermissions(w http.ResponseWriter, req *http.Request) {
 	body := sdk.GetDirectPermissionsRequest{
-		UserID: api.ParseUUID(req.PathValue("userID")),
+		UserID: parseUUID(req.PathValue("userID")),
 	}
 
 	if err := body.Validate(req.Context()); err != nil {
-		api.RespondError(w, http.StatusBadRequest, err.Error(), err)
+		r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	permissions, err := r.RBACService.GetDirectPermissions(req.Context(), body.UserID)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to get user permissions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to get user permissions", err)
 		return
 	}
 
@@ -306,7 +305,7 @@ func (r *Router) getDirectPermissions(w http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.DirectPermissionsResponse{
+	r.writeJSON(w, http.StatusOK, sdk.DirectPermissionsResponse{
 		Permissions: sdkPermissions,
 	})
 }

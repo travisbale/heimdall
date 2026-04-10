@@ -5,19 +5,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/knowhere/api"
 )
 
 // ListSessions returns all active sessions for the authenticated user
 func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, req)
+	userID, ok := r.getAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
 	sessions, err := r.SessionService.ListSessions(req.Context(), userID)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to list sessions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to list sessions", err)
 		return
 	}
 
@@ -35,27 +34,26 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	api.RespondJSON(w, http.StatusOK, response)
+	r.writeJSON(w, http.StatusOK, response)
 }
 
 // RevokeSession revokes a specific session by ID
 func (r *Router) revokeSession(w http.ResponseWriter, req *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, req)
+	userID, ok := r.getAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
-	sessionIDStr := req.PathValue("sessionID")
-	sessionID, err := uuid.Parse(sessionIDStr)
-	if err != nil {
-		api.RespondError(w, http.StatusBadRequest, "Invalid session ID", err)
+	sessionID := parseUUID(req.PathValue("sessionID"))
+	if sessionID == uuid.Nil {
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid session ID", nil)
 		return
 	}
 
 	// Verify session belongs to user by listing their sessions first
 	sessions, err := r.SessionService.ListSessions(req.Context(), userID)
 	if err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to verify session ownership", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to verify session ownership", err)
 		return
 	}
 
@@ -68,28 +66,28 @@ func (r *Router) revokeSession(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !found {
-		api.RespondError(w, http.StatusNotFound, "Session not found", nil)
+		r.writeError(req.Context(), w, http.StatusNotFound, "Session not found", nil)
 		return
 	}
 
 	if err := r.SessionService.RevokeSession(req.Context(), sessionID); err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke session", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to revoke session", err)
 		return
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.LogoutResponse{Message: "Session revoked"})
+	r.writeJSON(w, http.StatusOK, sdk.LogoutResponse{Message: "Session revoked"})
 }
 
 // RevokeAllSessions revokes all sessions for the authenticated user (sign out everywhere)
 func (r *Router) revokeAllSessions(w http.ResponseWriter, req *http.Request) {
-	userID, ok := api.GetAuthenticatedActorID(w, req)
+	userID, ok := r.getAuthenticatedActorID(w, req)
 	if !ok {
 		return
 	}
 
 	// Use AuthService to revoke sessions and trusted devices
 	if err := r.AuthService.SignOutEverywhere(req.Context(), userID); err != nil {
-		api.RespondError(w, http.StatusInternalServerError, "Failed to revoke sessions", err)
+		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to revoke sessions", err)
 		return
 	}
 
@@ -119,5 +117,5 @@ func (r *Router) revokeAllSessions(w http.ResponseWriter, req *http.Request) {
 		MaxAge:   -1,
 	})
 
-	api.RespondJSON(w, http.StatusOK, sdk.LogoutResponse{Message: "All sessions revoked"})
+	r.writeJSON(w, http.StatusOK, sdk.LogoutResponse{Message: "All sessions revoked"})
 }

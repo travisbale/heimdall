@@ -89,7 +89,7 @@ func (r *Router) registerRoutes(mux *http.ServeMux) {
 
 	// Public endpoints
 	public("HEAD", sdk.RouteHealth, r.handleHealth)
-	public("GET", sdk.RouteV1OAuthSupportedTypes, ListSupportedProviders)
+	public("GET", sdk.RouteV1OAuthSupportedTypes, r.listSupportedProviders)
 
 	// Registration (moderate rate limit)
 	limit(moderateRateLimit, "POST", sdk.RouteV1Register, r.register)

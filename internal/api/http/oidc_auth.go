@@ -7,13 +7,12 @@ import (
 
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/knowhere/api"
 )
 
 // OAuthLogin initiates an individual OAuth login flow for personal accounts (Google, GitHub, etc.)
 func (r *Router) oauthLogin(w http.ResponseWriter, req *http.Request) {
 	var body sdk.OIDCLoginRequest
-	if !api.DecodeAndValidateJSON(w, req, &body) {
+	if !r.decodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
@@ -22,14 +21,14 @@ func (r *Router) oauthLogin(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCProviderNotConfigured):
-			api.RespondError(w, http.StatusBadRequest, fmt.Sprintf("OAuth provider '%s' is not configured on this server", body.ProviderType), err)
+			r.writeError(req.Context(), w, http.StatusBadRequest, fmt.Sprintf("OAuth provider '%s' is not configured on this server", body.ProviderType), err)
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to start OAuth login", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to start OAuth login", err)
 		}
 		return
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.OIDCAuthResponse{
+	r.writeJSON(w, http.StatusOK, sdk.OIDCAuthResponse{
 		AuthorizationURL: authURL,
 	})
 }
@@ -37,7 +36,7 @@ func (r *Router) oauthLogin(w http.ResponseWriter, req *http.Request) {
 // SSOLogin initiates a corporate SSO login flow for enterprise domains
 func (r *Router) ssoLogin(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SSOLoginRequest
-	if !api.DecodeAndValidateJSON(w, req, &body) {
+	if !r.decodeAndValidateJSON(w, req, &body) {
 		return
 	}
 
@@ -46,14 +45,14 @@ func (r *Router) ssoLogin(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrSSONotConfigured):
-			api.RespondError(w, http.StatusBadRequest, "SSO is not configured for your domain", nil)
+			r.writeError(req.Context(), w, http.StatusBadRequest, "SSO is not configured for your domain", nil)
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to start SSO login", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to start SSO login", err)
 		}
 		return
 	}
 
-	api.RespondJSON(w, http.StatusOK, sdk.OIDCAuthResponse{
+	r.writeJSON(w, http.StatusOK, sdk.OIDCAuthResponse{
 		AuthorizationURL: authURL,
 	})
 }
@@ -69,17 +68,17 @@ func (r *Router) oauthCallback(w http.ResponseWriter, req *http.Request) {
 
 	// Handle authorization denial or provider errors
 	if errorCode != "" {
-		api.RespondError(w, http.StatusBadRequest, errorDescription, nil)
+		r.writeError(req.Context(), w, http.StatusBadRequest, errorDescription, nil)
 		return
 	}
 
 	// Validate required parameters for success case
 	if state == "" {
-		api.RespondError(w, http.StatusBadRequest, "Missing state parameter", nil)
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Missing state parameter", nil)
 		return
 	}
 	if code == "" {
-		api.RespondError(w, http.StatusBadRequest, "Missing code parameter", nil)
+		r.writeError(req.Context(), w, http.StatusBadRequest, "Missing code parameter", nil)
 		return
 	}
 
@@ -88,25 +87,25 @@ func (r *Router) oauthCallback(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrOIDCSessionNotFound):
-			api.RespondError(w, http.StatusBadRequest, "Invalid or expired OAuth session", err)
+			r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid or expired OAuth session", err)
 
 		case errors.Is(err, iam.ErrOIDCProviderNotFound), errors.Is(err, iam.ErrOIDCProviderNotConfigured):
-			api.RespondError(w, http.StatusBadRequest, "OAuth provider not configured", err)
+			r.writeError(req.Context(), w, http.StatusBadRequest, "OAuth provider not configured", err)
 
 		case errors.Is(err, iam.ErrAutoProvisioningDisabled):
-			api.RespondError(w, http.StatusForbidden, "Account not found and auto-provisioning is disabled", err)
+			r.writeError(req.Context(), w, http.StatusForbidden, "Account not found and auto-provisioning is disabled", err)
 
 		case errors.Is(err, iam.ErrProviderEmailNotVerified):
-			api.RespondError(w, http.StatusBadRequest, "Email must be verified by your OAuth provider", err)
+			r.writeError(req.Context(), w, http.StatusBadRequest, "Email must be verified by your OAuth provider", err)
 
 		case errors.Is(err, iam.ErrEmailConflict):
-			api.RespondError(w, http.StatusConflict, "This email address is associated with an existing account. Please contact your administrator.", err)
+			r.writeError(req.Context(), w, http.StatusConflict, "This email address is associated with an existing account. Please contact your administrator.", err)
 
 		default:
-			api.RespondError(w, http.StatusInternalServerError, "Failed to process OAuth callback", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to process OAuth callback", err)
 		}
 		return
 	}
 
-	encodeSessionResponse(w, req, tokens, r.SecureCookies)
+	r.encodeSessionResponse(w, req, tokens)
 }
