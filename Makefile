@@ -68,7 +68,9 @@ test-setup: test-keys
 # Run integration tests only (requires test infrastructure to be running)
 integration:
 	@echo "Running integration tests..."
-	@go test -short -count=1 -timeout 5m ./test/...
+	@go test -short -count=1 -timeout 5m ./test/... || \
+		(echo "Integration tests failed. Logs written to test/heimdall.log" && \
+		docker compose -f test/docker-compose.yml logs heimdall > test/heimdall.log 2>&1 && exit 1)
 
 # Run all tests (unit + integration, requires Docker)
 test: test-setup unit integration

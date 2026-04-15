@@ -67,6 +67,13 @@ jobs:
       - name: Run integration tests
         run: make integration
 
+      - name: Upload heimdall logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heimdall-test-logs
+          path: test/heimdall.log
+
       - name: Tear down test infrastructure
         if: always()
         run: make test-teardown
