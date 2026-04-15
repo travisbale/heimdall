@@ -15,16 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          args: --timeout=5m
+        run: make lint
 
   build:
     name: Build
