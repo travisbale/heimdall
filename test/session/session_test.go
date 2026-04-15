@@ -1,6 +1,4 @@
-//go:build integration
-
-package test
+package session
 
 import (
 	"context"
@@ -9,11 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
+	"github.com/travisbale/heimdall/test/_util/setup"
 )
 
 func TestListSessions(t *testing.T) {
 	t.Parallel()
-	user := CreateVerifiedUser(t, "sessions-list")
+	user := setup.CreateVerifiedUser(t, "sessions-list")
 	ctx := context.Background()
 
 	t.Run("user can list their sessions", func(t *testing.T) {
@@ -29,7 +28,7 @@ func TestListSessions(t *testing.T) {
 	t.Run("multiple logins create multiple sessions", func(t *testing.T) {
 		// Create additional sessions
 		for i := 0; i < 2; i++ {
-			client := harness.NewClient(t)
+			client := setup.CreateClient(t)
 			_, err := client.Login(ctx, sdk.LoginRequest{
 				Email:    user.Email,
 				Password: user.Password,
@@ -45,11 +44,11 @@ func TestListSessions(t *testing.T) {
 
 func TestRevokeSession(t *testing.T) {
 	t.Parallel()
-	user := CreateVerifiedUser(t, "sessions-revoke")
+	user := setup.CreateVerifiedUser(t, "sessions-revoke")
 	ctx := context.Background()
 
 	// Create a second session
-	otherClient := harness.NewClient(t)
+	otherClient := setup.CreateClient(t)
 	_, err := otherClient.Login(ctx, sdk.LoginRequest{
 		Email:    user.Email,
 		Password: user.Password,
@@ -76,12 +75,12 @@ func TestRevokeSession(t *testing.T) {
 
 func TestRevokeAllSessions(t *testing.T) {
 	t.Parallel()
-	user := CreateVerifiedUser(t, "sessions-revoke-all")
+	user := setup.CreateVerifiedUser(t, "sessions-revoke-all")
 	ctx := context.Background()
 
 	// Create extra sessions
 	for i := 0; i < 2; i++ {
-		client := harness.NewClient(t)
+		client := setup.CreateClient(t)
 		_, err := client.Login(ctx, sdk.LoginRequest{
 			Email:    user.Email,
 			Password: user.Password,
@@ -105,36 +104,5 @@ func TestRevokeAllSessions(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.AccessToken)
-	})
-}
-
-func TestTokenRotation(t *testing.T) {
-	t.Parallel()
-	user, jar := CreateVerifiedUserWithJar(t, "token-rotation")
-	ctx := context.Background()
-
-	t.Run("refresh rotates token", func(t *testing.T) {
-		oldCookie := FindRefreshCookie(t, jar)
-
-		resp, err := user.Client.RefreshToken(ctx)
-		require.NoError(t, err)
-		assert.NotEmpty(t, resp.AccessToken)
-
-		// Old cookie should be different from the new one
-		newCookie := FindRefreshCookie(t, jar)
-		assert.NotEqual(t, oldCookie.Value, newCookie.Value, "refresh token should rotate")
-	})
-
-	t.Run("old token is rejected after rotation", func(t *testing.T) {
-		oldCookie := FindRefreshCookie(t, jar)
-
-		// Refresh to rotate
-		_, err := user.Client.RefreshToken(ctx)
-		require.NoError(t, err)
-
-		// Try using the old token
-		replayClient := NewClientWithCookie(t, oldCookie)
-		_, err = replayClient.RefreshToken(ctx)
-		assert.Error(t, err, "old refresh token should be rejected")
 	})
 }

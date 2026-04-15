@@ -129,7 +129,7 @@ func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
 	isHTTPS := strings.HasPrefix(r.IssuerURL, "https://")
 	isLocalhost := strings.HasPrefix(r.IssuerURL, "http://localhost") ||
 		strings.HasPrefix(r.IssuerURL, "http://127.0.0.1") ||
-		strings.HasPrefix(r.IssuerURL, "http://oidc-mock")
+		strings.Contains(r.IssuerURL, "oidc-mock")
 
 	if !isHTTPS && !isLocalhost {
 		return fmt.Errorf("issuer_url must use HTTPS")

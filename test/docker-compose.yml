@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: heimdall-postgres-test
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: superuser
+      POSTGRES_PASSWORD: superuser
+      POSTGRES_DB: postgres
+    volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  oidc-mock:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.1
+    container_name: heimdall-oidc-mock-test
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      LOG_LEVEL: DEBUG
+      JSON_CONFIG_PATH: /config/oidc-mock-config.json
+    volumes:
+      - ./oidc/oidc-mock-config.json:/config/oidc-mock-config.json:ro
+
+  heimdall:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: heimdall-test
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      DATABASE_URL: postgres://heimdall:secure_password@heimdall-postgres-test:5432/heimdall?sslmode=disable
+      HTTP_ADDRESS: :8080
+      GRPC_ADDRESS: :9090
+      JWT_PRIVATE_KEY_PATH: /keys/private-key.pem
+      JWT_PUBLIC_KEY_PATH: /keys/public-key.pem
+      JWT_EXPIRATION: 24h
+      PUBLIC_URL: http://localhost:8080
+      ENVIRONMENT: test
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      GOOGLE_CLIENT_ID: mock-google-client-id
+      GOOGLE_CLIENT_SECRET: mock-google-client-secret
+      GOOGLE_ISSUER_URL: http://heimdall-oidc-mock-test:8082/google
+      MICROSOFT_CLIENT_ID: mock-microsoft-client-id
+      MICROSOFT_CLIENT_SECRET: mock-microsoft-client-secret
+      MICROSOFT_ISSUER_URL: http://heimdall-oidc-mock-test:8082/microsoft
+      GITHUB_CLIENT_ID: mock-github-client-id
+      GITHUB_CLIENT_SECRET: mock-github-client-secret
+      GITHUB_AUTH_URL: http://heimdall-oidc-mock-test:8082/github/authorize
+      GITHUB_TOKEN_URL: http://heimdall-oidc-mock-test:8082/github/token
+      GITHUB_API_BASE: http://heimdall-oidc-mock-test:8082/github/api
+      TOTP_PERIOD: 3
+    volumes:
+      - ./keys:/keys:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      oidc-mock:
+        condition: service_started

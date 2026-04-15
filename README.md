@@ -51,9 +51,6 @@ Heimdall is an authentication and authorization service written in Go. Handles u
 ### Setup
 
 ```bash
-# Install dependencies
-make deps
-
 # Generate code (sqlc + protobuf)
 make sqlc
 make protoc
@@ -213,9 +210,10 @@ docker run -p 8080:8080 -p 9090:9090 \
 The project has both unit tests and integration tests:
 
 - **Unit tests** (`make unit`) - Fast, no external dependencies
-- **Integration tests** (`make test`) - Full end-to-end tests using testcontainers (PostgreSQL + mock OIDC server). Requires Docker.
+- **Integration tests** (`make integration`) - Full end-to-end tests against docker-compose infrastructure (PostgreSQL + mock OIDC server + heimdall). Requires Docker.
+- **All tests** (`make test`) - Runs unit + integration tests, starts infrastructure automatically
 
-The integration test suite covers authentication, RBAC, MFA, sessions, OIDC/SSO flows, tenant isolation, and server-side input validation.
+The integration test suite covers authentication, RBAC, MFA, sessions, OIDC/SSO flows, tenant isolation, and server-side input validation. Tests are organized by feature in `test/` subdirectories (password, rbac, session, mfa, oidc, isolation).
 
 ## CI/CD Pipeline
 
@@ -225,7 +223,7 @@ The project uses GitHub Actions for continuous integration:
 
 1. **Linting** - `golangci-lint`
 2. **Build** - Compile and verify binary works
-3. **Tests** - Unit and integration tests with race detector (includes testcontainers)
+3. **Tests** - Unit and integration tests with docker-compose infrastructure
 4. **Security** - `govulncheck` for known vulnerabilities
 5. **Code Generation** - Verify sqlc/protobuf are up-to-date
 6. **Docker Build** - Validate Dockerfile builds
