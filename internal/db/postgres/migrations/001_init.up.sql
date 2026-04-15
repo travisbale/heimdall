@@ -108,7 +108,7 @@ ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY users_select_policy ON users FOR SELECT
     USING (
         CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
             ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
         END
     );
@@ -121,7 +121,7 @@ CREATE POLICY users_insert_policy ON users FOR INSERT
 CREATE POLICY users_update_policy ON users FOR UPDATE
     USING (
         CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
             ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
         END
     );
@@ -192,7 +192,7 @@ ALTER TABLE oidc_providers FORCE ROW LEVEL SECURITY;
 CREATE POLICY oidc_providers_select_policy ON oidc_providers FOR SELECT
     USING (
         CASE
-            WHEN current_setting('app.current_tenant_id', true) = '' THEN true
+            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
             ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
         END
     );
