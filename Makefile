@@ -59,8 +59,14 @@ test-keys:
 test-setup: test-keys
 	@echo "Building heimdall image..."
 	@docker compose -f test/docker-compose.yml build
-	@echo "Starting test infrastructure..."
-	@docker compose -f test/docker-compose.yml up -d --wait --remove-orphans
+	@echo "Starting postgres and oidc-mock..."
+	@docker compose -f test/docker-compose.yml up -d --wait postgres oidc-mock
+	@echo "Waiting for OIDC mock to be ready..."
+	@until curl -sf http://localhost:8082/.well-known/openid-configuration > /dev/null 2>&1; do sleep 1; done
+	@echo "Starting heimdall..."
+	@docker compose -f test/docker-compose.yml up -d --wait heimdall || \
+		(echo "Heimdall failed to start. Logs:" && \
+		docker compose -f test/docker-compose.yml logs heimdall && exit 1)
 	@echo "Running migrations..."
 	@docker compose -f test/docker-compose.yml exec -T heimdall ./heimdall migrate up > /dev/null
 	@echo "Test infrastructure ready"

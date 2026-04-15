@@ -93,6 +93,7 @@ func TestProcessCallback_SSONewUser_AutoProvision(t *testing.T) {
 	}
 	if user == nil {
 		t.Fatal("expected user to be returned")
+		return
 	}
 	assertUserMatch(t, user, "newuser@example.com", tenantID, UserStatusActive)
 
@@ -267,6 +268,7 @@ func TestProcessCallback_EmailReassignment_AllowedAfterDeactivation(t *testing.T
 	}
 	if user == nil {
 		t.Fatal("expected user to be returned")
+		return
 	}
 
 	// Verify new user was created
@@ -511,6 +513,7 @@ func TestProcessCallback_IndividualOAuth_NewUser(t *testing.T) {
 	}
 	if user == nil {
 		t.Fatal("expected user to be returned")
+		return
 	}
 
 	// Verify user was created in database with correct details and own tenant
