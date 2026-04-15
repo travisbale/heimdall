@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	gohttp "net/http"
+	"net/http"
 	"time"
 
 	"github.com/travisbale/heimdall/internal/api/grpc"
-	"github.com/travisbale/heimdall/internal/api/http"
+	"github.com/travisbale/heimdall/internal/api/rest"
 	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/email/console"
 	"github.com/travisbale/heimdall/internal/email/mailman"
@@ -17,7 +17,7 @@ import (
 
 // Server wraps the HTTP and gRPC servers and their dependencies
 type Server struct {
-	httpServer  *gohttp.Server
+	httpServer  *http.Server
 	grpcServer  *grpc.Server
 	db          *postgres.DB
 	emailClient interface{ Close() }
@@ -68,7 +68,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	}
 
 	// Create HTTP router and server
-	router := &http.Router{
+	router := &rest.Router{
 		DB:                  db,
 		AuthService:         services.auth,
 		UserService:         services.user,
@@ -86,7 +86,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Logger:              logger,
 	}
 
-	httpServer := &gohttp.Server{
+	httpServer := &http.Server{
 		Addr:              config.HTTPAddress,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
