@@ -17,8 +17,8 @@ var (
 
 	LogFormatFlag = &cli.StringFlag{
 		Name:        "log-format",
-		Usage:       "Log format: text (human-readable) or json (log aggregation)",
-		Value:       "text",
+		Usage:       "Log format: json (default, for log aggregation) or text (human-readable)",
+		Value:       "json",
 		EnvVars:     []string{"LOG_FORMAT"},
 		Destination: &config.LogFormat,
 	}
