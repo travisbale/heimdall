@@ -93,10 +93,9 @@ lint:
 	@echo "Linting code..."
 	@docker run -t --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.11.4 golangci-lint run
 
-# Generate sqlc code (uses version from go.mod)
 sqlc:
 	@echo "Generating sqlc code..."
-	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(shell pwd):/src -w /src sqlc/sqlc generate
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(shell pwd):/src -w /src sqlc/sqlc:1.31.0 generate
 
 # Generate protobuf code
 protoc:
