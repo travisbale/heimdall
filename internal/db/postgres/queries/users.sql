@@ -7,7 +7,7 @@ INSERT INTO users (
     last_name,
     status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    current_tenant_id(), $1, $2, $3, $4, $5
 ) RETURNING *;
 
 -- name: GetUser :one

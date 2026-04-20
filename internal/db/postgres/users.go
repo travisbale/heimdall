@@ -22,13 +22,12 @@ func NewUsersDB(db *DB) *UsersDB {
 	return &UsersDB{db: db}
 }
 
-// CreateUser creates a new user
+// CreateUser persists a user in the current tenant context
 func (u *UsersDB) CreateUser(ctx context.Context, user *iam.User) (*iam.User, error) {
 	var result *iam.User
 
-	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		dbUser, err := q.CreateUser(ctx, sqlc.CreateUserParams{
-			TenantID:     user.TenantID,
 			Email:        user.Email,
 			PasswordHash: user.PasswordHash,
 			Status:       user.Status,

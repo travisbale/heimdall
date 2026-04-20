@@ -16,7 +16,8 @@ INSERT INTO oidc_providers (
     client_secret_expires_at,
     registration_method
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+    current_tenant_id(),
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 ) RETURNING *;
 
 -- name: GetOIDCProvider :one
@@ -25,7 +26,7 @@ WHERE id = $1;
 
 -- name: ListOIDCProviders :many
 SELECT * FROM oidc_providers
-WHERE tenant_id = $1 AND enabled = true
+WHERE enabled = true
 ORDER BY provider_name;
 
 -- name: UpdateOIDCProvider :one

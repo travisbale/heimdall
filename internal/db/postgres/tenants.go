@@ -39,7 +39,6 @@ func (t *TenantsDB) BootstrapTenant(ctx context.Context, email, firstName, lastN
 
 		// Create user with empty password
 		dbUser, err := q.CreateUser(ctx, sqlc.CreateUserParams{
-			TenantID:     tenantID,
 			Email:        email,
 			PasswordHash: "",
 			FirstName:    firstName,
@@ -57,7 +56,6 @@ func (t *TenantsDB) BootstrapTenant(ctx context.Context, email, firstName, lastN
 
 		// Create System Admin role
 		role, err := q.CreateRole(ctx, sqlc.CreateRoleParams{
-			TenantID:    tenantID,
 			Name:        "System Admin",
 			Description: "Full system administrator with all permissions",
 			MfaRequired: false,

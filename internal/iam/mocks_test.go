@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // Mock implementations for testing
@@ -210,6 +211,10 @@ func newMockUserDB() *mockUserDB {
 
 func (m *mockUserDB) CreateUser(ctx context.Context, user *User) (*User, error) {
 	user.ID = uuid.New()
+	// Simulate the DB populating tenant_id from the session GUC via current_tenant_id()
+	if tenantID, err := identity.GetTenant(ctx); err == nil {
+		user.TenantID = tenantID
+	}
 	m.users[user.ID] = user
 	m.emails[user.Email] = user
 	return user, nil

@@ -14,13 +14,12 @@ import (
 
 const createRefreshToken = `-- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, family_id, user_agent, ip_address, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, current_tenant_id(), $2, $3, $4, $5, $6)
 RETURNING id, user_id, tenant_id, token_hash, family_id, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at
 `
 
 type CreateRefreshTokenParams struct {
 	UserID    uuid.UUID `json:"user_id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
 	TokenHash string    `json:"token_hash"`
 	FamilyID  uuid.UUID `json:"family_id"`
 	UserAgent string    `json:"user_agent"`
@@ -31,7 +30,6 @@ type CreateRefreshTokenParams struct {
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
 	row := q.db.QueryRow(ctx, createRefreshToken,
 		arg.UserID,
-		arg.TenantID,
 		arg.TokenHash,
 		arg.FamilyID,
 		arg.UserAgent,

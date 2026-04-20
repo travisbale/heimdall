@@ -21,12 +21,11 @@ INSERT INTO users (
     last_name,
     status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    current_tenant_id(), $1, $2, $3, $4, $5
 ) RETURNING id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 `
 
 type CreateUserParams struct {
-	TenantID     uuid.UUID      `json:"tenant_id"`
 	Email        string         `json:"email"`
 	PasswordHash string         `json:"password_hash"`
 	FirstName    string         `json:"first_name"`
@@ -36,7 +35,6 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
-		arg.TenantID,
 		arg.Email,
 		arg.PasswordHash,
 		arg.FirstName,

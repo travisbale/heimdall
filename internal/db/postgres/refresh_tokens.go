@@ -27,7 +27,6 @@ func (r *RefreshTokensDB) Create(ctx context.Context, token *iam.RefreshToken) (
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateRefreshToken(ctx, sqlc.CreateRefreshTokenParams{
 			UserID:    token.UserID,
-			TenantID:  token.TenantID,
 			TokenHash: token.TokenHash,
 			FamilyID:  token.FamilyID,
 			UserAgent: token.UserAgent,
@@ -176,7 +175,6 @@ func toRefreshToken(row sqlc.RefreshToken) *iam.RefreshToken {
 	return &iam.RefreshToken{
 		ID:         row.ID,
 		UserID:     row.UserID,
-		TenantID:   row.TenantID,
 		TokenHash:  row.TokenHash,
 		FamilyID:   row.FamilyID,
 		UserAgent:  row.UserAgent,

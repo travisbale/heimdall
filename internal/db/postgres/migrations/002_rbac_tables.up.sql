@@ -32,8 +32,8 @@ ALTER TABLE roles FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_policy ON roles
     FOR ALL
     TO PUBLIC
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
 
 -- Role permissions (which permissions does this role grant?)
 CREATE TABLE role_permissions (

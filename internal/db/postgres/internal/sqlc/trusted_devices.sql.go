@@ -14,13 +14,12 @@ import (
 
 const createTrustedDevice = `-- name: CreateTrustedDevice :one
 INSERT INTO trusted_devices (user_id, tenant_id, token_hash, user_agent, ip_address, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, current_tenant_id(), $2, $3, $4, $5)
 RETURNING id, user_id, tenant_id, token_hash, user_agent, ip_address, created_at, last_used_at, expires_at, revoked_at
 `
 
 type CreateTrustedDeviceParams struct {
 	UserID    uuid.UUID `json:"user_id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
 	TokenHash string    `json:"token_hash"`
 	UserAgent string    `json:"user_agent"`
 	IpAddress string    `json:"ip_address"`
@@ -30,7 +29,6 @@ type CreateTrustedDeviceParams struct {
 func (q *Queries) CreateTrustedDevice(ctx context.Context, arg CreateTrustedDeviceParams) (TrustedDevice, error) {
 	row := q.db.QueryRow(ctx, createTrustedDevice,
 		arg.UserID,
-		arg.TenantID,
 		arg.TokenHash,
 		arg.UserAgent,
 		arg.IpAddress,

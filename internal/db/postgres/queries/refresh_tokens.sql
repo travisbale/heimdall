@@ -1,6 +1,6 @@
 -- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, family_id, user_agent, ip_address, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, current_tenant_id(), $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetRefreshTokenByHash :one

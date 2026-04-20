@@ -31,12 +31,12 @@ INSERT INTO oidc_providers (
     client_secret_expires_at,
     registration_method
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+    current_tenant_id(),
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 ) RETURNING id, tenant_id, provider_name, issuer_url, client_id, client_secret, scopes, enabled, allowed_domains, auto_create_users, require_email_verification, registration_access_token, registration_client_uri, client_id_issued_at, client_secret_expires_at, registration_method, created_at, updated_at
 `
 
 type CreateOIDCProviderParams struct {
-	TenantID                 uuid.UUID                  `json:"tenant_id"`
 	ProviderName             string                     `json:"provider_name"`
 	IssuerUrl                string                     `json:"issuer_url"`
 	ClientID                 string                     `json:"client_id"`
@@ -55,7 +55,6 @@ type CreateOIDCProviderParams struct {
 
 func (q *Queries) CreateOIDCProvider(ctx context.Context, arg CreateOIDCProviderParams) (OidcProvider, error) {
 	row := q.db.QueryRow(ctx, createOIDCProvider,
-		arg.TenantID,
 		arg.ProviderName,
 		arg.IssuerUrl,
 		arg.ClientID,
@@ -186,12 +185,12 @@ func (q *Queries) GetOIDCProvidersByDomain(ctx context.Context, domain string) (
 
 const listOIDCProviders = `-- name: ListOIDCProviders :many
 SELECT id, tenant_id, provider_name, issuer_url, client_id, client_secret, scopes, enabled, allowed_domains, auto_create_users, require_email_verification, registration_access_token, registration_client_uri, client_id_issued_at, client_secret_expires_at, registration_method, created_at, updated_at FROM oidc_providers
-WHERE tenant_id = $1 AND enabled = true
+WHERE enabled = true
 ORDER BY provider_name
 `
 
-func (q *Queries) ListOIDCProviders(ctx context.Context, tenantID uuid.UUID) ([]OidcProvider, error) {
-	rows, err := q.db.Query(ctx, listOIDCProviders, tenantID)
+func (q *Queries) ListOIDCProviders(ctx context.Context) ([]OidcProvider, error) {
+	rows, err := q.db.Query(ctx, listOIDCProviders)
 	if err != nil {
 		return nil, err
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
-	"github.com/travisbale/knowhere/identity"
 )
 
 // RolesDB provides database operations for roles
@@ -25,13 +24,7 @@ func NewRolesDB(db *DB) *RolesDB {
 func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error) {
 	var createdRole *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return err
-		}
-
 		result, err := q.CreateRole(ctx, sqlc.CreateRoleParams{
-			TenantID:    tenantID,
 			Name:        role.Name,
 			Description: role.Description,
 			MfaRequired: role.MFARequired,

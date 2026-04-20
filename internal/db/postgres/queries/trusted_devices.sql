@@ -1,6 +1,6 @@
 -- name: CreateTrustedDevice :one
 INSERT INTO trusted_devices (user_id, tenant_id, token_hash, user_agent, ip_address, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, current_tenant_id(), $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetTrustedDeviceByTokenHash :one

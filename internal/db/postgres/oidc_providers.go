@@ -10,7 +10,6 @@ import (
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/knowhere/crypto/aes"
-	"github.com/travisbale/knowhere/identity"
 )
 
 // OIDCProvidersDB manages tenant-specific OIDC provider configs with encrypted secrets
@@ -31,11 +30,6 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *iam.
 	var result *iam.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return err
-		}
-
 		// Encrypt client secret at rest to protect OAuth credentials
 		encryptedSecret, err := o.cipher.Encrypt(provider.ClientSecret)
 		if err != nil {
@@ -43,7 +37,6 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *iam.
 		}
 
 		dbProvider, err := q.CreateOIDCProvider(ctx, sqlc.CreateOIDCProviderParams{
-			TenantID:                 tenantID,
 			ProviderName:             provider.ProviderName,
 			IssuerUrl:                provider.IssuerURL,
 			ClientID:                 provider.ClientID,
@@ -70,24 +63,17 @@ func (o *OIDCProvidersDB) CreateOIDCProvider(ctx context.Context, provider *iam.
 	return result, err
 }
 
-// GetOIDCProviderByID retrieves provider by ID with optional tenant validation
+// GetOIDCProviderByID retrieves provider by ID; RLS enforces tenant isolation
 func (o *OIDCProvidersDB) GetOIDCProviderByID(ctx context.Context, id uuid.UUID) (*iam.OIDCProviderConfig, error) {
 	var result *iam.OIDCProviderConfig
 
-	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
+	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		dbProvider, err := q.GetOIDCProvider(ctx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return iam.ErrOIDCProviderNotFound
 			}
 			return fmt.Errorf("failed to get oauth provider by id: %w", err)
-		}
-
-		// Tenant validation if context has tenant
-		if tenantID, err := identity.GetTenant(ctx); err == nil {
-			if dbProvider.TenantID != tenantID {
-				return iam.ErrOIDCProviderNotFound
-			}
 		}
 
 		result, err = o.convertOIDCProviderToDomain(dbProvider)
@@ -102,12 +88,7 @@ func (o *OIDCProvidersDB) ListOIDCProviders(ctx context.Context) ([]*iam.OIDCPro
 	var result []*iam.OIDCProviderConfig
 
 	err := o.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
-		tenantID, err := identity.GetTenant(ctx)
-		if err != nil {
-			return err
-		}
-
-		dbProviders, err := q.ListOIDCProviders(ctx, tenantID)
+		dbProviders, err := q.ListOIDCProviders(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list oauth providers: %w", err)
 		}

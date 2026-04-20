@@ -13,15 +13,14 @@ import (
 
 const createRole = `-- name: CreateRole :one
 INSERT INTO roles (tenant_id, name, description, mfa_required)
-VALUES ($1, $2, $3, $4)
+VALUES (current_tenant_id(), $1, $2, $3)
 RETURNING id, name, description, mfa_required
 `
 
 type CreateRoleParams struct {
-	TenantID    uuid.UUID `json:"tenant_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	MfaRequired bool      `json:"mfa_required"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	MfaRequired bool   `json:"mfa_required"`
 }
 
 type CreateRoleRow struct {
@@ -32,12 +31,7 @@ type CreateRoleRow struct {
 }
 
 func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (CreateRoleRow, error) {
-	row := q.db.QueryRow(ctx, createRole,
-		arg.TenantID,
-		arg.Name,
-		arg.Description,
-		arg.MfaRequired,
-	)
+	row := q.db.QueryRow(ctx, createRole, arg.Name, arg.Description, arg.MfaRequired)
 	var i CreateRoleRow
 	err := row.Scan(
 		&i.ID,

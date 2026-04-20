@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/pb"
-	"github.com/travisbale/knowhere/identity"
+	"github.com/travisbale/heimdall/sdk"
 )
 
 // authService defines the interface for authentication operations
@@ -22,31 +22,23 @@ type AuthHandler struct {
 
 // CreateUser implements the gRPC CreateUser endpoint
 func (h *AuthHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
-	if req.Email == "" {
-		return nil, fmt.Errorf("email is required")
-	}
-
-	// Get tenant ID from context (set by MetadataInterceptor from gRPC metadata)
-	tenantID, err := identity.GetTenant(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("tenant_id is required in metadata")
-	}
-
-	var roleIDs []uuid.UUID
+	sdkReq := &sdk.CreateUserRequest{Email: req.Email}
+	sdkReq.RoleIDs = make([]uuid.UUID, 0, len(req.RoleIds))
 	for _, roleIDStr := range req.RoleIds {
 		roleID, err := uuid.Parse(roleIDStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid role_id %s: %w", roleIDStr, err)
 		}
-		roleIDs = append(roleIDs, roleID)
+
+		sdkReq.RoleIDs = append(sdkReq.RoleIDs, roleID)
 	}
 
-	user := &iam.User{
-		TenantID: tenantID,
-		Email:    req.Email,
+	if err := sdkReq.Validate(ctx); err != nil {
+		return nil, err
 	}
 
-	user, verificationToken, err := h.AuthService.CreateUser(ctx, user, roleIDs)
+	user := &iam.User{Email: sdkReq.Email}
+	user, verificationToken, err := h.AuthService.CreateUser(ctx, user, sdkReq.RoleIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}

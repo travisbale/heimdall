@@ -483,7 +483,6 @@ func TestRefreshSession(t *testing.T) {
 		f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
 		f.sessionService.rotatedToken = &RefreshToken{
 			UserID:   userID,
-			TenantID: tenantID,
 			FamilyID: familyID,
 		}
 

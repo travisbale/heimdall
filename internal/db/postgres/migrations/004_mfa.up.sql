@@ -106,5 +106,5 @@ ALTER TABLE trusted_devices FORCE ROW LEVEL SECURITY;
 
 -- Strict tenant isolation
 CREATE POLICY tenant_isolation_policy ON trusted_devices FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());

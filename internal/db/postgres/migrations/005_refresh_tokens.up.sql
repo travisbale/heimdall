@@ -48,5 +48,5 @@ ALTER TABLE refresh_tokens FORCE ROW LEVEL SECURITY;
 
 -- Strict tenant isolation - all operations require tenant context
 CREATE POLICY tenant_isolation_policy ON refresh_tokens FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());

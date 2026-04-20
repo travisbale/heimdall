@@ -1,6 +1,6 @@
 -- name: CreateRole :one
 INSERT INTO roles (tenant_id, name, description, mfa_required)
-VALUES (sqlc.arg('tenant_id'), sqlc.arg('name'), sqlc.arg('description'), sqlc.arg('mfa_required'))
+VALUES (current_tenant_id(), sqlc.arg('name'), sqlc.arg('description'), sqlc.arg('mfa_required'))
 RETURNING id, name, description, mfa_required;
 
 -- name: GetRoleByID :one

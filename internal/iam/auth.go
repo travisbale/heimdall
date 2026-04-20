@@ -134,7 +134,6 @@ func (s *AuthService) AuthenticateWithMFA(ctx context.Context, challengeToken, c
 	if trustDevice && s.TrustedDeviceService != nil {
 		device := &TrustedDevice{
 			UserID:    claims.UserID,
-			TenantID:  claims.TenantID,
 			UserAgent: identity.GetUserAgent(ctx),
 			IPAddress: identity.GetIPAddress(ctx),
 		}
@@ -378,7 +377,6 @@ func (s *AuthService) createSessionFamily(ctx context.Context, familyID, tenantI
 
 	rt := &RefreshToken{
 		UserID:    userID,
-		TenantID:  tenantID,
 		TokenHash: token.Hash(refreshToken),
 		FamilyID:  familyID,
 		UserAgent: identity.GetUserAgent(ctx),

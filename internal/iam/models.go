@@ -250,7 +250,6 @@ type MFAStatus struct {
 type RefreshToken struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
-	TenantID   uuid.UUID
 	TokenHash  string
 	FamilyID   uuid.UUID // Token family for rotation tracking
 	UserAgent  string
@@ -265,7 +264,6 @@ type RefreshToken struct {
 type TrustedDevice struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
-	TenantID   uuid.UUID
 	TokenHash  string
 	UserAgent  string
 	IPAddress  string

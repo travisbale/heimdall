@@ -12,6 +12,7 @@ import (
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/crypto/token"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // oidcProviderLookup defines the provider lookup methods needed by OIDCAuthService
@@ -183,6 +184,12 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 
 // handleSSOCallback processes corporate SSO callbacks
 func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
+	// SSO callback runs pre-authentication, so seed the tenant context from the
+	// session. All subsequent DB operations for this flow run scoped to the tenant.
+	if session.TenantID != nil {
+		ctx = identity.WithTenant(ctx, *session.TenantID)
+	}
+
 	// Get tenant-specific provider configuration
 	providerConfig, err := s.OIDCProviderService.GetOIDCProvider(ctx, *session.OIDCProviderID)
 	if err != nil {
@@ -273,9 +280,8 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 	}
 
 	user := &User{
-		TenantID: providerConfig.TenantID,
-		Email:    userInfo.Email,
-		Status:   UserStatusActive,
+		Email:  userInfo.Email,
+		Status: UserStatusActive,
 	}
 
 	user, err = s.UserDB.CreateUser(ctx, user)

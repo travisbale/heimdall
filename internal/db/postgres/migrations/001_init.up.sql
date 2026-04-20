@@ -1,3 +1,11 @@
+-- Resolve the current tenant from the session GUC. Returns NULL when the GUC
+-- is unset or empty (pre-auth flows), which lets hybrid policies short-circuit
+-- and strict WITH CHECK clauses fail cleanly.
+CREATE FUNCTION current_tenant_id() RETURNS uuid
+    LANGUAGE sql STABLE AS $$
+    SELECT NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+$$;
+
 -- Create user_status enum type
 CREATE TYPE user_status AS ENUM ('unverified', 'active', 'suspended', 'inactive');
 
@@ -106,29 +114,19 @@ ALTER TABLE users FORCE ROW LEVEL SECURITY;
 -- Without context (pre-auth): login, registration, email verification
 -- With context (post-auth): enforce tenant isolation
 CREATE POLICY users_select_policy ON users FOR SELECT
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
-        END
-    );
+    USING (current_tenant_id() IS NULL OR tenant_id = current_tenant_id());
 
--- INSERT: Allow with or without tenant context (registration is pre-auth)
+-- INSERT: tenant_id must match the session tenant — no pre-auth bypass.
 CREATE POLICY users_insert_policy ON users FOR INSERT
-    WITH CHECK (tenant_id IS NOT NULL);
+    WITH CHECK (tenant_id = current_tenant_id());
 
 -- UPDATE: Allow with or without tenant context (email verification is pre-auth)
 CREATE POLICY users_update_policy ON users FOR UPDATE
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
-        END
-    );
+    USING (current_tenant_id() IS NULL OR tenant_id = current_tenant_id());
 
 -- DELETE: Require tenant context (post-auth only)
 CREATE POLICY users_delete_policy ON users FOR DELETE
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id());
 
 -- ============================================================================
 -- OIDC TABLES - Single Sign-On Support
@@ -190,23 +188,18 @@ ALTER TABLE oidc_providers FORCE ROW LEVEL SECURITY;
 -- Without context: SSO domain discovery (cross-tenant lookup)
 -- With context (post-auth): enforce tenant isolation
 CREATE POLICY oidc_providers_select_policy ON oidc_providers FOR SELECT
-    USING (
-        CASE
-            WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = '' THEN true
-            ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
-        END
-    );
+    USING (current_tenant_id() IS NULL OR tenant_id = current_tenant_id());
 
 -- INSERT/UPDATE/DELETE: Require tenant context (post-auth only)
 CREATE POLICY oidc_providers_insert_policy ON oidc_providers FOR INSERT
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    WITH CHECK (tenant_id = current_tenant_id());
 
 CREATE POLICY oidc_providers_update_policy ON oidc_providers FOR UPDATE
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
 
 CREATE POLICY oidc_providers_delete_policy ON oidc_providers FOR DELETE
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id());
 
 -- OIDC provider linkages to users
 -- Tracks which OIDC providers each user has connected

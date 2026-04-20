@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/travisbale/knowhere/identity"
@@ -18,34 +19,38 @@ const (
 )
 
 // MetadataInterceptor extracts identity information from gRPC metadata headers
-// and adds them to the request context. This allows the API gateway to pass
-// authenticated user information to internal services without re-validating JWTs.
+// and adds them to the request context. A tenant ID is required for every
+// request; actor, request ID, and IP address are optional.
 func MetadataInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			return handler(ctx, req)
+			return nil, fmt.Errorf("missing gRPC metadata")
 		}
 
-		// Extract tenant and actor IDs (set by API gateway after JWT validation)
-		if vals := md.Get(headerTenantID); len(vals) > 0 {
-			if tenantID, err := uuid.Parse(vals[0]); err == nil {
-				if actorVals := md.Get(headerActorID); len(actorVals) > 0 {
-					if actorID, err := uuid.Parse(actorVals[0]); err == nil {
-						ctx = identity.WithActor(ctx, tenantID, actorID)
-					}
-				} else {
-					ctx = identity.WithTenant(ctx, tenantID)
-				}
+		tenantVals := md.Get(headerTenantID)
+		if len(tenantVals) == 0 {
+			return nil, fmt.Errorf("tenant_id is required in metadata")
+		}
+		tenantID, err := uuid.Parse(tenantVals[0])
+		if err != nil {
+			return nil, fmt.Errorf("invalid tenant_id in metadata: %w", err)
+		}
+
+		// Attach actor if provided and parseable; fall back to tenant-only otherwise
+		if actorVals := md.Get(headerActorID); len(actorVals) > 0 {
+			if actorID, err := uuid.Parse(actorVals[0]); err == nil {
+				ctx = identity.WithActor(ctx, tenantID, actorID)
+			} else {
+				ctx = identity.WithTenant(ctx, tenantID)
 			}
+		} else {
+			ctx = identity.WithTenant(ctx, tenantID)
 		}
 
-		// Extract request ID for correlation
 		if vals := md.Get(headerRequestID); len(vals) > 0 && vals[0] != "" {
 			ctx = identity.WithRequestID(ctx, vals[0])
 		}
-
-		// Extract IP address for audit logging
 		if vals := md.Get(headerIPAddress); len(vals) > 0 && vals[0] != "" {
 			ctx = identity.WithIPAddress(ctx, vals[0])
 		}

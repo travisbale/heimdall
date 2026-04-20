@@ -28,7 +28,6 @@ func (r *TrustedDevicesDB) Create(ctx context.Context, device *iam.TrustedDevice
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		row, err := q.CreateTrustedDevice(ctx, sqlc.CreateTrustedDeviceParams{
 			UserID:    device.UserID,
-			TenantID:  device.TenantID,
 			TokenHash: device.TokenHash,
 			UserAgent: device.UserAgent,
 			IpAddress: device.IPAddress,
@@ -107,7 +106,6 @@ func toTrustedDevice(row sqlc.TrustedDevice) *iam.TrustedDevice {
 	return &iam.TrustedDevice{
 		ID:         row.ID,
 		UserID:     row.UserID,
-		TenantID:   row.TenantID,
 		TokenHash:  row.TokenHash,
 		UserAgent:  row.UserAgent,
 		IPAddress:  row.IpAddress,
