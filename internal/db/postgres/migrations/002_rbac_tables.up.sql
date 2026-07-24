@@ -4,10 +4,11 @@ CREATE TYPE permission_effect AS ENUM ('allow', 'deny');
 -- System-wide permissions (no tenant_id - shared across all tenants)
 CREATE TABLE permissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,  -- e.g., "employee:create"
+    name VARCHAR(255) NOT NULL UNIQUE,  -- namespaced, e.g. "employee:create" or "scorecard:tournaments:write"
     description TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT permissions_name_format_check CHECK (name ~ '^[a-z0-9_]+:[a-z0-9_]+$')
+    -- One or more colon-separated segments, so services can namespace their scopes.
+    CONSTRAINT permissions_name_format_check CHECK (name ~ '^[a-z0-9_]+(:[a-z0-9_]+)+$')
 );
 
 -- Tenant-specific roles (user-manageable)
