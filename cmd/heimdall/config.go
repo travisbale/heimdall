@@ -31,6 +31,8 @@ type Config struct {
 
 	TrustedProxyMode bool // Enable IP extraction from proxy headers (X-Forwarded-For)
 
+	ProxySecret string // Require a matching X-Proxy-Secret header on non-health requests (empty = disabled)
+
 	EncryptionKey string // AES-256 key for encrypting OIDC client secrets
 
 	CORSAllowedOrigins cli.StringSlice // Browser origins allowed to make requests
@@ -71,6 +73,7 @@ func (c *Config) ToAppConfig() *app.Config {
 		EmailWebhookURL:       c.EmailWebhookURL,
 		Environment:           c.Environment,
 		TrustedProxyMode:      c.TrustedProxyMode,
+		ProxySecret:           c.ProxySecret,
 		EncryptionKey:         c.EncryptionKey,
 		CORSAllowedOrigins:    c.CORSAllowedOrigins.Value(),
 		GoogleClientID:        c.GoogleClientID,

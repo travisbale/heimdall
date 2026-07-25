@@ -37,8 +37,11 @@ type Router struct {
 	SecureCookies       bool
 	Environment         string
 	TrustedProxyMode    bool
-	CORSAllowedOrigins  []string
-	Logger              *slog.Logger
+	// ProxySecret, when set, requires a matching X-Proxy-Secret header on every request
+	// except the health check (only the trusted edge is served). Empty disables it.
+	ProxySecret        string
+	CORSAllowedOrigins []string
+	Logger             *slog.Logger
 
 	once          sync.Once
 	jwtMiddleware *jwt.HTTPMiddleware
@@ -62,6 +65,7 @@ func (r *Router) init() {
 	handler = identity.UserAgent(handler)
 	handler = identity.ClientIP(r.TrustedProxyMode)(handler)
 	handler = identity.RequestID(handler)
+	handler = identity.RequireProxySecret(r.ProxySecret, sdk.RouteHealth)(handler)
 	handler = recoverMiddleware(handler)
 	if len(r.CORSAllowedOrigins) > 0 {
 		handler = corsMiddleware(r.CORSAllowedOrigins)(handler)

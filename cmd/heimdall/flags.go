@@ -118,6 +118,13 @@ var (
 		Destination: &config.TrustedProxyMode,
 	}
 
+	ProxySecretFlag = &cli.StringFlag{
+		Name:        "proxy-secret",
+		Usage:       "Shared secret required in the X-Proxy-Secret header on non-health requests (empty = disabled). Set by the trusted edge (e.g. a Cloudflare Worker).",
+		EnvVars:     []string{"PROXY_SECRET"},
+		Destination: &config.ProxySecret,
+	}
+
 	CORSAllowedOriginsFlag = &cli.StringSliceFlag{
 		Name:        "cors-allowed-origins",
 		Usage:       "Comma-separated list of allowed CORS origins (e.g., http://localhost:5173,http://localhost:3000)",

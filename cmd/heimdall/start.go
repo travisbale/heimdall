@@ -29,6 +29,7 @@ var startCmd = &cli.Command{
 		MailmanGRPCAddressFlag,
 		EmailWebhookURLFlag,
 		TrustedProxyModeFlag,
+		ProxySecretFlag,
 		EncryptionKeyFlag,
 		CORSAllowedOriginsFlag,
 		GoogleClientIDFlag,

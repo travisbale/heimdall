@@ -44,6 +44,9 @@ type Config struct {
 	Environment        string
 	EncryptionKey      string
 	TrustedProxyMode   bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy
+	// ProxySecret, when set, requires a matching X-Proxy-Secret header on every request
+	// except the health check, so only traffic through the trusted edge is served.
+	ProxySecret        string
 	CORSAllowedOrigins []string
 
 	// OAuth provider configuration for individual logins
