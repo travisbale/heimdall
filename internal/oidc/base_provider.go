@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/travisbale/heimdall/internal/iam"
@@ -87,7 +88,7 @@ func (b *baseOIDCProvider) exchangeCode(ctx context.Context, code, codeVerifier,
 		AccessToken:  token.AccessToken,
 		IDToken:      rawIDToken,
 		RefreshToken: token.RefreshToken,
-		ExpiresIn:    int(token.Expiry.Sub(token.Expiry.Add(-token.Expiry.Sub(token.Expiry))) / 1e9),
+		ExpiresIn:    int(time.Until(token.Expiry).Seconds()),
 	}, nil
 }
 

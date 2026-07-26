@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/travisbale/heimdall/internal/iam"
@@ -76,7 +77,7 @@ func (p *GenericProvider) ExchangeCode(ctx context.Context, code, codeVerifier, 
 		AccessToken:  token.AccessToken,
 		IDToken:      idToken,
 		RefreshToken: token.RefreshToken,
-		ExpiresIn:    int(token.Expiry.Sub(token.Expiry).Seconds()),
+		ExpiresIn:    int(time.Until(token.Expiry).Seconds()),
 	}, nil
 }
 
