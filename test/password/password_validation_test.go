@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/heimdall/test/_util/database"
+	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/heimdall/test/_util/request"
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
@@ -29,7 +29,7 @@ func TestPasswordValidation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	token := database.GetVerificationToken(t, email)
+	token := mailbox.VerificationToken(t, email)
 
 	t.Run("reject short password", func(t *testing.T) {
 		status, body := request.RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,

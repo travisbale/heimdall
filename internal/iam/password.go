@@ -18,6 +18,12 @@ type loginAttemptsService interface {
 	IsAccountLocked(ctx context.Context, email string) (bool, time.Time, error)
 }
 
+// sessionRevoker signs a user out everywhere. A password change has to reach the
+// sessions the old password created, or an attacker keeps their refresh token.
+type sessionRevoker interface {
+	RevokeAllSessions(ctx context.Context, userID uuid.UUID) error
+}
+
 // PasswordService handles password-based authentication operations
 type PasswordService struct {
 	UserDB               userDB
@@ -25,7 +31,20 @@ type PasswordService struct {
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
 	LoginAttemptsService loginAttemptsService
+	SessionRevoker       sessionRevoker
 	Logger               *slog.Logger
+}
+
+// revokeSessions signs the user out of every session. Failure is logged rather than
+// returned: the password has already changed, and reporting an error would suggest it
+// had not. It does leave stale sessions alive, so it is logged at error level.
+func (s *PasswordService) revokeSessions(ctx context.Context, userID uuid.UUID) {
+	if s.SessionRevoker == nil {
+		return
+	}
+	if err := s.SessionRevoker.RevokeAllSessions(ctx, userID); err != nil {
+		s.Logger.ErrorContext(ctx, "failed to revoke sessions after password change", "user_id", userID, "error", err)
+	}
 }
 
 // VerifyCredentials verifies user credentials and returns the active user account
@@ -88,8 +107,10 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 		return fmt.Errorf("failed to generate reset token: %w", err)
 	}
 
+	// Only the hash is stored: the token is a bearer credential, so a leaked table (or
+	// backup, or replica) must not yield working reset links. The user gets the secret.
 	expiresAt := time.Now().Add(1 * time.Hour)
-	_, err = s.PasswordResetTokenDB.CreateToken(ctx, user.ID, resetToken, expiresAt)
+	_, err = s.PasswordResetTokenDB.CreateToken(ctx, user.ID, token.Hash(resetToken), expiresAt)
 	if err != nil {
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
@@ -105,8 +126,8 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
-	// Get the password reset token
-	resetToken, err := s.PasswordResetTokenDB.GetToken(ctx, tokenStr)
+	// The user holds the plaintext token from their email; only its hash is stored.
+	resetToken, err := s.PasswordResetTokenDB.GetToken(ctx, token.Hash(tokenStr))
 	if err != nil {
 		return fmt.Errorf("invalid or expired reset token")
 	}
@@ -129,6 +150,9 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 	}); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
+
+	// Every existing session was created under the old password.
+	s.revokeSessions(ctx, resetToken.UserID)
 
 	// Delete the reset token
 	if err := s.PasswordResetTokenDB.DeleteToken(ctx, resetToken.UserID); err != nil {
@@ -166,6 +190,8 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 	}); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
+
+	s.revokeSessions(ctx, userID)
 
 	s.Logger.InfoContext(ctx, events.PasswordChanged, "user_id", userID)
 

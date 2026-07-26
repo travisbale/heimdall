@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
-	"github.com/travisbale/heimdall/test/_util/database"
+	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/heimdall/test/_util/request"
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
@@ -28,7 +28,7 @@ func TestPasswordReset(t *testing.T) {
 	})
 
 	t.Run("reset password with token", func(t *testing.T) {
-		token := database.GetPasswordResetToken(t, user.Email)
+		token := mailbox.PasswordResetToken(t, user.Email)
 		newPassword := fmt.Sprintf("NewPass-%d!", time.Now().UnixNano())
 
 		_, err := client.ResetPassword(context.Background(), sdk.ResetPasswordRequest{

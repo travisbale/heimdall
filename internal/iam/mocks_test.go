@@ -582,6 +582,9 @@ type mockEmailClient struct {
 	passwordResetEmailError error
 	verificationEmails      []string
 	passwordResetEmails     []string
+	// The token as the user receives it, so tests can prove what is stored differs.
+	verificationTokensSent  []string
+	passwordResetTokensSent []string
 }
 
 func (m *mockEmailClient) SendVerificationEmail(ctx context.Context, email, token string) error {
@@ -589,6 +592,7 @@ func (m *mockEmailClient) SendVerificationEmail(ctx context.Context, email, toke
 		return m.verificationEmailError
 	}
 	m.verificationEmails = append(m.verificationEmails, email)
+	m.verificationTokensSent = append(m.verificationTokensSent, token)
 	return nil
 }
 
@@ -597,6 +601,7 @@ func (m *mockEmailClient) SendPasswordResetEmail(ctx context.Context, email, tok
 		return m.passwordResetEmailError
 	}
 	m.passwordResetEmails = append(m.passwordResetEmails, email)
+	m.passwordResetTokensSent = append(m.passwordResetTokensSent, token)
 	return nil
 }
 

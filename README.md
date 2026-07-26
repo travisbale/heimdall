@@ -103,7 +103,7 @@ make test
   --grpc-address ":9090" \
   --jwt-private-key "/path/to/private-key.pem" \
   --jwt-public-key "/path/to/public-key.pem" \
-  --jwt-expiration "24h" \
+  --refresh-token-expiration "24h" \
   --public-url "http://localhost:8080" \
   --environment "development"
 ```
@@ -302,7 +302,8 @@ Environment variables:
 - `JWT_ISSUER` - JWT issuer name (default: `heimdall`)
 - `JWT_PRIVATE_KEY_PATH` - Path to RSA private key (PEM format)
 - `JWT_PUBLIC_KEY_PATH` - Path to RSA public key (PEM format)
-- `JWT_EXPIRATION` - Refresh token lifetime (default: `24h`)
+- `REFRESH_TOKEN_EXPIRATION` - Session lifetime before re-authentication (default: `24h`)
+- `ACCESS_TOKEN_EXPIRATION` - Access token lifetime (default: `15m`)
 - `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `TRUSTED_PROXY_MODE` - Enable IP extraction from X-Forwarded-For headers (default: `false`)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	cryptotoken "github.com/travisbale/knowhere/crypto/token"
 	"github.com/travisbale/knowhere/identity"
 )
 
@@ -180,9 +181,9 @@ func TestVerifyEmailAndSetPassword(t *testing.T) {
 
 		// Create verification token
 		token := "verification_token_123"
-		f.verificationTokenDB.tokens[token] = &UserToken{
+		f.verificationTokenDB.tokens[cryptotoken.Hash(token)] = &UserToken{
 			UserID:    userID,
-			Token:     token,
+			Token:     cryptotoken.Hash(token),
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 
@@ -233,9 +234,9 @@ func TestVerifyEmailAndSetPassword(t *testing.T) {
 
 		// Create expired verification token
 		token := "expired_token"
-		f.verificationTokenDB.tokens[token] = &UserToken{
+		f.verificationTokenDB.tokens[cryptotoken.Hash(token)] = &UserToken{
 			UserID:    userID,
-			Token:     token,
+			Token:     cryptotoken.Hash(token),
 			ExpiresAt: time.Now().Add(-1 * time.Hour), // Expired
 		}
 
@@ -262,9 +263,9 @@ func TestVerifyEmailAndSetPassword(t *testing.T) {
 
 		// Create verification token
 		token := "valid_token"
-		f.verificationTokenDB.tokens[token] = &UserToken{
+		f.verificationTokenDB.tokens[cryptotoken.Hash(token)] = &UserToken{
 			UserID:    userID,
-			Token:     token,
+			Token:     cryptotoken.Hash(token),
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 

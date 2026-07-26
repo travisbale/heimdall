@@ -71,12 +71,25 @@ var (
 		Destination: &config.JWTPublicKeyPath,
 	}
 
-	JWTExpirationFlag = &cli.DurationFlag{
-		Name:        "jwt-expiration",
-		Usage:       "JWT token expiration duration",
+	// Named for what it actually controls: this is the refresh token's lifetime, i.e.
+	// how long a session lasts before the user logs in again. It was called
+	// "jwt-expiration", which reads like the access token and is not.
+	RefreshTokenExpirationFlag = &cli.DurationFlag{
+		Name:        "refresh-token-expiration",
+		Usage:       "How long a session lasts before re-authentication is required",
 		Value:       24 * time.Hour,
-		EnvVars:     []string{"JWT_EXPIRATION"},
-		Destination: &config.JWTExpiration,
+		EnvVars:     []string{"REFRESH_TOKEN_EXPIRATION"},
+		Destination: &config.RefreshTokenExpiration,
+	}
+
+	// Access tokens are stateless, so revoking a session cannot reach one already issued
+	// — this bounds that window and should stay short.
+	AccessTokenExpirationFlag = &cli.DurationFlag{
+		Name:        "access-token-expiration",
+		Usage:       "Access token lifetime; bounds how long a revoked session keeps working",
+		Value:       15 * time.Minute,
+		EnvVars:     []string{"ACCESS_TOKEN_EXPIRATION"},
+		Destination: &config.AccessTokenExpiration,
 	}
 
 	EnvironmentFlag = &cli.StringFlag{

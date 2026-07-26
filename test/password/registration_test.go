@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/heimdall/test/_util/assertions"
-	"github.com/travisbale/heimdall/test/_util/database"
+	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/heimdall/test/_util/request"
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
@@ -39,7 +39,7 @@ func TestRegistration(t *testing.T) {
 	})
 
 	t.Run("verify email and set password", func(t *testing.T) {
-		token := database.GetVerificationToken(t, email)
+		token := mailbox.VerificationToken(t, email)
 
 		resp, err := client.VerifyEmail(context.Background(), sdk.VerifyEmailRequest{
 			Token:    token,

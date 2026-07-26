@@ -42,8 +42,8 @@ func initializeServices(
 		Issuer:                      config.JWTIssuer,
 		PrivateKeyPath:              config.JWTPrivateKeyPath,
 		PublicKeyPath:               config.JWTPublicKeyPath,
-		AccessTokenExpiration:       15 * time.Minute,
-		RefreshTokenExpiration:      config.JWTExpiration,
+		AccessTokenExpiration:       config.AccessTokenExpiration,
+		RefreshTokenExpiration:      config.RefreshTokenExpiration,
 		MFAChallengeTokenExpiration: 5 * time.Minute,
 		MFASetupTokenExpiration:     5 * time.Minute,
 	}
@@ -94,7 +94,9 @@ func initializeServices(
 		Logger:              logger,
 	}
 
-	// Password service for password authentication
+	// Password service for password authentication. SessionRevoker is wired below, once
+	// the session service exists — a password change must end the sessions the old
+	// password created.
 	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
 		Hasher:               passwordHasher,
@@ -131,6 +133,9 @@ func initializeServices(
 		RefreshTokenDB: dbs.refreshTokens,
 		Logger:         logger,
 	}
+
+	// Now that sessions exist, let a password change sign every session out.
+	passwordService.SessionRevoker = sessionService
 
 	// Trusted device service for MFA bypass on trusted devices
 	trustedDeviceService := &iam.TrustedDeviceService{

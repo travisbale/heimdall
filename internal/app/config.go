@@ -31,19 +31,20 @@ const (
 
 // Config holds the configuration for creating a new server
 type Config struct {
-	HTTPAddress        string
-	GRPCAddress        string
-	DatabaseURL        string
-	JWTIssuer          string
-	JWTPrivateKeyPath  string
-	JWTPublicKeyPath   string
-	JWTExpiration      time.Duration
-	PublicURL          string
-	MailmanGRPCAddress string
-	EmailWebhookURL    string
-	Environment        string
-	EncryptionKey      string
-	TrustedProxyMode   bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy
+	HTTPAddress            string
+	GRPCAddress            string
+	DatabaseURL            string
+	JWTIssuer              string
+	JWTPrivateKeyPath      string
+	JWTPublicKeyPath       string
+	RefreshTokenExpiration time.Duration
+	AccessTokenExpiration  time.Duration
+	PublicURL              string
+	MailmanGRPCAddress     string
+	EmailWebhookURL        string
+	Environment            string
+	EncryptionKey          string
+	TrustedProxyMode       bool // Enable IP extraction from X-Forwarded-For when behind reverse proxy
 	// ProxySecret, when set, requires a matching X-Proxy-Secret header on every request
 	// except the health check, so only traffic through the trusted edge is served.
 	ProxySecret        string

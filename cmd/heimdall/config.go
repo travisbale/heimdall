@@ -17,10 +17,11 @@ type Config struct {
 	HTTPAddress string
 	GRPCAddress string
 
-	JWTIssuer         string
-	JWTPrivateKeyPath string
-	JWTPublicKeyPath  string
-	JWTExpiration     time.Duration
+	JWTIssuer              string
+	JWTPrivateKeyPath      string
+	JWTPublicKeyPath       string
+	RefreshTokenExpiration time.Duration
+	AccessTokenExpiration  time.Duration
 
 	PublicURL string
 
@@ -61,33 +62,34 @@ var config = &Config{}
 // ToAppConfig converts CLI config to internal app config
 func (c *Config) ToAppConfig() *app.Config {
 	return &app.Config{
-		DatabaseURL:           c.DatabaseURL,
-		HTTPAddress:           c.HTTPAddress,
-		GRPCAddress:           c.GRPCAddress,
-		JWTIssuer:             c.JWTIssuer,
-		JWTPrivateKeyPath:     c.JWTPrivateKeyPath,
-		JWTPublicKeyPath:      c.JWTPublicKeyPath,
-		JWTExpiration:         c.JWTExpiration,
-		PublicURL:             c.PublicURL,
-		MailmanGRPCAddress:    c.MailmanGRPCAddress,
-		EmailWebhookURL:       c.EmailWebhookURL,
-		Environment:           c.Environment,
-		TrustedProxyMode:      c.TrustedProxyMode,
-		ProxySecret:           c.ProxySecret,
-		EncryptionKey:         c.EncryptionKey,
-		CORSAllowedOrigins:    c.CORSAllowedOrigins.Value(),
-		GoogleClientID:        c.GoogleClientID,
-		GoogleClientSecret:    c.GoogleClientSecret,
-		GoogleIssuerURL:       c.GoogleIssuerURL,
-		MicrosoftClientID:     c.MicrosoftClientID,
-		MicrosoftClientSecret: c.MicrosoftClientSecret,
-		MicrosoftTenantID:     c.MicrosoftTenantID,
-		MicrosoftIssuerURL:    c.MicrosoftIssuerURL,
-		GitHubClientID:        c.GitHubClientID,
-		GitHubClientSecret:    c.GitHubClientSecret,
-		GitHubAuthURL:         c.GitHubAuthURL,
-		GitHubTokenURL:        c.GitHubTokenURL,
-		GitHubAPIBase:         c.GitHubAPIBase,
-		TOTPPeriod:            c.TOTPPeriod,
+		DatabaseURL:            c.DatabaseURL,
+		HTTPAddress:            c.HTTPAddress,
+		GRPCAddress:            c.GRPCAddress,
+		JWTIssuer:              c.JWTIssuer,
+		JWTPrivateKeyPath:      c.JWTPrivateKeyPath,
+		JWTPublicKeyPath:       c.JWTPublicKeyPath,
+		RefreshTokenExpiration: c.RefreshTokenExpiration,
+		AccessTokenExpiration:  c.AccessTokenExpiration,
+		PublicURL:              c.PublicURL,
+		MailmanGRPCAddress:     c.MailmanGRPCAddress,
+		EmailWebhookURL:        c.EmailWebhookURL,
+		Environment:            c.Environment,
+		TrustedProxyMode:       c.TrustedProxyMode,
+		ProxySecret:            c.ProxySecret,
+		EncryptionKey:          c.EncryptionKey,
+		CORSAllowedOrigins:     c.CORSAllowedOrigins.Value(),
+		GoogleClientID:         c.GoogleClientID,
+		GoogleClientSecret:     c.GoogleClientSecret,
+		GoogleIssuerURL:        c.GoogleIssuerURL,
+		MicrosoftClientID:      c.MicrosoftClientID,
+		MicrosoftClientSecret:  c.MicrosoftClientSecret,
+		MicrosoftTenantID:      c.MicrosoftTenantID,
+		MicrosoftIssuerURL:     c.MicrosoftIssuerURL,
+		GitHubClientID:         c.GitHubClientID,
+		GitHubClientSecret:     c.GitHubClientSecret,
+		GitHubAuthURL:          c.GitHubAuthURL,
+		GitHubTokenURL:         c.GitHubTokenURL,
+		GitHubAPIBase:          c.GitHubAPIBase,
+		TOTPPeriod:             c.TOTPPeriod,
 	}
 }

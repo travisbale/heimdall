@@ -42,7 +42,7 @@ services:
       GRPC_ADDRESS: :9090
       JWT_PRIVATE_KEY_PATH: /keys/private-key.pem
       JWT_PUBLIC_KEY_PATH: /keys/public-key.pem
-      JWT_EXPIRATION: 24h
+      REFRESH_TOKEN_EXPIRATION: 24h
       PUBLIC_URL: http://localhost:8080
       ENVIRONMENT: test
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef

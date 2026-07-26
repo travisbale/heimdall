@@ -122,7 +122,7 @@ func (s *UserService) Register(ctx context.Context, email, firstName, lastName s
 	}
 
 	expiresAt := time.Now().Add(registrationTokenExpiration)
-	_, err = s.VerificationTokenDB.CreateToken(ctx, user.ID, verificationToken, expiresAt)
+	_, err = s.VerificationTokenDB.CreateToken(ctx, user.ID, token.Hash(verificationToken), expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verification token: %w", err)
 	}
@@ -138,7 +138,7 @@ func (s *UserService) Register(ctx context.Context, email, firstName, lastName s
 
 // VerifyEmailAndSetPassword verifies the email verification token, sets the password, and activates the account
 func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr string, password string) (*User, error) {
-	verificationToken, err := s.VerificationTokenDB.GetToken(ctx, tokenStr)
+	verificationToken, err := s.VerificationTokenDB.GetToken(ctx, token.Hash(tokenStr))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verification token: %w", err)
 	}
@@ -192,7 +192,7 @@ func (s *UserService) createVerificationToken(ctx context.Context, userID uuid.U
 	}
 
 	expiresAt := time.Now().Add(registrationTokenExpiration)
-	_, err = s.VerificationTokenDB.CreateToken(ctx, userID, verificationToken, expiresAt)
+	_, err = s.VerificationTokenDB.CreateToken(ctx, userID, token.Hash(verificationToken), expiresAt)
 	if err != nil {
 		return "", fmt.Errorf("failed to create verification token: %w", err)
 	}

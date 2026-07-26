@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/sdk"
 	util "github.com/travisbale/heimdall/test/_util"
-	"github.com/travisbale/heimdall/test/_util/database"
 	"github.com/travisbale/heimdall/test/_util/jwt"
+	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/knowhere/identity"
 )
 
@@ -30,7 +30,7 @@ func CreateVerifiedUser(t *testing.T, name string, opts ...sdk.Option) *UserClie
 	})
 	require.NoError(t, err, "registration failed for %s", email)
 
-	token := database.GetVerificationToken(t, email)
+	token := mailbox.VerificationToken(t, email)
 
 	verifyResp, err := client.VerifyEmail(context.Background(), sdk.VerifyEmailRequest{
 		Token:    token,

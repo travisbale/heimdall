@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	cryptotoken "github.com/travisbale/knowhere/crypto/token"
 )
 
 type passwordServiceTestFixture struct {
@@ -218,9 +219,9 @@ func TestResetPassword(t *testing.T) {
 
 		// Create password reset token
 		token := "reset_token_123"
-		f.passwordResetTokenDB.tokens[token] = &UserToken{
+		f.passwordResetTokenDB.tokens[cryptotoken.Hash(token)] = &UserToken{
 			UserID:    userID,
-			Token:     token,
+			Token:     cryptotoken.Hash(token),
 			ExpiresAt: time.Now().Add(1 * time.Hour),
 		}
 
@@ -258,9 +259,9 @@ func TestResetPassword(t *testing.T) {
 
 		// Create expired password reset token
 		token := "expired_reset_token"
-		f.passwordResetTokenDB.tokens[token] = &UserToken{
+		f.passwordResetTokenDB.tokens[cryptotoken.Hash(token)] = &UserToken{
 			UserID:    userID,
-			Token:     token,
+			Token:     cryptotoken.Hash(token),
 			ExpiresAt: time.Now().Add(-1 * time.Hour), // Expired
 		}
 
@@ -279,4 +280,119 @@ func TestResetPassword(t *testing.T) {
 			t.Error("expected error for invalid token")
 		}
 	})
+}
+
+// A leaked database — a backup, a replica, a stray dump — must not yield working reset
+// tokens. Refresh and device tokens are already stored hashed; these are the same class
+// of bearer credential.
+func TestInitiatePasswordReset_StoresTheTokenHashed(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	ctx := context.Background()
+
+	userID := uuid.New()
+	addUserToMockDB(f.userDB, &User{
+		ID: userID, TenantID: uuid.New(), Email: "reset@example.com", Status: UserStatusActive,
+	})
+
+	if err := f.service.InitiatePasswordReset(ctx, "reset@example.com"); err != nil {
+		t.Fatalf("InitiatePasswordReset: %v", err)
+	}
+
+	if len(f.emailClient.passwordResetTokensSent) != 1 {
+		t.Fatalf("want 1 token emailed, got %d", len(f.emailClient.passwordResetTokensSent))
+	}
+	emailed := f.emailClient.passwordResetTokensSent[0]
+
+	for stored := range f.passwordResetTokenDB.tokens {
+		if stored == emailed {
+			t.Error("the reset token is stored verbatim; anyone who can read the table can reset any password")
+		}
+	}
+}
+
+// The user only ever has the plaintext token from their email, so the lookup has to hash
+// what it is given.
+func TestResetPassword_AcceptsTheTokenFromTheEmail(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	ctx := context.Background()
+
+	userID := uuid.New()
+	addUserToMockDB(f.userDB, &User{
+		ID: userID, TenantID: uuid.New(), Email: "reset@example.com",
+		PasswordHash: "old_hash", Status: UserStatusActive,
+	})
+	if err := f.service.InitiatePasswordReset(ctx, "reset@example.com"); err != nil {
+		t.Fatalf("InitiatePasswordReset: %v", err)
+	}
+	emailed := f.emailClient.passwordResetTokensSent[0]
+
+	if err := f.service.ResetPassword(ctx, emailed, "newpassword123"); err != nil {
+		t.Fatalf("ResetPassword with the emailed token: %v", err)
+	}
+	if f.userDB.users[userID].PasswordHash == "old_hash" {
+		t.Error("password was not updated")
+	}
+}
+
+// mockSessionRevoker records whose sessions were signed out.
+type mockSessionRevoker struct {
+	revoked []uuid.UUID
+	err     error
+}
+
+func (m *mockSessionRevoker) RevokeAllSessions(ctx context.Context, userID uuid.UUID) error {
+	if m.err != nil {
+		return m.err
+	}
+	m.revoked = append(m.revoked, userID)
+	return nil
+}
+
+// Resetting a password is what someone does when their account is compromised, so it has
+// to end the attacker's sessions. Refresh tokens outlive the old password otherwise.
+func TestResetPassword_RevokesExistingSessions(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	revoker := &mockSessionRevoker{}
+	f.service.SessionRevoker = revoker
+	ctx := context.Background()
+
+	userID := uuid.New()
+	addUserToMockDB(f.userDB, &User{
+		ID: userID, TenantID: uuid.New(), Email: "reset@example.com",
+		PasswordHash: "old_hash", Status: UserStatusActive,
+	})
+	if err := f.service.InitiatePasswordReset(ctx, "reset@example.com"); err != nil {
+		t.Fatalf("InitiatePasswordReset: %v", err)
+	}
+
+	if err := f.service.ResetPassword(ctx, f.emailClient.passwordResetTokensSent[0], "newpassword123"); err != nil {
+		t.Fatalf("ResetPassword: %v", err)
+	}
+
+	if len(revoker.revoked) != 1 || revoker.revoked[0] != userID {
+		t.Errorf("sessions revoked = %v, want [%v]", revoker.revoked, userID)
+	}
+}
+
+// Changing a password deliberately (rather than via reset) should sign other sessions out
+// for the same reason.
+func TestChangePassword_RevokesExistingSessions(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	revoker := &mockSessionRevoker{}
+	f.service.SessionRevoker = revoker
+	ctx := context.Background()
+
+	userID := uuid.New()
+	addUserToMockDB(f.userDB, &User{
+		ID: userID, TenantID: uuid.New(), Email: "change@example.com",
+		PasswordHash: "hashed_correctpassword", Status: UserStatusActive,
+	})
+
+	if err := f.service.ChangePassword(ctx, userID, "correctpassword", "newpassword123"); err != nil {
+		t.Fatalf("ChangePassword: %v", err)
+	}
+
+	if len(revoker.revoked) != 1 || revoker.revoked[0] != userID {
+		t.Errorf("sessions revoked = %v, want [%v]", revoker.revoked, userID)
+	}
 }
