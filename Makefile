@@ -7,7 +7,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 fmt:
 	@echo "Formatting code..."
 	@go fmt ./...
-	@go run golang.org/x/tools/cmd/goimports@v0.38.0 -w $(shell \
+	@go run golang.org/x/tools/cmd/goimports@v0.48.0 -w $(shell \
 		find . -type f -name '*.go' \
 			-not -path './internal/pb/*' \
 			-not -path './internal/db/*' )
@@ -91,7 +91,7 @@ test-teardown:
 # Lint code
 lint:
 	@echo "Linting code..."
-	@docker run -t --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.11.4 golangci-lint run
+	@docker run -t --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
 
 sqlc:
 	@echo "Generating sqlc code..."
