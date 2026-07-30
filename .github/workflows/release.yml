@@ -70,7 +70,10 @@ jobs:
       # above them. The image digest is named so a release identifies the exact artifact
       # running in production, not just the commit it was built from.
       - name: Publish the release
-        uses: softprops/action-gh-release@v3
+        # Pinned to a commit, unlike the actions above it: those are published by GitHub,
+        # Docker and Google, while this one is an individual's. A moved tag would inherit
+        # this job's write token and, in the service repos, its cloud credentials.
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           generate_release_notes: true
           body: |
