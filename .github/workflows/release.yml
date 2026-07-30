@@ -1,7 +1,7 @@
 name: Release
 
 # Cut a release by pushing a version tag (e.g. `git tag v1.2.0 && git push origin v1.2.0`):
-# build the image, push it to Artifact Registry, migrate, and deploy to Cloud Run.
+# build the image, push it to Artifact Registry, and deploy to Cloud Run.
 on:
   push:
     tags: ['v*']
@@ -52,17 +52,6 @@ jobs:
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
-
-      - name: Run database migrations
-        run: |
-          gcloud run jobs deploy "${SERVICE}-migrate" \
-            --project "$PROJECT" --region "$REGION" \
-            --image "${IMAGE}:${GITHUB_REF_NAME}" \
-            --args migrate,up \
-            --set-secrets DATABASE_URL=heimdall-database-url:latest \
-            --max-retries 1 --task-timeout 300s
-          gcloud run jobs execute "${SERVICE}-migrate" \
-            --project "$PROJECT" --region "$REGION" --wait
 
       - name: Deploy to Cloud Run
         run: |
