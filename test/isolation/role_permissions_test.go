@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -22,7 +23,7 @@ func TestTenantIsolation_RolePermissions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	perm := getPermissionByName(t, tenantA.Client, "role:read")
+	perm := getPermissionByName(t, tenantA.Client, iam.ScopeRoleRead)
 	err = tenantA.Client.SetRolePermissions(ctx, sdk.SetRolePermissionsRequest{
 		RoleID: roleA.ID, PermissionIDs: []uuid.UUID{perm.ID},
 	})

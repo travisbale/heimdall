@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/heimdall/test/_util/assertions"
 	"github.com/travisbale/heimdall/test/_util/request"
@@ -23,13 +24,15 @@ func TestListPermissions(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, perms.Permissions, "should have seeded permissions")
 
-	// Verify expected permission names exist
-	names := make(map[string]bool)
+	// The seed migration and iam.AllScopes must stay in lockstep: a scope constant
+	// with no seeded row can never be granted, and a seeded row with no constant is
+	// unenforceable.
+	seeded := make([]iam.Scope, 0, len(perms.Permissions))
 	for _, p := range perms.Permissions {
-		names[p.Name] = true
+		seeded = append(seeded, iam.Scope(p.Name))
 	}
-	assert.True(t, names["role:create"], "should have role:create permission")
-	assert.True(t, names["user:assign"], "should have user:assign permission")
+	assert.ElementsMatch(t, iam.AllScopes, seeded,
+		"seeded permissions must match iam.AllScopes exactly")
 }
 
 func TestRoleCRUD(t *testing.T) {
@@ -98,7 +101,7 @@ func TestRolePermissions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	perm := setup.GetPermissionByName(t, admin.Client, "role:read")
+	perm := setup.GetPermissionByName(t, admin.Client, iam.ScopeRoleRead)
 
 	t.Run("assign permissions to role", func(t *testing.T) {
 		err := admin.Client.SetRolePermissions(ctx, sdk.SetRolePermissionsRequest{

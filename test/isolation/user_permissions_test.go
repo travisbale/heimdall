@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 )
 
@@ -17,7 +18,7 @@ func TestTenantIsolation_UserPermissions(t *testing.T) {
 
 	userA := createUserInTenant(t, tenantA, "iso-permtarget-a")
 
-	perm := getPermissionByName(t, tenantA.Client, "role:read")
+	perm := getPermissionByName(t, tenantA.Client, iam.ScopeRoleRead)
 	err := tenantA.Client.SetDirectPermissions(ctx, sdk.SetDirectPermissionsRequest{
 		UserID: userA.UserID,
 		Permissions: []sdk.DirectPermission{

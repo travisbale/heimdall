@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
@@ -18,7 +19,7 @@ func TestDirectPermissions(t *testing.T) {
 	target := setup.CreateUserInTenant(t, admin, "perm-target")
 	targetID := target.UserID
 
-	perm := setup.GetPermissionByName(t, admin.Client, "role:read")
+	perm := setup.GetPermissionByName(t, admin.Client, iam.ScopeRoleRead)
 
 	t.Run("assign direct permission to user", func(t *testing.T) {
 		err := admin.Client.SetDirectPermissions(ctx, sdk.SetDirectPermissionsRequest{
