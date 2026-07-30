@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	util "github.com/travisbale/heimdall/test/_util"
 	"github.com/travisbale/heimdall/test/_util/jwt"
@@ -158,19 +159,19 @@ func createUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, r
 }
 
 // GetPermissionByName finds a permission by name from the permissions list
-func GetPermissionByName(t *testing.T, client *sdk.HTTPClient, name string) sdk.Permission {
+func GetPermissionByName(t *testing.T, client *sdk.HTTPClient, scope iam.Scope) sdk.Permission {
 	t.Helper()
 
 	resp, err := client.ListPermissions(context.Background())
 	require.NoError(t, err)
 
 	for _, p := range resp.Permissions {
-		if p.Name == name {
+		if p.Name == string(scope) {
 			return p
 		}
 	}
 
-	t.Fatalf("permission %q not found", name)
+	t.Fatalf("permission %q not found", scope)
 	return sdk.Permission{}
 }
 

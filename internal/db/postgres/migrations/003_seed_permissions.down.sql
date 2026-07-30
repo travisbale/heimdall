@@ -1,15 +1,8 @@
 -- Remove all seeded permissions
-DELETE FROM permissions WHERE name IN (
-    -- User management
-    'user:create',
-    'user:read',
-    'user:update',
-    'user:delete',
-    'user:assign',
-
-    -- Role management
-    'role:create',
-    'role:read',
-    'role:update',
-    'role:delete'
-);
+--
+-- Matching on the namespace rather than an explicit name list means this cannot drift out
+-- of sync with the up migration the way the previous hand-maintained list did: it omitted
+-- every oidc:* permission, so a down migration left four rows behind. Everything under
+-- "heimdall:" belongs to this service, and later migrations that add scopes run their own
+-- down step before this one.
+DELETE FROM permissions WHERE name LIKE 'heimdall:%';

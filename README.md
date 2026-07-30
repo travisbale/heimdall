@@ -199,6 +199,29 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `GET /v1/users/{id}/permissions` - Get user direct permissions
 - `PUT /v1/users/{id}/permissions` - Set user direct permissions
 
+### Permission naming
+
+The `permissions` table is global rather than tenant-scoped, and every service behind
+Heimdall registers its scopes into it. Permission names are therefore namespaced by owning
+service, as one or more colon-separated segments:
+
+```
+heimdall:user:create          Heimdall's own scopes
+scorecard:tournaments:write   a consuming service's scopes
+```
+
+Heimdall owns everything under `heimdall:`. Consuming services must prefix their scopes
+with their own service name — an unprefixed name like `user:read` squats on a name another
+service is likely to want, and the `UNIQUE` constraint on `permissions.name` means the
+second service to claim it fails at seed time.
+
+Heimdall's own scopes are defined once in `iam.AllScopes` (`internal/iam/jwt.go`) and
+seeded by migration `003_seed_permissions`. An integration test asserts the two match
+exactly, so adding a scope to one without the other fails the build.
+
+Scope checks are exact string comparisons. There is no wildcard or prefix matching, so
+`heimdall:*` grants nothing.
+
 ### gRPC (Port 9090)
 
 - `CreateUser(email, tenant_id, role_ids)` - Create user in tenant with roles

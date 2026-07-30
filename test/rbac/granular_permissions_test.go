@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/heimdall/test/_util/assertions"
 	"github.com/travisbale/heimdall/test/_util/setup"
@@ -20,7 +21,7 @@ func TestGranularPermissions(t *testing.T) {
 	user := setup.CreateUserInTenant(t, admin, "granular-user")
 
 	t.Run("role:read allows list and get but not create", func(t *testing.T) {
-		roleReadPerm := setup.GetPermissionByName(t, admin.Client, "role:read")
+		roleReadPerm := setup.GetPermissionByName(t, admin.Client, iam.ScopeRoleRead)
 
 		err := admin.Client.SetDirectPermissions(ctx, sdk.SetDirectPermissionsRequest{
 			UserID: user.UserID,
@@ -51,8 +52,8 @@ func TestGranularPermissions(t *testing.T) {
 	})
 
 	t.Run("deny overrides allow from role", func(t *testing.T) {
-		roleReadPerm := setup.GetPermissionByName(t, admin.Client, "role:read")
-		roleCreatePerm := setup.GetPermissionByName(t, admin.Client, "role:create")
+		roleReadPerm := setup.GetPermissionByName(t, admin.Client, iam.ScopeRoleRead)
+		roleCreatePerm := setup.GetPermissionByName(t, admin.Client, iam.ScopeRoleCreate)
 
 		// Grant role:create (allow) and role:read (deny)
 		err := admin.Client.SetDirectPermissions(ctx, sdk.SetDirectPermissionsRequest{
