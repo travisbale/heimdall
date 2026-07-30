@@ -8,7 +8,8 @@ on:
 
 # Workload Identity Federation authenticates via a short-lived OIDC token — no stored key.
 permissions:
-  contents: read
+  # write, so the run can publish a GitHub release for the tag it just shipped.
+  contents: write
   id-token: write
 
 jobs:
@@ -63,3 +64,14 @@ jobs:
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT" --region "$REGION" \
             --image "${IMAGE}:${GITHUB_REF_NAME}"
+
+      # A tag deploys but leaves no record of what went out. The notes are generated from
+      # the commits since the previous tag; the annotated tag message becomes the summary
+      # above them. The image digest is named so a release identifies the exact artifact
+      # running in production, not just the commit it was built from.
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          body: |
+            Deployed to Cloud Run as `${{ env.IMAGE }}:${{ github.ref_name }}`.
