@@ -51,7 +51,7 @@ var (
 		Name:        "jwt-issuer",
 		Usage:       "Name used to identify the principal that issues JWTs",
 		Value:       "heimdall",
-		EnvVars:     []string{"JWT_PRIVATE_KEY_PATH"},
+		EnvVars:     []string{"JWT_ISSUER"},
 		Destination: &config.JWTIssuer,
 	}
 
