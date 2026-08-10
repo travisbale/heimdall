@@ -1,46 +1,22 @@
+# Grouped so a week's bumps arrive as one PR per ecosystem rather than one per package —
+# a stream of single-package PRs is how dependency updates start getting ignored.
 version: 2
 updates:
-  # Go module dependencies
-  - package-ecosystem: "gomod"
-    directory: "/"
+  # This is what makes pinning the release action to a SHA sustainable: without it the
+  # pin silently goes stale, and "pinned" quietly becomes "never updated".
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "go"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
 
-  # Docker dependencies
-  - package-ecosystem: "docker"
-    directory: "/"
+  - package-ecosystem: gomod
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: weekly
     open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "github-actions"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
+    groups:
+      go-modules:
+        patterns: ['*']
