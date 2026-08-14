@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	// MinLength follows NIST guidance; MaxLength bounds the work Argon2 is asked to do on
-	// an unauthenticated request.
+	// MaxLength bounds the Argon2 work an unauthenticated request can ask for.
 	MinLength = 10
 	MaxLength = 128
 	// HIBPAPITimeout is the timeout for Have I Been Pwned API calls
@@ -34,11 +33,7 @@ func (e *ValidationError) Error() string {
 	return e.Message
 }
 
-// Validator rejects passwords that are known to be guessable — present in a list of
-// common choices, or seen in a public breach corpus. This is policy rather than shape:
-// it needs a word list and a network call, and the answer changes over time for a
-// password that never did. Length limits live in the request contract instead, where a
-// client can check them without either.
+// Validator decides whether a password is acceptable. The whole rule lives here.
 type Validator struct {
 	httpClient      *http.Client
 	commonPasswords map[string]bool
@@ -54,16 +49,11 @@ func NewValidator() *Validator {
 	}
 }
 
-// Validate reports whether a password is acceptable: long enough, not a common choice,
-// and not in a public breach corpus. All of it happens here so a password is checked once,
-// in one place, rather than having its length judged at the boundary and the rest later.
+// Validate checks length, then the common list, then the breach corpus.
 //
-// A password is accepted when the breach lookup fails. That trades a weaker check for
-// availability — a password reset should not become impossible because a third-party API
-// is down — but it is a real gap, so it is logged rather than passed over in silence.
+// A failed breach lookup accepts the password: a reset must not hinge on a third party.
 func (v *Validator) Validate(ctx context.Context, password string) error {
-	// Counted in runes, not bytes: a ten character Cyrillic password is ten characters,
-	// and counting bytes would reject it while letting a shorter one through.
+	// Runes, not bytes: a ten character Cyrillic password is ten characters.
 	length := utf8.RuneCountInString(password)
 	if length < MinLength {
 		return &ValidationError{

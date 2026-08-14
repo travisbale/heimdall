@@ -25,9 +25,7 @@ type sessionRevoker interface {
 }
 
 // PasswordService handles password-based authentication operations
-// strengthChecker rejects a password an attacker would guess. It is a dependency rather
-// than a call to a package so a test can set a password without reaching the network, and
-// so the rule can be varied without touching the flows that apply it.
+// strengthChecker is a dependency so a test can set a password without reaching the network.
 type strengthChecker interface {
 	Validate(ctx context.Context, password string) error
 }
@@ -134,8 +132,7 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
-	// Checked here rather than in the request contract: it needs a word list and a lookup
-	// against a breach corpus, neither of which belongs in a package clients import.
+	// Before hashing, so a refused password never reaches storage.
 	if err := s.checkStrength(ctx, newPassword); err != nil {
 		return err
 	}
@@ -214,9 +211,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 	return nil
 }
 
-// checkStrength applies the weak-password rule when one is configured. A nil checker
-// means the check is off, which is what the unit tests want and what a deployment that
-// cannot reach the breach API can fall back to.
+// A nil checker leaves the rule off; internal/app is what turns it on.
 func (s *PasswordService) checkStrength(ctx context.Context, password string) error {
 	if s.StrengthChecker == nil {
 		return nil

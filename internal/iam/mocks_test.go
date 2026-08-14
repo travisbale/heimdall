@@ -742,8 +742,7 @@ func (m *mockRBACService) UserRolesRequireMFA(ctx context.Context, userID uuid.U
 
 // Password strength Mock
 
-// errWeak is what a real strength checker returns for a guessable password; the tests
-// assert on it rather than on a message so they do not restate the rule.
+// Tests assert on this rather than on wording, so they do not restate the rule.
 var errWeak = errors.New("password has been found in data breaches and is not secure")
 
 type stubStrength struct {

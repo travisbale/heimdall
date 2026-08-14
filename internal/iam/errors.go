@@ -18,10 +18,7 @@ var ErrVerificationTokenNotFound = errors.New("verification token not found or e
 var ErrPasswordResetTokenNotFound = errors.New("password reset token not found or expired")
 var ErrAccountAlreadyVerified = errors.New("account has already been verified")
 
-// ErrInvalidPassword is returned when a password is refused for being guessable rather than
-// malformed. Length is rejected at the request contract and never reaches a service; this
-// is the server's own check, and it has to reach the client as a 400 with a reason,
-// because retrying the same password will not help.
+// ErrInvalidPassword marks a refusal the caller caused, so the boundary answers 400 not 500.
 var ErrInvalidPassword = errors.New("password is not acceptable")
 
 // OIDC flow errors

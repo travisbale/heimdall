@@ -98,8 +98,7 @@ func initializeServices(
 	// Password service for password authentication. SessionRevoker is wired below, once
 	// the session service exists — a password change must end the sessions the old
 	// password created.
-	// One validator, shared: it builds a word list on construction, so a per-call one
-	// would rebuild it on every password anyone sets.
+	// Shared: NewValidator builds a word list, so a per-call one rebuilds it each time.
 	strengthChecker := password.NewValidator()
 
 	passwordService := &iam.PasswordService{

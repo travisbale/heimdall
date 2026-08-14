@@ -402,9 +402,7 @@ func TestResetPassword_RejectsAWeakPasswordBeforeWritingIt(t *testing.T) {
 	strength := &stubStrength{rejectIt: true}
 	f.service.StrengthChecker = strength
 
-	// Rigged so reaching the hasher would surface a different error. Getting errWeak back
-	// therefore proves the rejection happened before the password went anywhere near
-	// storage, not merely that it happened.
+	// Hasher rigged to error, so errWeak coming back proves the refusal came first.
 	f.hasher.hashError = errors.New("hasher should not have been reached")
 
 	err := f.service.ResetPassword(context.Background(), "any-token", "hunter2hunter2")
@@ -432,9 +430,7 @@ func TestChangePassword_RejectsAWeakPassword(t *testing.T) {
 	}
 }
 
-// A nil Strength leaves the check off, which is what the other unit tests rely on. It is
-// worth pinning: the wiring in internal/app is the only thing that turns it on, so this
-// says plainly that forgetting it means no check rather than a panic.
+// Pinned because the wiring in internal/app is the only thing that turns the rule on.
 func TestStrengthIsSkippedWhenNotConfigured(t *testing.T) {
 	f := newPasswordServiceTestFixture()
 	f.service.StrengthChecker = nil
@@ -465,7 +461,3 @@ func TestVerifyEmailAndSetPassword_RejectsAWeakPassword(t *testing.T) {
 		t.Errorf("want the check run once, ran %d times", strength.called)
 	}
 }
-
-// A nil Strength leaves the check off, which is what the other unit tests rely on. It is
-// worth pinning: the wiring in internal/app is the only thing that turns it on, so this
-// says plainly that forgetting it means no check rather than a panic.
