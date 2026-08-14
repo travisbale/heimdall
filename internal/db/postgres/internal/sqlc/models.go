@@ -272,12 +272,6 @@ type Permission struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-type RateLimit struct {
-	Key       string    `json:"key"`
-	Count     int64     `json:"count"`
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
 type RefreshToken struct {
 	ID         uuid.UUID  `json:"id"`
 	UserID     uuid.UUID  `json:"user_id"`

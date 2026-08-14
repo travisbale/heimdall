@@ -37,8 +37,6 @@ type Router struct {
 	SecureCookies       bool
 	Environment         string
 	TrustedProxyMode    bool
-	// RateLimitStore is shared across instances; nil falls back to per-process counters.
-	RateLimitStore limiter.Store
 	// ProxySecret, when set, requires a matching X-Proxy-Secret header on every request
 	// except the health check (only the trusted edge is served). Empty disables it.
 	ProxySecret        string
@@ -82,7 +80,7 @@ func (r *Router) registerRoutes(mux *http.ServeMux) {
 	}
 	limit := func(rate limiter.Rate, method, route string, handler http.HandlerFunc) {
 		if r.Environment != "test" {
-			handler = rateLimitMiddleware(r.RateLimitStore, rate, handler)
+			handler = rateLimitMiddleware(rate, handler)
 		}
 		mux.HandleFunc(method+" "+route, handler)
 	}

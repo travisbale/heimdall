@@ -20,11 +20,8 @@ var moderateRateLimit = limiter.Rate{
 	Limit:  30,
 }
 
-func rateLimitMiddleware(store limiter.Store, rate limiter.Rate, next http.HandlerFunc) http.HandlerFunc {
-	if store == nil {
-		store = memory.NewStore()
-	}
-	instance := limiter.New(store, rate)
+func rateLimitMiddleware(rate limiter.Rate, next http.HandlerFunc) http.HandlerFunc {
+	instance := limiter.New(memory.NewStore(), rate)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// identity.ClientIP resolved this already, honouring TRUSTED_PROXY_MODE and taking
