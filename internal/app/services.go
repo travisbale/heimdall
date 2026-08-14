@@ -100,11 +100,11 @@ func initializeServices(
 	// password created.
 	// One validator, shared: it builds a word list on construction, so a per-call one
 	// would rebuild it on every password anyone sets.
-	passwordStrength := password.NewValidator()
+	strengthChecker := password.NewValidator()
 
 	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
-		Strength:             passwordStrength,
+		StrengthChecker:      strengthChecker,
 		Hasher:               passwordHasher,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
@@ -115,7 +115,7 @@ func initializeServices(
 	// User service for registration and user management
 	userService := &iam.UserService{
 		UserDB:              dbs.users,
-		Strength:            passwordStrength,
+		StrengthChecker:     strengthChecker,
 		TenantsDB:           dbs.tenants,
 		Hasher:              passwordHasher,
 		EmailClient:         emailClient,
