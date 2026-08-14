@@ -133,8 +133,8 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
 	// Before hashing, so a refused password never reaches storage.
-	if err := s.validatePassword(ctx, newPassword); err != nil {
-		return err
+	if err := s.PasswordValidator.Validate(ctx, newPassword); err != nil {
+		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
 	}
 	// The user holds the plaintext token from their email; only its hash is stored.
 	resetToken, err := s.PasswordResetTokenDB.GetToken(ctx, token.Hash(tokenStr))
@@ -177,8 +177,8 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 
 // ChangePassword updates a user's password after validating their current password
 func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
-	if err := s.validatePassword(ctx, newPassword); err != nil {
-		return err
+	if err := s.PasswordValidator.Validate(ctx, newPassword); err != nil {
+		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
 	}
 	user, err := s.UserDB.GetUser(ctx, userID)
 	if err != nil {
@@ -208,16 +208,5 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 
 	s.Logger.InfoContext(ctx, events.PasswordChanged, "user_id", userID)
 
-	return nil
-}
-
-// A nil checker leaves the rule off; internal/app is what turns it on.
-func (s *PasswordService) validatePassword(ctx context.Context, password string) error {
-	if s.PasswordValidator == nil {
-		return nil
-	}
-	if err := s.PasswordValidator.Validate(ctx, password); err != nil {
-		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
-	}
 	return nil
 }

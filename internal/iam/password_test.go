@@ -30,6 +30,7 @@ func newPasswordServiceTestFixture() *passwordServiceTestFixture {
 
 	service := &PasswordService{
 		UserDB:               userDB,
+		PasswordValidator:    &stubStrength{},
 		Hasher:               hasher,
 		PasswordResetTokenDB: passwordResetTokenDB,
 		EmailClient:          emailClient,
@@ -427,18 +428,6 @@ func TestChangePassword_RejectsAWeakPassword(t *testing.T) {
 	}
 	if strength.called != 1 {
 		t.Errorf("want the check run once, ran %d times", strength.called)
-	}
-}
-
-// Pinned because the wiring in internal/app is the only thing that turns the rule on.
-func TestStrengthIsSkippedWhenNotConfigured(t *testing.T) {
-	f := newPasswordServiceTestFixture()
-	f.service.PasswordValidator = nil
-
-	// Fails for want of a token, not for want of a strength check.
-	err := f.service.ResetPassword(context.Background(), "any-token", "hunter2hunter2")
-	if errors.Is(err, errWeak) {
-		t.Fatal("no strength configured, so no strength error should be possible")
 	}
 }
 
