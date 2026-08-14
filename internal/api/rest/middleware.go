@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/travisbale/knowhere/identity"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/middleware/stdlib"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -20,9 +21,12 @@ var moderateRateLimit = limiter.Rate{
 }
 
 func rateLimitMiddleware(rate limiter.Rate, next http.HandlerFunc) http.HandlerFunc {
-	store := memory.NewStore()
-	instance := limiter.New(store, rate)
-	middleware := stdlib.NewMiddleware(instance)
+	instance := limiter.New(memory.NewStore(), rate)
+
+	// The default key is RemoteAddr, which behind a proxy is the proxy: one bucket for all.
+	middleware := stdlib.NewMiddleware(instance, stdlib.WithKeyGetter(func(r *http.Request) string {
+		return identity.GetIPAddress(r.Context())
+	}))
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		middleware.Handler(http.HandlerFunc(next)).ServeHTTP(w, r)
