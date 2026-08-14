@@ -6,8 +6,8 @@ import (
 
 	"github.com/travisbale/knowhere/identity"
 	"github.com/ulule/limiter/v3"
+	"github.com/ulule/limiter/v3/drivers/middleware/stdlib"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
-	"strconv"
 )
 
 var strictRateLimit = limiter.Rate{
@@ -23,29 +23,16 @@ var moderateRateLimit = limiter.Rate{
 func rateLimitMiddleware(rate limiter.Rate, next http.HandlerFunc) http.HandlerFunc {
 	instance := limiter.New(memory.NewStore(), rate)
 
+	// The library keys on RemoteAddr, which behind a proxy is the proxy — one bucket for
+	// everyone. identity.ClientIP has already resolved the caller, honouring
+	// TRUSTED_PROXY_MODE and taking the X-Forwarded-For entry our proxy appended rather
+	// than the leftmost one a caller can forge.
+	middleware := stdlib.NewMiddleware(instance, stdlib.WithKeyGetter(func(r *http.Request) string {
+		return identity.GetIPAddress(r.Context())
+	}))
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		// identity.ClientIP resolved this already, honouring TRUSTED_PROXY_MODE and taking
-		// the X-Forwarded-For entry our own proxy appended rather than one a caller can
-		// forge. The library's own key is RemoteAddr, which behind a proxy is the proxy —
-		// putting every caller in one bucket.
-		result, err := instance.Get(r.Context(), identity.GetIPAddress(r.Context()))
-		if err != nil {
-			http.Error(w, "rate limiter unavailable", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("X-RateLimit-Limit", strconv.FormatInt(result.Limit, 10))
-		w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(result.Remaining, 10))
-		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(result.Reset, 10))
-
-		if result.Reached {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":"Too many requests"}`))
-			return
-		}
-
-		next(w, r)
+		middleware.Handler(http.HandlerFunc(next)).ServeHTTP(w, r)
 	}
 }
 
