@@ -25,14 +25,14 @@ type sessionRevoker interface {
 }
 
 // PasswordService handles password-based authentication operations
-// strengthChecker is a dependency so a test can set a password without reaching the network.
-type strengthChecker interface {
+// A dependency so a test can set a password without reaching the network.
+type passwordValidator interface {
 	Validate(ctx context.Context, password string) error
 }
 
 type PasswordService struct {
 	UserDB               userDB
-	StrengthChecker      strengthChecker
+	PasswordValidator    passwordValidator
 	Hasher               hasher
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
@@ -133,7 +133,7 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
 	// Before hashing, so a refused password never reaches storage.
-	if err := s.checkStrength(ctx, newPassword); err != nil {
+	if err := s.validatePassword(ctx, newPassword); err != nil {
 		return err
 	}
 	// The user holds the plaintext token from their email; only its hash is stored.
@@ -177,7 +177,7 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 
 // ChangePassword updates a user's password after validating their current password
 func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
-	if err := s.checkStrength(ctx, newPassword); err != nil {
+	if err := s.validatePassword(ctx, newPassword); err != nil {
 		return err
 	}
 	user, err := s.UserDB.GetUser(ctx, userID)
@@ -212,12 +212,12 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 }
 
 // A nil checker leaves the rule off; internal/app is what turns it on.
-func (s *PasswordService) checkStrength(ctx context.Context, password string) error {
-	if s.StrengthChecker == nil {
+func (s *PasswordService) validatePassword(ctx context.Context, password string) error {
+	if s.PasswordValidator == nil {
 		return nil
 	}
-	if err := s.StrengthChecker.Validate(ctx, password); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidPassword, err)
+	if err := s.PasswordValidator.Validate(ctx, password); err != nil {
+		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
 	}
 	return nil
 }

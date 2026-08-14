@@ -400,7 +400,7 @@ func TestChangePassword_RevokesExistingSessions(t *testing.T) {
 func TestResetPassword_RejectsAWeakPasswordBeforeWritingIt(t *testing.T) {
 	f := newPasswordServiceTestFixture()
 	strength := &stubStrength{rejectIt: true}
-	f.service.StrengthChecker = strength
+	f.service.PasswordValidator = strength
 
 	// Hasher rigged to error, so errWeak coming back proves the refusal came first.
 	f.hasher.hashError = errors.New("hasher should not have been reached")
@@ -418,7 +418,7 @@ func TestResetPassword_RejectsAWeakPasswordBeforeWritingIt(t *testing.T) {
 func TestChangePassword_RejectsAWeakPassword(t *testing.T) {
 	f := newPasswordServiceTestFixture()
 	strength := &stubStrength{rejectIt: true}
-	f.service.StrengthChecker = strength
+	f.service.PasswordValidator = strength
 
 	err := f.service.ChangePassword(context.Background(), uuid.New(), "old-password", "hunter2hunter2")
 
@@ -433,7 +433,7 @@ func TestChangePassword_RejectsAWeakPassword(t *testing.T) {
 // Pinned because the wiring in internal/app is the only thing that turns the rule on.
 func TestStrengthIsSkippedWhenNotConfigured(t *testing.T) {
 	f := newPasswordServiceTestFixture()
-	f.service.StrengthChecker = nil
+	f.service.PasswordValidator = nil
 
 	// Fails for want of a token, not for want of a strength check.
 	err := f.service.ResetPassword(context.Background(), "any-token", "hunter2hunter2")
@@ -446,7 +446,7 @@ func TestVerifyEmailAndSetPassword_RejectsAWeakPassword(t *testing.T) {
 	strength := &stubStrength{rejectIt: true}
 	svc := &UserService{
 		UserDB:              newMockUserDB(),
-		StrengthChecker:     strength,
+		PasswordValidator:   strength,
 		Hasher:              &mockHasher{},
 		VerificationTokenDB: newMockTokenDB(),
 		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),

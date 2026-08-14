@@ -99,11 +99,11 @@ func initializeServices(
 	// the session service exists — a password change must end the sessions the old
 	// password created.
 	// Shared: NewValidator builds a word list, so a per-call one rebuilds it each time.
-	strengthChecker := password.NewValidator()
+	passwordValidator := password.NewValidator()
 
 	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
-		StrengthChecker:      strengthChecker,
+		PasswordValidator:    passwordValidator,
 		Hasher:               passwordHasher,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
@@ -114,7 +114,7 @@ func initializeServices(
 	// User service for registration and user management
 	userService := &iam.UserService{
 		UserDB:              dbs.users,
-		StrengthChecker:     strengthChecker,
+		PasswordValidator:   passwordValidator,
 		TenantsDB:           dbs.tenants,
 		Hasher:              passwordHasher,
 		EmailClient:         emailClient,

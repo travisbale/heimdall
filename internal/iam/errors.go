@@ -18,8 +18,7 @@ var ErrVerificationTokenNotFound = errors.New("verification token not found or e
 var ErrPasswordResetTokenNotFound = errors.New("password reset token not found or expired")
 var ErrAccountAlreadyVerified = errors.New("account has already been verified")
 
-// ErrInvalidPassword marks a refusal the caller caused, so the boundary answers 400 not 500.
-var ErrInvalidPassword = errors.New("password is not acceptable")
+var ErrWeakPassword = errors.New("password is too weak")
 
 // OIDC flow errors
 var ErrOIDCLinkNotFound = errors.New("oidc link not found")
