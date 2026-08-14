@@ -25,8 +25,16 @@ type sessionRevoker interface {
 }
 
 // PasswordService handles password-based authentication operations
+// passwordStrength rejects a password an attacker would guess. It is a dependency rather
+// than a call to a package so a test can set a password without reaching the network, and
+// so the rule can be varied without touching the flows that apply it.
+type passwordStrength interface {
+	Validate(ctx context.Context, password string) error
+}
+
 type PasswordService struct {
 	UserDB               userDB
+	Strength             passwordStrength
 	Hasher               hasher
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
@@ -126,6 +134,11 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
+	// Checked here rather than in the request contract: it needs a word list and a lookup
+	// against a breach corpus, neither of which belongs in a package clients import.
+	if err := s.checkStrength(ctx, newPassword); err != nil {
+		return err
+	}
 	// The user holds the plaintext token from their email; only its hash is stored.
 	resetToken, err := s.PasswordResetTokenDB.GetToken(ctx, token.Hash(tokenStr))
 	if err != nil {
@@ -167,6 +180,9 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 
 // ChangePassword updates a user's password after validating their current password
 func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
+	if err := s.checkStrength(ctx, newPassword); err != nil {
+		return err
+	}
 	user, err := s.UserDB.GetUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
@@ -196,4 +212,14 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 	s.Logger.InfoContext(ctx, events.PasswordChanged, "user_id", userID)
 
 	return nil
+}
+
+// checkStrength applies the weak-password rule when one is configured. A nil Strength
+// means the check is off, which is what the unit tests want and what a deployment that
+// cannot reach the breach API can fall back to.
+func (s *PasswordService) checkStrength(ctx context.Context, password string) error {
+	if s.Strength == nil {
+		return nil
+	}
+	return s.Strength.Validate(ctx, password)
 }
