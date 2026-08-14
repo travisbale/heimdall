@@ -3,10 +3,10 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
-	"errors"
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/password"
