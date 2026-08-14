@@ -30,6 +30,7 @@ func newPasswordServiceTestFixture() *passwordServiceTestFixture {
 
 	service := &PasswordService{
 		UserDB:               userDB,
+		PasswordValidator:    &stubStrength{},
 		Hasher:               hasher,
 		PasswordResetTokenDB: passwordResetTokenDB,
 		EmailClient:          emailClient,
@@ -394,5 +395,58 @@ func TestChangePassword_RevokesExistingSessions(t *testing.T) {
 
 	if len(revoker.revoked) != 1 || revoker.revoked[0] != userID {
 		t.Errorf("sessions revoked = %v, want [%v]", revoker.revoked, userID)
+	}
+}
+
+func TestResetPassword_RejectsAWeakPasswordBeforeWritingIt(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	strength := &stubStrength{rejectIt: true}
+	f.service.PasswordValidator = strength
+
+	// Hasher rigged to error, so errWeak coming back proves the refusal came first.
+	f.hasher.hashError = errors.New("hasher should not have been reached")
+
+	err := f.service.ResetPassword(context.Background(), "any-token", "hunter2hunter2")
+
+	if !errors.Is(err, errWeak) {
+		t.Fatalf("want the strength error surfaced, got %v", err)
+	}
+	if strength.called != 1 {
+		t.Errorf("want the check run once, ran %d times", strength.called)
+	}
+}
+
+func TestChangePassword_RejectsAWeakPassword(t *testing.T) {
+	f := newPasswordServiceTestFixture()
+	strength := &stubStrength{rejectIt: true}
+	f.service.PasswordValidator = strength
+
+	err := f.service.ChangePassword(context.Background(), uuid.New(), "old-password", "hunter2hunter2")
+
+	if !errors.Is(err, errWeak) {
+		t.Fatalf("want the strength error surfaced, got %v", err)
+	}
+	if strength.called != 1 {
+		t.Errorf("want the check run once, ran %d times", strength.called)
+	}
+}
+
+func TestVerifyEmailAndSetPassword_RejectsAWeakPassword(t *testing.T) {
+	strength := &stubStrength{rejectIt: true}
+	svc := &UserService{
+		UserDB:              newMockUserDB(),
+		PasswordValidator:   strength,
+		Hasher:              &mockHasher{},
+		VerificationTokenDB: newMockTokenDB(),
+		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	_, err := svc.VerifyEmailAndSetPassword(context.Background(), "any-token", "hunter2hunter2")
+
+	if !errors.Is(err, errWeak) {
+		t.Fatalf("want the strength error surfaced, got %v", err)
+	}
+	if strength.called != 1 {
+		t.Errorf("want the check run once, ran %d times", strength.called)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/internal/mfa/totp"
 	"github.com/travisbale/heimdall/internal/oidc"
+	"github.com/travisbale/heimdall/internal/password"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/crypto/aes"
 	"github.com/travisbale/knowhere/crypto/argon2"
@@ -97,8 +98,12 @@ func initializeServices(
 	// Password service for password authentication. SessionRevoker is wired below, once
 	// the session service exists — a password change must end the sessions the old
 	// password created.
+	// Shared: NewValidator builds a word list, so a per-call one rebuilds it each time.
+	passwordValidator := password.NewValidator()
+
 	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
+		PasswordValidator:    passwordValidator,
 		Hasher:               passwordHasher,
 		PasswordResetTokenDB: dbs.passwordResetTokens,
 		EmailClient:          emailClient,
@@ -109,6 +114,7 @@ func initializeServices(
 	// User service for registration and user management
 	userService := &iam.UserService{
 		UserDB:              dbs.users,
+		PasswordValidator:   passwordValidator,
 		TenantsDB:           dbs.tenants,
 		Hasher:              passwordHasher,
 		EmailClient:         emailClient,

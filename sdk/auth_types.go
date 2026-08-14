@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/travisbale/knowhere/crypto/password"
 )
 
 // APIError is returned when the server responds with an HTTP error status code
@@ -123,7 +122,7 @@ func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Password, "password"); err != nil {
 		return err
 	}
-	return password.NewValidator().Validate(ctx, r.Password)
+	return nil
 }
 
 // ForgotPasswordRequest represents the forgot password request body
@@ -155,7 +154,7 @@ func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.NewPassword, "new password"); err != nil {
 		return err
 	}
-	return password.NewValidator().Validate(ctx, r.NewPassword)
+	return nil
 }
 
 // ResetPasswordResponse represents the reset password response

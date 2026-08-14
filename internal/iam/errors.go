@@ -18,6 +18,8 @@ var ErrVerificationTokenNotFound = errors.New("verification token not found or e
 var ErrPasswordResetTokenNotFound = errors.New("password reset token not found or expired")
 var ErrAccountAlreadyVerified = errors.New("account has already been verified")
 
+var ErrWeakPassword = errors.New("password is too weak")
+
 // OIDC flow errors
 var ErrOIDCLinkNotFound = errors.New("oidc link not found")
 var ErrOIDCLinkAlreadyExists = errors.New("user already has this provider linked")

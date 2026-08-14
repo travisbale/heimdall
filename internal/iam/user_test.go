@@ -35,6 +35,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 	tenantsDB.setDependencies(userDB)
 
 	service := &UserService{
+		PasswordValidator:   &stubStrength{},
 		UserDB:              userDB,
 		TenantsDB:           tenantsDB,
 		Hasher:              hasher,

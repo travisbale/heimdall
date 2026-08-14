@@ -739,3 +739,21 @@ func (m *mockRBACService) UserRolesRequireMFA(ctx context.Context, userID uuid.U
 	}
 	return m.userRolesRequireMFAVal, nil
 }
+
+// Password strength Mock
+
+// Tests assert on this rather than on wording, so they do not restate the rule.
+var errWeak = errors.New("password has been found in data breaches and is not secure")
+
+type stubStrength struct {
+	called   int
+	rejectIt bool
+}
+
+func (s *stubStrength) Validate(_ context.Context, _ string) error {
+	s.called++
+	if s.rejectIt {
+		return errWeak
+	}
+	return nil
+}

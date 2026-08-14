@@ -25,8 +25,14 @@ type sessionRevoker interface {
 }
 
 // PasswordService handles password-based authentication operations
+// A dependency so a test can set a password without reaching the network.
+type passwordValidator interface {
+	Validate(ctx context.Context, password string) error
+}
+
 type PasswordService struct {
 	UserDB               userDB
+	PasswordValidator    passwordValidator
 	Hasher               hasher
 	PasswordResetTokenDB tokenDB
 	EmailClient          emailClient
@@ -126,6 +132,10 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 
 // ResetPassword validates the reset token and updates the user's password
 func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
+	// Before hashing, so a refused password never reaches storage.
+	if err := s.PasswordValidator.Validate(ctx, newPassword); err != nil {
+		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
+	}
 	// The user holds the plaintext token from their email; only its hash is stored.
 	resetToken, err := s.PasswordResetTokenDB.GetToken(ctx, token.Hash(tokenStr))
 	if err != nil {
@@ -167,6 +177,9 @@ func (s *PasswordService) ResetPassword(ctx context.Context, tokenStr, newPasswo
 
 // ChangePassword updates a user's password after validating their current password
 func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
+	if err := s.PasswordValidator.Validate(ctx, newPassword); err != nil {
+		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
+	}
 	user, err := s.UserDB.GetUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)

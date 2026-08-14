@@ -26,6 +26,7 @@ type emailClient interface {
 // UserService handles user registration, email verification, and user management
 type UserService struct {
 	UserDB              userDB
+	PasswordValidator   passwordValidator
 	TenantsDB           tenantsDB
 	Hasher              hasher
 	EmailClient         emailClient
@@ -138,6 +139,10 @@ func (s *UserService) Register(ctx context.Context, email, firstName, lastName s
 
 // VerifyEmailAndSetPassword verifies the email verification token, sets the password, and activates the account
 func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr string, password string) (*User, error) {
+	// The account's first password, so it gets the same rule as a reset.
+	if err := s.PasswordValidator.Validate(ctx, password); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrWeakPassword, err)
+	}
 	verificationToken, err := s.VerificationTokenDB.GetToken(ctx, token.Hash(tokenStr))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verification token: %w", err)

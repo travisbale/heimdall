@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"errors"
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/iam"
+	"github.com/travisbale/heimdall/internal/password"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/knowhere/identity"
 )
@@ -117,4 +119,20 @@ func (r *Router) encodeSessionResponse(w http.ResponseWriter, req *http.Request,
 		ExpiresIn:        int(tokens.AccessExpiration.Seconds()),
 		RefreshExpiresIn: int(tokens.RefreshExpiration.Seconds()),
 	})
+}
+
+// passwordRejection is the wording a client gets; the validator's own errors stay internal.
+func passwordRejection(err error) string {
+	switch {
+	case errors.Is(err, password.ErrTooShort):
+		return fmt.Sprintf("Password must be at least %d characters", password.MinLength)
+	case errors.Is(err, password.ErrTooLong):
+		return fmt.Sprintf("Password must not exceed %d characters", password.MaxLength)
+	case errors.Is(err, password.ErrTooCommon):
+		return "Password is too common, please choose a less predictable one"
+	case errors.Is(err, password.ErrBreached):
+		return "Password has appeared in a known data breach, please choose another"
+	default:
+		return "Password does not meet the requirements"
+	}
 }
