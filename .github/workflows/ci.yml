@@ -28,11 +28,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          # Minor only, so a patch release is picked up without editing this. check-latest
-          # because setup-go otherwise stops at whatever patch the runner image already
-          # ships, which trails a Go security release by days — that is how a stdlib CVE
-          # fixed in 1.26.6 kept the scan red on a runner holding 1.26.5.
-          go-version: '1.26'
+          # Version from go.mod so the two cannot drift; check-latest because setup-go
+          # otherwise settles for whatever patch the runner image happens to ship.
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
@@ -52,7 +50,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
@@ -86,7 +84,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
@@ -105,7 +103,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
@@ -178,7 +176,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
