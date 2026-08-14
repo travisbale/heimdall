@@ -142,7 +142,7 @@ func (s *UserService) VerifyEmailAndSetPassword(ctx context.Context, tokenStr st
 	// The account's first password, so it gets the same rule as a reset.
 	if s.StrengthChecker != nil {
 		if err := s.StrengthChecker.Validate(ctx, password); err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrWeakPassword, err)
+			return nil, fmt.Errorf("%w: %w", ErrInvalidPassword, err)
 		}
 	}
 	verificationToken, err := s.VerificationTokenDB.GetToken(ctx, token.Hash(tokenStr))

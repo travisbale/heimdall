@@ -11,6 +11,63 @@ import (
 	"testing"
 )
 
+func TestValidator_Validate_Length(t *testing.T) {
+	validator := NewValidator()
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name     string
+		password string
+		wantErr  bool
+	}{
+		{"a character short", "Xk7mQp2wR"[:MinLength-1], true},
+		{"exactly the minimum", "Xk7mQp2wRt", false},
+		{"exactly the maximum", "Xk7mQp2wRt" + strings.Repeat("z", MaxLength-10), false},
+		{"a character over", "Xk7mQp2wRt" + strings.Repeat("z", MaxLength-9), true},
+		{"empty", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// No breach lookup: a length verdict must not depend on the network.
+			validator.httpClient = &http.Client{Transport: &mockTransport{statusCode: http.StatusNotFound}}
+			err := validator.Validate(ctx, tc.password)
+			if tc.wantErr && err == nil {
+				t.Errorf("want %q rejected, got nil", tc.name)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("want %q accepted, got %v", tc.name, err)
+			}
+		})
+	}
+}
+
+// Counted in runes, not bytes: counting bytes would reject a legitimate Cyrillic password
+// and accept a shorter one.
+func TestValidator_Validate_CountsRunesNotBytes(t *testing.T) {
+	validator := NewValidator()
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name     string
+		password string
+		wantErr  bool
+	}{
+		{"ten Cyrillic characters", "пароль1234", false},
+		{"ten runes including emoji", "MyPass😀🔐12", false},
+		{"six Cyrillic characters is short despite twelve bytes", "пароль", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			validator.httpClient = &http.Client{Transport: &mockTransport{statusCode: http.StatusNotFound}}
+			err := validator.Validate(ctx, tc.password)
+			if tc.wantErr && err == nil {
+				t.Errorf("want %q rejected, got nil", tc.name)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("want %q accepted, got %v", tc.name, err)
+			}
+		})
+	}
+}
+
 func TestValidator_Validate_CommonPasswords(t *testing.T) {
 	validator := NewValidator()
 	ctx := context.Background()

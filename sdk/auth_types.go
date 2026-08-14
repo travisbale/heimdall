@@ -122,7 +122,7 @@ func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Password, "password"); err != nil {
 		return err
 	}
-	return validatePasswordLength(r.Password)
+	return nil
 }
 
 // ForgotPasswordRequest represents the forgot password request body
@@ -154,7 +154,7 @@ func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.NewPassword, "new password"); err != nil {
 		return err
 	}
-	return validatePasswordLength(r.NewPassword)
+	return nil
 }
 
 // ResetPasswordResponse represents the reset password response

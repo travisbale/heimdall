@@ -50,7 +50,7 @@ func (r *Router) confirmRegistration(w http.ResponseWriter, req *http.Request) {
 		case errors.Is(err, iam.ErrVerificationTokenNotFound):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid or expired verification token", err)
 
-		case errors.Is(err, iam.ErrWeakPassword):
+		case errors.Is(err, iam.ErrInvalidPassword):
 			r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
 
 		case errors.Is(err, iam.ErrAccountAlreadyVerified):

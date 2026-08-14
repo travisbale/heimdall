@@ -222,7 +222,7 @@ func (s *PasswordService) checkStrength(ctx context.Context, password string) er
 		return nil
 	}
 	if err := s.StrengthChecker.Validate(ctx, password); err != nil {
-		return fmt.Errorf("%w: %w", ErrWeakPassword, err)
+		return fmt.Errorf("%w: %w", ErrInvalidPassword, err)
 	}
 	return nil
 }

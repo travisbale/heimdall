@@ -11,9 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
+	// MinLength follows NIST guidance; MaxLength bounds the work Argon2 is asked to do on
+	// an unauthenticated request.
+	MinLength = 10
+	MaxLength = 128
 	// HIBPAPITimeout is the timeout for Have I Been Pwned API calls
 	HIBPAPITimeout = 3 * time.Second
 	// HIBPURL is the Have I Been Pwned API endpoint
@@ -49,13 +54,28 @@ func NewValidator() *Validator {
 	}
 }
 
-// Validate reports whether a password is one an attacker would try. It is the server's
-// check: the request contract has already rejected anything of the wrong length.
+// Validate reports whether a password is acceptable: long enough, not a common choice,
+// and not in a public breach corpus. All of it happens here so a password is checked once,
+// in one place, rather than having its length judged at the boundary and the rest later.
 //
 // A password is accepted when the breach lookup fails. That trades a weaker check for
 // availability — a password reset should not become impossible because a third-party API
 // is down — but it is a real gap, so it is logged rather than passed over in silence.
 func (v *Validator) Validate(ctx context.Context, password string) error {
+	// Counted in runes, not bytes: a ten character Cyrillic password is ten characters,
+	// and counting bytes would reject it while letting a shorter one through.
+	length := utf8.RuneCountInString(password)
+	if length < MinLength {
+		return &ValidationError{
+			Message: fmt.Sprintf("password must be at least %d characters", MinLength),
+		}
+	}
+	if length > MaxLength {
+		return &ValidationError{
+			Message: fmt.Sprintf("password must not exceed %d characters", MaxLength),
+		}
+	}
+
 	if v.isCommonPassword(password) {
 		return &ValidationError{
 			Message: "password is too common and easily guessed",
