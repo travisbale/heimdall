@@ -29,15 +29,14 @@ make test           # test-setup + unit + integration
 make test-teardown  # stop the stack and drop its volumes
 ```
 
-CI runs seven jobs: lint, build, test, govulncheck, codegen drift, Docker build, and a
-migrate up/down/up cycle against a live Postgres. `setup-go` reads `go-version-file: go.mod`
+CI runs eight jobs: format, lint, build, test, govulncheck, codegen drift, Docker build, and
+a migrate up/down/up cycle against a live Postgres. `setup-go` reads `go-version-file: go.mod`
 with `check-latest: true` — without `check-latest` it settles for whatever patch the runner
 image has cached, which is how a fixed stdlib CVE kept failing the security job.
 
-There is no format gate. `make fmt` runs as a prerequisite of `make dev` and `make build`,
-so formatting happens as a side effect of building rather than being checked; run it before
-pushing. Note it uses goimports, which enforces import *grouping* — `gofmt -l` will not
-catch what CI's linter does.
+The format job runs `make fmt` and fails on a diff, so run it before pushing. It uses
+goimports, which enforces import *grouping* as well as formatting — `gofmt -l` will report a
+clean tree that CI then rejects.
 
 ## Architecture
 
