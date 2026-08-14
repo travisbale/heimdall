@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,14 +25,13 @@ const (
 	HIBPURL = "https://api.pwnedpasswords.com/range/"
 )
 
-// ValidationError represents a password validation failure
-type ValidationError struct {
-	Message string
-}
-
-func (e *ValidationError) Error() string {
-	return e.Message
-}
+// Sentinels rather than messages: the wording a client sees belongs to the boundary.
+var (
+	ErrTooShort  = errors.New("too short")
+	ErrTooLong   = errors.New("too long")
+	ErrTooCommon = errors.New("too common")
+	ErrBreached  = errors.New("found in a breach corpus")
+)
 
 // Validator decides whether a password is acceptable. The whole rule lives here.
 type Validator struct {
@@ -56,20 +56,14 @@ func (v *Validator) Validate(ctx context.Context, password string) error {
 	// Runes, not bytes: a ten character Cyrillic password is ten characters.
 	length := utf8.RuneCountInString(password)
 	if length < MinLength {
-		return &ValidationError{
-			Message: fmt.Sprintf("password must be at least %d characters", MinLength),
-		}
+		return ErrTooShort
 	}
 	if length > MaxLength {
-		return &ValidationError{
-			Message: fmt.Sprintf("password must not exceed %d characters", MaxLength),
-		}
+		return ErrTooLong
 	}
 
 	if v.isCommonPassword(password) {
-		return &ValidationError{
-			Message: "password is too common and easily guessed",
-		}
+		return ErrTooCommon
 	}
 
 	breached, err := v.isBreached(ctx, password)
@@ -78,9 +72,7 @@ func (v *Validator) Validate(ctx context.Context, password string) error {
 		return nil
 	}
 	if breached {
-		return &ValidationError{
-			Message: "password has been found in data breaches and is not secure",
-		}
+		return ErrBreached
 	}
 
 	return nil

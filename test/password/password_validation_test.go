@@ -13,6 +13,7 @@ import (
 	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/heimdall/test/_util/request"
 	"github.com/travisbale/heimdall/test/_util/setup"
+	"strings"
 )
 
 // The strength check runs on the server, and only internal/app wires it up — the services
@@ -66,7 +67,7 @@ func TestPasswordValidation(t *testing.T) {
 		status, body := request.RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 			fmt.Sprintf(`{"token":"%s","password":"short"}`, token), "")
 		assert.Equal(t, http.StatusBadRequest, status)
-		assert.Contains(t, body, "password")
+		assert.Contains(t, strings.ToLower(body), "password")
 	})
 
 	t.Run("accept valid password", func(t *testing.T) {

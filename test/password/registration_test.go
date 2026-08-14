@@ -12,6 +12,7 @@ import (
 	"github.com/travisbale/heimdall/test/_util/mailbox"
 	"github.com/travisbale/heimdall/test/_util/request"
 	"github.com/travisbale/heimdall/test/_util/setup"
+	"strings"
 )
 
 func TestRegistration(t *testing.T) {
@@ -120,6 +121,6 @@ func TestVerifyEmailValidation(t *testing.T) {
 		status, body := request.RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 			`{"token":"abc123","password":"short"}`, "")
 		assert.Equal(t, http.StatusBadRequest, status)
-		assert.Contains(t, body, "password")
+		assert.Contains(t, strings.ToLower(body), "password")
 	})
 }

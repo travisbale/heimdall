@@ -199,16 +199,6 @@ func TestValidator_isCommonPassword(t *testing.T) {
 	}
 }
 
-func TestValidator_ValidationError(t *testing.T) {
-	err := &ValidationError{
-		Message: "test error",
-	}
-
-	if err.Error() != "test error" {
-		t.Errorf("ValidationError.Error() = %q, want %q", err.Error(), "test error")
-	}
-}
-
 type mockTransport struct {
 	statusCode int
 	response   string

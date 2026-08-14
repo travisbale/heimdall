@@ -33,7 +33,7 @@ func (r *Router) resetPassword(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrWeakPassword):
-			r.writeError(req.Context(), w, http.StatusBadRequest, err.Error(), err)
+			r.writeError(req.Context(), w, http.StatusBadRequest, passwordRejection(err), err)
 
 		case errors.Is(err, iam.ErrPasswordResetTokenNotFound):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid or expired reset token", err)
