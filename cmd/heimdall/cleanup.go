@@ -32,6 +32,7 @@ var cleanupCmd = &cli.Command{
 		verificationTokensDB := postgres.NewVerificationTokensDB(db)
 		passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
 		refreshTokensDB := postgres.NewRefreshTokensDB(db)
+		rateLimits := postgres.NewRateLimitStore(db)
 
 		fmt.Println("Deleting expired database records...")
 
@@ -63,6 +64,12 @@ var cleanupCmd = &cli.Command{
 		// Remove expired and old revoked refresh tokens
 		if err := refreshTokensDB.DeleteExpired(ctx); err != nil {
 			return fmt.Errorf("failed to delete expired refresh tokens: %w", err)
+		}
+
+		// A lapsed window is reused in place, so these are only the keys nobody came back
+		// under — one row per address that ever reached a rate-limited route.
+		if err := rateLimits.DeleteExpired(ctx); err != nil {
+			return fmt.Errorf("failed to delete expired rate limits: %w", err)
 		}
 		fmt.Println("Deleted expired refresh tokens")
 

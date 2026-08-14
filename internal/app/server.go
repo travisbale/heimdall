@@ -82,6 +82,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		SecureCookies:       config.Environment != "development" && config.Environment != "test",
 		Environment:         config.Environment,
 		TrustedProxyMode:    config.TrustedProxyMode,
+		RateLimitStore:      postgres.NewRateLimitStore(db),
 		ProxySecret:         config.ProxySecret,
 		CORSAllowedOrigins:  config.CORSAllowedOrigins,
 		Logger:              logger,

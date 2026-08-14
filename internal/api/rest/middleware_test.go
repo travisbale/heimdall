@@ -15,7 +15,7 @@ import (
 // login limit a global one.
 func TestRateLimitIsPerClientNotGlobal(t *testing.T) {
 	ok := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
-	handler := identity.ClientIP(true)(rateLimitMiddleware(limiter.Rate{Period: time.Minute, Limit: 2}, ok))
+	handler := identity.ClientIP(true)(rateLimitMiddleware(nil, limiter.Rate{Period: time.Minute, Limit: 2}, ok))
 
 	send := func(ip string) int {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -45,7 +45,7 @@ func TestRateLimitIsPerClientNotGlobal(t *testing.T) {
 // allowance by changing it.
 func TestRateLimitIgnoresForwardedHeaderWhenProxyIsNotTrusted(t *testing.T) {
 	ok := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
-	handler := identity.ClientIP(false)(rateLimitMiddleware(limiter.Rate{Period: time.Minute, Limit: 1}, ok))
+	handler := identity.ClientIP(false)(rateLimitMiddleware(nil, limiter.Rate{Period: time.Minute, Limit: 1}, ok))
 
 	send := func(ip string) int {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
