@@ -23,10 +23,7 @@ var moderateRateLimit = limiter.Rate{
 func rateLimitMiddleware(rate limiter.Rate, next http.HandlerFunc) http.HandlerFunc {
 	instance := limiter.New(memory.NewStore(), rate)
 
-	// The library keys on RemoteAddr, which behind a proxy is the proxy — one bucket for
-	// everyone. identity.ClientIP has already resolved the caller, honouring
-	// TRUSTED_PROXY_MODE and taking the X-Forwarded-For entry our proxy appended rather
-	// than the leftmost one a caller can forge.
+	// The default key is RemoteAddr, which behind a proxy is the proxy: one bucket for all.
 	middleware := stdlib.NewMiddleware(instance, stdlib.WithKeyGetter(func(r *http.Request) string {
 		return identity.GetIPAddress(r.Context())
 	}))

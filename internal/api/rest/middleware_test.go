@@ -10,9 +10,7 @@ import (
 	"github.com/ulule/limiter/v3"
 )
 
-// The limiter used to key on RemoteAddr, which behind a proxy is the proxy — so one
-// caller exhausting the bucket locked out everyone. In production that made a 10/min
-// login limit a global one.
+// Keying on RemoteAddr made the limit global: one caller could lock out everyone.
 func TestRateLimitIsPerClientNotGlobal(t *testing.T) {
 	ok := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
 	handler := identity.ClientIP(true)(rateLimitMiddleware(limiter.Rate{Period: time.Minute, Limit: 2}, ok))
@@ -35,14 +33,12 @@ func TestRateLimitIsPerClientNotGlobal(t *testing.T) {
 		t.Errorf("first client over its limit: got %d, want 429", got)
 	}
 
-	// A different client, same proxy. It must have its own allowance.
 	if got := send("198.51.100.20"); got != http.StatusOK {
 		t.Errorf("second client: got %d, want 200 — buckets are shared", got)
 	}
 }
 
-// Without a trusted proxy the header is a caller's to set, so it must not buy a fresh
-// allowance by changing it.
+// An untrusted header is the caller's to set, so it must not buy a fresh allowance.
 func TestRateLimitIgnoresForwardedHeaderWhenProxyIsNotTrusted(t *testing.T) {
 	ok := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
 	handler := identity.ClientIP(false)(rateLimitMiddleware(limiter.Rate{Period: time.Minute, Limit: 1}, ok))
