@@ -3,9 +3,7 @@ package sdk
 import (
 	"context"
 
-	"fmt"
 	"github.com/google/uuid"
-	"unicode/utf8"
 )
 
 // APIError is returned when the server responds with an HTTP error status code
@@ -81,30 +79,6 @@ type CreateUserResponse struct {
 	Email             string    `json:"email"`
 	TenantID          uuid.UUID `json:"tenant_id"`
 	VerificationToken string    `json:"verification_token"` // Empty for SSO users, set for non-SSO users
-}
-
-// Password length is part of the request contract, so a client can reject a bad one
-// without a round trip. The minimum follows NIST guidance; the maximum bounds the work
-// Argon2 is asked to do on an unauthenticated request.
-//
-// Whether a password is *guessable* is not here. That needs a word list and a lookup
-// against a breach corpus, it can change for a password that has not, and it is the
-// server's call — see internal/password.
-const (
-	MinPasswordLength = 10
-	MaxPasswordLength = 128
-)
-
-// validatePasswordLength checks the one password property a client can check for itself.
-func validatePasswordLength(password string) error {
-	length := utf8.RuneCountInString(password)
-	if length < MinPasswordLength {
-		return fmt.Errorf("password must be at least %d characters", MinPasswordLength)
-	}
-	if length > MaxPasswordLength {
-		return fmt.Errorf("password must not exceed %d characters", MaxPasswordLength)
-	}
-	return nil
 }
 
 // RegisterRequest represents the registration request body
