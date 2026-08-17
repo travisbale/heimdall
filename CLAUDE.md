@@ -204,7 +204,7 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
 | `PUBLIC_URL` | `http://localhost:8080` | Base for verification and reset links |
 | `ENVIRONMENT` | `development` | `test` disables rate limiting |
 | `TRUSTED_PROXY_MODE` | `false` | Required for correct client IPs behind an edge |
-| `PROXY_SECRET` | empty | Requires `X-Proxy-Secret` on everything but `/healthz` |
+| `PROXY_SECRET` | empty | Requires `X-Proxy-Secret` on everything but `/health` |
 | `CORS_ALLOWED_ORIGINS` | empty | Comma-separated |
 | `ENCRYPTION_KEY` | — | 32-byte hex; OIDC client secrets and TOTP secrets |
 | `TOTP_PERIOD` | `30` | Seconds |

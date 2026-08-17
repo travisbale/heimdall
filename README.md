@@ -133,7 +133,7 @@ docker run -p 8080:8080 -p 9090:9090 \
 
 **Public Endpoints:**
 
-- `HEAD /healthz` - Health check (returns 200 OK if healthy, 503 if database unavailable)
+- `HEAD /health` - Health check (returns 200 OK if healthy, 503 if database unavailable)
 - `GET /v1/oauth/supported-types` - List supported OAuth provider types
 
 **Authentication:**
