@@ -25,7 +25,7 @@ func (r *Router) login(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrInvalidCredentials):
-			r.writeError(req.Context(), w, http.StatusUnauthorized, "Authentication failed", err)
+			r.writeError(req.Context(), w, http.StatusUnauthorized, "Incorrect email or password", err)
 		case errors.Is(err, iam.ErrEmailNotVerified):
 			r.writeError(req.Context(), w, http.StatusForbidden, "Please verify your email address before logging in", err)
 		case errors.Is(err, iam.ErrAccountLocked):
