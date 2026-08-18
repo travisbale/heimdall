@@ -31,7 +31,7 @@ func (r *Router) login(w http.ResponseWriter, req *http.Request) {
 		case errors.Is(err, iam.ErrAccountLocked):
 			r.writeError(req.Context(), w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
 		default:
-			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to authenticate user", err)
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Sorry, something went wrong. Please try again later.", err)
 		}
 		return
 	}
