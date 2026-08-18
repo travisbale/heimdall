@@ -2,6 +2,7 @@ package password
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -45,6 +46,27 @@ func TestLogin(t *testing.T) {
 			Password: "WrongPassword123!",
 		})
 		assertions.AssertAPIError(t, err, http.StatusUnauthorized, "login should fail with wrong password")
+	})
+
+	// The refusal must read the same either way, or the form becomes a way to discover who
+	// holds an account. This is what stops the message naming which half was wrong.
+	t.Run("an unknown address and a wrong password are indistinguishable", func(t *testing.T) {
+		_, unknownErr := client.Login(context.Background(), sdk.LoginRequest{
+			Email:    fmt.Sprintf("nonexistent-%d@test.example.com", time.Now().UnixNano()),
+			Password: "SomePassword123!",
+		})
+		_, wrongErr := client.Login(context.Background(), sdk.LoginRequest{
+			Email:    user.Email,
+			Password: "WrongPassword123!",
+		})
+
+		unknown, ok := errors.AsType[*sdk.APIError](unknownErr)
+		require.True(t, ok, "expected an APIError for an unknown address, got %T", unknownErr)
+		wrong, ok := errors.AsType[*sdk.APIError](wrongErr)
+		require.True(t, ok, "expected an APIError for a wrong password, got %T", wrongErr)
+
+		assert.Equal(t, unknown.StatusCode, wrong.StatusCode, "status must not reveal which half was wrong")
+		assert.Equal(t, unknown.Message, wrong.Message, "message must not reveal which half was wrong")
 	})
 }
 
