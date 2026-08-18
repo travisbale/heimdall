@@ -29,9 +29,17 @@ func (r *Router) writeJSON(w http.ResponseWriter, status int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+// serverFault is the only thing a caller is told when the fault is ours. Naming the
+// operation that failed tells them nothing they can act on and reads as a verdict on
+// their request — "Failed to verify email" sounds like the address was rejected.
+const serverFault = "Sorry, something went wrong. Please try again later."
+
+// The message a caller passes for a 5xx describes the operation, so it is kept as the log
+// line and replaced on the wire.
 func (r *Router) writeError(ctx context.Context, w http.ResponseWriter, status int, message string, err error) {
-	if status >= http.StatusInternalServerError && err != nil {
+	if status >= http.StatusInternalServerError {
 		r.Logger.ErrorContext(ctx, message, "error", err, "status", status)
+		message = serverFault
 	}
 
 	r.writeJSON(w, status, sdk.ErrorResponse{Error: message})

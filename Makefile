@@ -28,7 +28,7 @@ build: fmt
 unit:
 	@echo "Running unit tests..."
 	@go test -race -coverprofile=coverage.out -covermode=atomic \
-		$$(go list ./... | grep -v -e '/internal/api' -e '/internal/db' -e '/internal/pb' -e '/cmd/' -e '/internal/email' -e '/test/')
+		$$(go list ./... | grep -v -e '/internal/db' -e '/internal/pb' -e '/cmd/' -e '/internal/email' -e '/test/')
 	@echo "Unit test coverage: $$(go tool cover -func=coverage.out | grep total | awk '{print $$3}')"
 
 # Generate HTML coverage report
