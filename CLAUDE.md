@@ -213,7 +213,9 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
 ## Development Guidelines
 
 - Keep comments minimal and focused on *why*. The code should speak for itself; do not
-  narrate what a function does. One line where at all possible.
+  narrate what a function does. One line where at all possible. Write for someone who
+  never saw the change: "used to" earns its place only where it warns off a path they
+  might take again, and anything else about how the code got this way is a commit message.
 - No `Co-Authored-By` trailer and no generated-with footer, in commits or PR descriptions.
   The repo squash-merges with the PR body as the message, so anything in it lands in the
   log — write PR descriptions as prose for that reason.
