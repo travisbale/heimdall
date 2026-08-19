@@ -118,7 +118,7 @@ func (r *Router) listOIDCProviders(w http.ResponseWriter, req *http.Request) {
 // UpdateOIDCProvider updates an OAuth provider configuration
 func (r *Router) updateOIDCProvider(w http.ResponseWriter, req *http.Request) {
 	var body sdk.UpdateOIDCProviderRequest
-	if err := decodeJSON(req, &body); err != nil {
+	if err := decodeJSON(w, req, &body); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}

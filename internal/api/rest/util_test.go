@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -54,5 +55,31 @@ func TestWriteErrorCollapsesEveryServerFault(t *testing.T) {
 
 	if _, got := writeErrorFor(t, http.StatusBadGateway, "Upstream is down"); got != serverFault {
 		t.Errorf("502 reached the client as %q, want the one fault message", got)
+	}
+}
+
+// Registration and sign-in decode a body from anyone, so an unbounded one would stream
+// straight into memory.
+func TestDecodeJSONRejectsAnOversizedBody(t *testing.T) {
+	body := `{"email":"` + strings.Repeat("a", maxRequestBody) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/login", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	var out map[string]any
+	if err := decodeJSON(rec, req, &out); err == nil {
+		t.Fatal("want a body over the cap to be refused, got no error")
+	}
+}
+
+func TestDecodeJSONAcceptsABodyUnderTheCap(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/login", strings.NewReader(`{"email":"a@b.com"}`))
+	rec := httptest.NewRecorder()
+
+	var out map[string]any
+	if err := decodeJSON(rec, req, &out); err != nil {
+		t.Fatalf("want an ordinary body accepted, got %v", err)
+	}
+	if out["email"] != "a@b.com" {
+		t.Errorf("decoded %v", out)
 	}
 }

@@ -19,6 +19,10 @@ const (
 	deviceTrustCookie  = "device_trust"
 )
 
+// maxRequestBody caps decoded request bodies to guard against a client streaming an
+// unbounded payload into memory. Registration and sign-in decode from anyone.
+const maxRequestBody = 1 << 20 // 1 MiB
+
 type validatable interface {
 	Validate(ctx context.Context) error
 }
@@ -26,7 +30,9 @@ type validatable interface {
 func (r *Router) writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		r.Logger.Error("Failed to encode JSON response", "error", err, "status", status)
+	}
 }
 
 // serverFault is the only thing a caller is told when the fault is ours. Naming the
@@ -40,15 +46,20 @@ func (r *Router) writeError(ctx context.Context, w http.ResponseWriter, status i
 	if status >= http.StatusInternalServerError {
 		r.Logger.ErrorContext(ctx, message, "error", err, "status", status)
 		message = serverFault
+	} else if err != nil {
+		// Client errors log at Warn so a bad request or a missing resource does not
+		// pollute the error stream.
+		r.Logger.WarnContext(ctx, message, "error", err, "status", status)
 	}
 
 	r.writeJSON(w, status, sdk.ErrorResponse{Error: message})
 }
 
-func decodeJSON(r *http.Request, v any) error {
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	if r.Body == nil {
 		return fmt.Errorf("request body is empty")
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 	defer r.Body.Close() //nolint:errcheck
 
 	decoder := json.NewDecoder(r.Body)
@@ -57,7 +68,7 @@ func decodeJSON(r *http.Request, v any) error {
 }
 
 func (r *Router) decodeAndValidateJSON(w http.ResponseWriter, req *http.Request, v validatable) bool {
-	if err := decodeJSON(req, v); err != nil {
+	if err := decodeJSON(w, req, v); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", nil)
 		return false
 	}
