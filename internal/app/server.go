@@ -104,11 +104,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Logger:              logger,
 	}
 
-	httpServer := &http.Server{
-		Addr:              config.HTTPAddress,
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	httpServer := newHTTPServer(config.HTTPAddress, router.Handler())
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
@@ -156,5 +152,17 @@ func newEmailClient(config *Config) (emailClient, error) {
 		return mailman.NewClient(config.MailmanGRPCAddress, config.PublicURL)
 	default:
 		return console.NewClient(slog.Default(), config.PublicURL), nil
+	}
+}
+
+// newHTTPServer bounds how long one connection can occupy the server: without these a
+// slow reader or an idle keep-alive holds its slot indefinitely.
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 }
