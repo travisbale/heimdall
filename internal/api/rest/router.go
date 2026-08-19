@@ -21,7 +21,6 @@ type jwtValidator interface {
 }
 
 // Router holds all HTTP handler dependencies in a single struct.
-// Implements http.Handler — routes and middleware are initialized on first request.
 type Router struct {
 	DB                  database
 	AuthService         *iam.AuthService
@@ -85,7 +84,7 @@ func (r *Router) registerRoutes(mux *http.ServeMux) {
 	}
 
 	// Public endpoints
-	public("HEAD", sdk.RouteHealth, r.handleHealth)
+	public("GET", sdk.RouteHealth, r.handleHealth)
 	public("GET", sdk.RouteV1OAuthSupportedTypes, r.listSupportedProviders)
 
 	// Registration (moderate rate limit)
