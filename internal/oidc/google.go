@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/travisbale/heimdall/internal/iam"
-
 	"golang.org/x/oauth2"
 )
 

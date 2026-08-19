@@ -4,13 +4,18 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Format code
+# Every target that formats or checks formatting works on this set: everything but the
+# generated protobuf and sqlc packages.
+GO_FILES = $(shell find . -type f -name '*.go' -not -path './internal/pb/*' -not -path './internal/db/*')
+
+# gci runs after goimports because goimports treats a blank line as deliberate grouping
+# and preserves it, so a stray one inside the stdlib block survives formatting. gci
+# enforces the two sections instead of respecting what it finds.
 fmt:
 	@echo "Formatting code..."
 	@go fmt ./...
-	@go run golang.org/x/tools/cmd/goimports@v0.48.0 -w $(shell \
-		find . -type f -name '*.go' \
-			-not -path './internal/pb/*' \
-			-not -path './internal/db/*' )
+	@go run golang.org/x/tools/cmd/goimports@v0.48.0 -w $(GO_FILES)
+	@go run github.com/daixiang0/gci@v0.13.7 write --skip-generated -s standard -s default $(GO_FILES) >/dev/null
 
 # Development build (faster, debug symbols)
 dev: fmt
