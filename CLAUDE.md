@@ -18,7 +18,7 @@ Consumers in this workspace: `manitoba-ryder-cup/scorecard` (verifies tokens, de
 ```sh
 make dev            # development binary (runs make fmt first)
 make build          # production binary (static, stripped)
-make fmt            # gofmt + goimports, skipping generated trees
+make fmt            # gofmt, goimports, then gci to enforce import grouping
 make lint            # golangci-lint via Docker, same version as CI
 make sqlc           # regenerate internal/db/postgres/internal/sqlc from queries/
 make protoc         # regenerate internal/pb from proto/
@@ -26,6 +26,7 @@ make unit           # unit tests, no Docker
 make test-setup     # build and start postgres + oidc-mock + heimdall, run migrations
 make integration    # run ./test/... against that stack
 make test           # test-setup + unit + integration
+make coverage       # HTML coverage report from the unit run
 make test-teardown  # stop the stack and drop its volumes
 ```
 
@@ -34,9 +35,10 @@ a migrate up/down/up cycle against a live Postgres. `setup-go` reads `go-version
 with `check-latest: true` — without `check-latest` it settles for whatever patch the runner
 image has cached, which is how a fixed stdlib CVE kept failing the security job.
 
-The format job runs `make fmt` and fails on a diff, so run it before pushing. It uses
-goimports, which enforces import *grouping* as well as formatting — `gofmt -l` will report a
-clean tree that CI then rejects.
+The format job runs `make fmt` and fails on a diff, so run it before pushing. It does more
+than gofmt: goimports resolves the imports a file needs, and gci then enforces their
+grouping, which goimports will not — it treats a blank line as deliberate and preserves it.
+`gofmt -l` reports a clean tree that CI then rejects.
 
 ## Architecture
 

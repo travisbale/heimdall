@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/travisbale/heimdall/internal/iam"
-
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
 )
