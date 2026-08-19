@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"net/http"
 	"slices"
 	"testing"
 )
@@ -68,5 +69,21 @@ func TestShutdownClosesDependenciesEvenIfDrainingFails(t *testing.T) {
 		if !slices.Contains(calls, want) {
 			t.Errorf("shutdown order = %v, want %s closed despite the drain failing", calls, want)
 		}
+	}
+}
+
+// Without these a slow reader or an idle keep-alive holds its connection slot for as long
+// as it likes, which on an anonymous-facing service is a way to exhaust them.
+func TestHTTPServerBoundsConnections(t *testing.T) {
+	server := newHTTPServer(":8080", http.NotFoundHandler())
+
+	if server.ReadHeaderTimeout == 0 {
+		t.Error("ReadHeaderTimeout is unset")
+	}
+	if server.WriteTimeout == 0 {
+		t.Error("WriteTimeout is unset; a slow reader can hold a connection indefinitely")
+	}
+	if server.IdleTimeout == 0 {
+		t.Error("IdleTimeout is unset; keep-alive connections are never reaped")
 	}
 }

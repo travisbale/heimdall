@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
@@ -43,18 +42,12 @@ type Router struct {
 	CORSAllowedOrigins []string
 	Logger             *slog.Logger
 
-	once          sync.Once
 	jwtMiddleware *jwt.HTTPMiddleware
-	handler       http.Handler
 }
 
-// ServeHTTP implements http.Handler. Routes and middleware are initialized on first request.
-func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.once.Do(r.init)
-	r.handler.ServeHTTP(w, req)
-}
-
-func (r *Router) init() {
+// Handler assembles the routes and the middleware chain around them. The caller building
+// the server calls it once.
+func (r *Router) Handler() http.Handler {
 	r.jwtMiddleware = jwt.NewHTTPMiddleware(r.JWTValidator)
 
 	mux := http.NewServeMux()
@@ -70,7 +63,7 @@ func (r *Router) init() {
 	if len(r.CORSAllowedOrigins) > 0 {
 		handler = corsMiddleware(r.CORSAllowedOrigins)(handler)
 	}
-	r.handler = handler
+	return handler
 }
 
 // registerRoutes configures all HTTP routes with their handlers and middleware
