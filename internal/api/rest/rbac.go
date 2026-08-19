@@ -94,7 +94,7 @@ func (r *Router) listRoles(w http.ResponseWriter, req *http.Request) {
 // UpdateRole updates a role
 func (r *Router) updateRole(w http.ResponseWriter, req *http.Request) {
 	var body sdk.UpdateRoleRequest
-	if err := decodeJSON(req, &body); err != nil {
+	if err := decodeJSON(w, req, &body); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
@@ -181,7 +181,7 @@ func (r *Router) getRolePermissions(w http.ResponseWriter, req *http.Request) {
 // SetRolePermissions sets all permissions for a role (bulk update)
 func (r *Router) setRolePermissions(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetRolePermissionsRequest
-	if err := decodeJSON(req, &body); err != nil {
+	if err := decodeJSON(w, req, &body); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
@@ -203,7 +203,7 @@ func (r *Router) setRolePermissions(w http.ResponseWriter, req *http.Request) {
 // SetUserRoles sets all roles for a user (replaces existing roles)
 func (r *Router) setUserRoles(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetUserRolesRequest
-	if err := decodeJSON(req, &body); err != nil {
+	if err := decodeJSON(w, req, &body); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
@@ -252,7 +252,7 @@ func (r *Router) getUserRoles(w http.ResponseWriter, req *http.Request) {
 // SetDirectPermissions sets all direct permissions for a user (replaces existing direct permissions)
 func (r *Router) setDirectPermissions(w http.ResponseWriter, req *http.Request) {
 	var body sdk.SetDirectPermissionsRequest
-	if err := decodeJSON(req, &body); err != nil {
+	if err := decodeJSON(w, req, &body); err != nil {
 		r.writeError(req.Context(), w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
