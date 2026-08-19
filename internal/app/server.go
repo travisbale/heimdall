@@ -9,18 +9,35 @@ import (
 
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/rest"
-	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/email/console"
 	"github.com/travisbale/heimdall/internal/email/mailman"
 	"github.com/travisbale/heimdall/internal/email/webhook"
 )
 
-// Server wraps the HTTP and gRPC servers and their dependencies
+// drainer is satisfied by *http.Server.
+type drainer interface {
+	ListenAndServe() error
+	Shutdown(ctx context.Context) error
+}
+
+// stopper is satisfied by *grpc.Server.
+type stopper interface {
+	ListenAndServe() error
+	GracefulStop()
+}
+
+// closer is satisfied by *postgres.DB and by every email client.
+type closer interface {
+	Close()
+}
+
+// Server wraps the HTTP and gRPC servers and their dependencies. Held as interfaces so
+// the shutdown ordering is testable without real infrastructure.
 type Server struct {
-	httpServer  *http.Server
-	grpcServer  *grpc.Server
-	db          *postgres.DB
-	emailClient interface{ Close() }
+	httpServer  drainer
+	grpcServer  stopper
+	db          closer
+	emailClient closer
 }
 
 // NewServer creates a new server instance with all dependencies
@@ -87,11 +104,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		Logger:              logger,
 	}
 
-	httpServer := &http.Server{
-		Addr:              config.HTTPAddress,
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	httpServer := newHTTPServer(config.HTTPAddress, router.Handler())
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(&grpc.Config{
@@ -119,12 +132,15 @@ func (s *Server) Start() error {
 	return s.httpServer.ListenAndServe()
 }
 
-// Shutdown gracefully shuts down the server
+// Shutdown drains both servers before releasing anything they depend on. The order
+// matters: Shutdown and GracefulStop each block until in-flight work returns, and that
+// work is still querying and still sending mail. The deferred closes run even if draining
+// fails, so a timeout cannot leak the pool.
 func (s *Server) Shutdown(ctx context.Context) error {
-	s.grpcServer.GracefulStop()
-	s.emailClient.Close()
-	s.db.Close()
+	defer s.db.Close()
+	defer s.emailClient.Close()
 
+	s.grpcServer.GracefulStop()
 	return s.httpServer.Shutdown(ctx)
 }
 
@@ -136,5 +152,17 @@ func newEmailClient(config *Config) (emailClient, error) {
 		return mailman.NewClient(config.MailmanGRPCAddress, config.PublicURL)
 	default:
 		return console.NewClient(slog.Default(), config.PublicURL), nil
+	}
+}
+
+// newHTTPServer bounds how long one connection can occupy the server: without these a
+// slow reader or an idle keep-alive holds its slot indefinitely.
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 }
