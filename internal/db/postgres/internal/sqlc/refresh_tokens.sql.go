@@ -12,6 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const countLiveRefreshTokensInFamily = `-- name: CountLiveRefreshTokensInFamily :one
+SELECT count(*) FROM refresh_tokens
+WHERE family_id = $1 AND revoked_at IS NULL AND expires_at > now()
+`
+
+// Rotation leaves the successor live; revoking a family for reuse leaves nothing live. That is
+// what separates a client retrying a spent token from one replaying a stolen one.
+func (q *Queries) CountLiveRefreshTokensInFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveRefreshTokensInFamily, familyID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createRefreshToken = `-- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, family_id, user_agent, ip_address, expires_at)
 VALUES ($1, current_tenant_id(), $2, $3, $4, $5, $6)

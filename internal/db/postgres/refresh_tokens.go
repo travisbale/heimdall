@@ -159,6 +159,23 @@ func (r *RefreshTokensDB) GetByHashIncludingRevoked(ctx context.Context, tokenHa
 	return result, err
 }
 
+// CountLiveInFamily counts the unrevoked, unexpired tokens in a family (requires tenant context)
+func (r *RefreshTokensDB) CountLiveInFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
+	var count int64
+
+	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
+		n, err := q.CountLiveRefreshTokensInFamily(ctx, familyID)
+		if err != nil {
+			return fmt.Errorf("failed to count live tokens in family: %w", err)
+		}
+
+		count = n
+		return nil
+	})
+
+	return count, err
+}
+
 // RevokeByFamilyID revokes all tokens in a family (for token reuse detection, requires tenant context)
 func (r *RefreshTokensDB) RevokeByFamilyID(ctx context.Context, familyID uuid.UUID) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
