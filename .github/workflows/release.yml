@@ -2,6 +2,9 @@ name: Release
 
 # Cut a release by pushing a version tag (e.g. `git tag v1.2.0 && git push origin v1.2.0`):
 # build the image, push it to Artifact Registry, and deploy to Cloud Run.
+#
+# The checks run here rather than relying on ci.yml, so a tag can never deploy something that
+# does not pass them — ci.yml runs on pushes and says nothing about the commit a tag names.
 on:
   push:
     tags: ['v*']
@@ -24,6 +27,45 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      # Ahead of the cloud credentials below, so a commit that fails these never reaches a
+      # step holding them.
+      - name: Verify
+        run: |
+          make fmt
+          if ! git diff --exit-code; then
+            echo "Code is not formatted. Run 'make fmt' and commit the changes."
+            exit 1
+          fi
+          make lint
+          make unit
+
+      - name: Start test infrastructure
+        run: make test-setup
+
+      # The migrations run against a live database here, which is the only check that a
+      # release applies them at all.
+      - name: Run integration tests
+        run: make integration
+
+      - name: Upload heimdall logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: heimdall-release-logs
+          path: test/heimdall.log
+          if-no-files-found: ignore
+
+      - name: Tear down test infrastructure
+        if: always()
+        run: make test-teardown
 
       - name: Authenticate to Google Cloud
         id: auth
