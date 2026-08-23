@@ -35,3 +35,9 @@ WHERE token_hash = $1 AND expires_at > now();
 -- name: RevokeRefreshTokenFamily :exec
 -- Revokes all tokens in a family (used when token reuse is detected)
 UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL;
+
+-- name: CountLiveRefreshTokensInFamily :one
+-- Rotation leaves the successor live; revoking a family for reuse leaves nothing live. That is
+-- what separates a client retrying a spent token from one replaying a stolen one.
+SELECT count(*) FROM refresh_tokens
+WHERE family_id = $1 AND revoked_at IS NULL AND expires_at > now();

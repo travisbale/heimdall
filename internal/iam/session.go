@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/knowhere/crypto/token"
+	"github.com/travisbale/knowhere/identity"
 )
 
 // SessionTokens contains all tokens for an authenticated session
@@ -44,9 +45,12 @@ type refreshTokenDB interface {
 	RevokeByID(ctx context.Context, id uuid.UUID) error
 	RevokeByHash(ctx context.Context, tokenHash string) error
 	RevokeByFamilyID(ctx context.Context, familyID uuid.UUID) error
+	CountLiveInFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteExpired(ctx context.Context) error
 }
+
+const rotationGrace = 10 * time.Second
 
 // SessionService manages refresh token storage for session management
 type SessionService struct {
@@ -95,6 +99,11 @@ func (s *SessionService) RotateSession(ctx context.Context, refreshToken string)
 
 	// REUSE DETECTION: If token already revoked, it's being replayed (theft)
 	if storedToken.RevokedAt != nil {
+		if s.retriedRotation(ctx, storedToken) {
+			s.Logger.InfoContext(ctx, events.RotationRetried, "family_id", storedToken.FamilyID)
+			return storedToken, nil
+		}
+
 		s.Logger.WarnContext(ctx, events.TokenReuseDetected, "family_id", storedToken.FamilyID)
 
 		// Revoke entire token family to invalidate attacker's tokens too
@@ -112,6 +121,26 @@ func (s *SessionService) RotateSession(ctx context.Context, refreshToken string)
 	}
 
 	return storedToken, nil
+}
+
+// retriedRotation reports whether a spent token is a client retrying rather than an attacker replaying
+func (s *SessionService) retriedRotation(ctx context.Context, t *RefreshToken) bool {
+	if t.RevokedAt == nil || time.Since(*t.RevokedAt) > rotationGrace {
+		return false
+	}
+
+	// The client that spent the token is the only one with a reason to present it again
+	if agent := identity.GetUserAgent(ctx); agent == "" || agent != t.UserAgent {
+		return false
+	}
+
+	live, err := s.RefreshTokenDB.CountLiveInFamily(ctx, t.FamilyID)
+	if err != nil {
+		s.Logger.ErrorContext(ctx, "failed to count live tokens in family", "error", err, "family_id", t.FamilyID)
+		return false
+	}
+
+	return live > 0
 }
 
 // ListSessions returns all active sessions for a user

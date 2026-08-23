@@ -58,6 +58,7 @@ const (
 	ExpiredSessionsDeleted  = "expired_sessions_deleted"
 	SessionValidationFailed = "session_validation_failed"
 	TokenReuseDetected      = "token_reuse_detected"
+	RotationRetried         = "rotation_retried"
 )
 
 // Trusted Device Events
