@@ -16,12 +16,11 @@ import (
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
 
-// The strength check runs on the server, and only internal/app wires it up — the services
-// skip it when no checker is configured. Every unit test still passes with that wiring
-// removed, and so does TestPasswordValidation below, which only exercises length.
+// Only internal/app wires the strength check up, and the services skip it when none is
+// configured — so every other test passes with that wiring removed.
 //
-// So this is the test that fails if the checker is ever unwired: a password long enough to
-// clear the request contract, but on the common list, has to be refused by the server.
+// This is the one that fails if it is ever unwired: a password long enough to clear the
+// request contract, but on the common list, has to be refused.
 // "qwertyuiop" is ten characters and hits the embedded list, so no network call is needed.
 func TestPasswordStrengthIsEnforcedByTheServer(t *testing.T) {
 	t.Parallel()

@@ -95,12 +95,11 @@ func initializeServices(
 		Logger:              logger,
 	}
 
-	// Password service for password authentication. SessionRevoker is wired below, once
-	// the session service exists — a password change must end the sessions the old
-	// password created.
 	// Shared: NewValidator builds a word list, so a per-call one rebuilds it each time.
 	passwordValidator := password.NewValidator()
 
+	// SessionRevoker is wired below, once the session service exists: a password change has
+	// to end the sessions the old password created.
 	passwordService := &iam.PasswordService{
 		UserDB:               dbs.users,
 		PasswordValidator:    passwordValidator,

@@ -1,0 +1,235 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func findingsFor(t *testing.T, src string) []finding {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.go")
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := check(path)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	return findings
+}
+
+func TestAnInBodyBlockOverTwoLinesIsReported(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	// one
+	// two
+	// three
+	_ = 1
+}
+`)
+	if len(got) != 1 {
+		t.Fatalf("want 1 finding, got %d", len(got))
+	}
+	if got[0].kind != "in-body" || got[0].lines != 3 || got[0].max != bodyMax {
+		t.Errorf("want a 3-line in-body finding against %d, got %+v", bodyMax, got[0])
+	}
+}
+
+func TestTwoLinesInABodyIsFine(t *testing.T) {
+	if got := findingsFor(t, "package p\n\nfunc f() {\n\t// one\n\t// two\n\t_ = 1\n}\n"); len(got) != 0 {
+		t.Errorf("want none, got %+v", got)
+	}
+}
+
+// A doc comment is the exported contract, so it gets more room than prose about a loop.
+func TestADocCommentIsHeldToTheHigherCap(t *testing.T) {
+	four := `package p
+
+// one
+// two
+// three
+// four
+func F() {}
+`
+	if got := findingsFor(t, four); len(got) != 0 {
+		t.Errorf("four lines of doc should pass, got %+v", got)
+	}
+
+	six := `package p
+
+// one
+// two
+// three
+// four
+// five
+// six
+func F() {}
+`
+	got := findingsFor(t, six)
+	if len(got) != 1 || got[0].kind != "doc" || got[0].max != docMax {
+		t.Fatalf("want one doc finding against %d, got %+v", docMax, got)
+	}
+}
+
+// A comment on a local declaration is prose about code, whatever the AST attaches it to.
+func TestALocalDeclarationCommentIsInBody(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	// one
+	// two
+	// three
+	var x int
+	_ = x
+}
+`)
+	if len(got) != 1 || got[0].kind != "in-body" {
+		t.Fatalf("want an in-body finding, got %+v", got)
+	}
+}
+
+// Comments after code annotate the line. Several sharing one line is the only shape go/ast
+// hands over as a single group, so it is the shape that decides whether they are counted.
+func TestCommentsAfterCodeAreNotABlock(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	a := 1 /* one */ /* two */ // three
+	_ = a
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want annotations on a line not read as a block, got %+v", got)
+	}
+}
+
+// Counted, a directive pads the block it belongs to and pushes the report onto its own line,
+// out of reach of the allow meant to cover it.
+func TestDirectivesAreNotProse(t *testing.T) {
+	// In a body, where two lines is the cap: under a doc comment's five it would pass either way.
+	got := findingsFor(t, `package p
+
+func f() {
+	//nolint:errcheck
+	// one
+	// two
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want the directive uncounted, got %+v", got)
+	}
+}
+
+func TestAnAllowWithAReasonExemptsTheBlock(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	//commentcap:allow -- the four states this maps are not evident from the switch
+	// one
+	// two
+	// three
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want the block allowed, got %+v", got)
+	}
+}
+
+// gofmt only leaves a comment unspaced when it reads as a directive, so a marker it does not
+// recognise comes back as "// commentcap:allow" and would quietly stop matching.
+func TestAnAllowSurvivesGofmtSpacing(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	// commentcap:allow -- spaced by a formatter that did not know the marker
+	// one
+	// two
+	// three
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want the spaced form honoured, got %+v", got)
+	}
+}
+
+// The reason is the whole point of the escape hatch: without it nothing reaches a reviewer.
+func TestABareAllowDoesNotExempt(t *testing.T) {
+	for _, bare := range []string{"//commentcap:allow", "//commentcap:allow --", "//commentcap:allow    "} {
+		src := "package p\n\nfunc f() {\n\t" + bare + "\n\t// one\n\t// two\n\t// three\n\t_ = 1\n}\n"
+		if got := findingsFor(t, src); len(got) != 1 {
+			t.Errorf("%q should not exempt, got %+v", bare, got)
+		}
+	}
+}
+
+// Counting the delimiters leaves a two-line budget no room for a comment at all.
+func TestBlockCommentDelimitersAreNotProse(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	/*
+	   one
+	   two
+	*/
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want two lines of prose to pass, got %+v", got)
+	}
+}
+
+func TestABlankLineInAGroupIsNotProse(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	// one
+	//
+	// two
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want none, got %+v", got)
+	}
+}
+
+// A banner separates sections rather than saying anything; charged as prose it costs three
+// lines for one word of content.
+func TestARuleDrawnInPunctuationIsNotProse(t *testing.T) {
+	got := findingsFor(t, `package p
+
+func f() {
+	// ============================
+	// Authentication
+	// ============================
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want a banner to cost one line, got %+v", got)
+	}
+}
+
+func TestGeneratedFilesAreSkipped(t *testing.T) {
+	got := findingsFor(t, `// Code generated by sqlc. DO NOT EDIT.
+
+package p
+
+func f() {
+	// one
+	// two
+	// three
+	_ = 1
+}
+`)
+	if len(got) != 0 {
+		t.Errorf("want generated files skipped, got %+v", got)
+	}
+}

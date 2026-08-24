@@ -214,10 +214,15 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
 
 ## Development Guidelines
 
-- Keep comments minimal and focused on *why*. The code should speak for itself; do not
-  narrate what a function does. One line where at all possible. Write for someone who
-  never saw the change: "used to" earns its place only where it warns off a path they
-  might take again, and anything else about how the code got this way is a commit message.
+- **The default is no comment.** The code says what it does; a comment is for why it was
+  done this way, and only where that is not evident from reading it. Write for someone who
+  never saw the change: "used to" earns its place only where it warns off a path they might
+  take again, and anything else about how the code got this way is a commit message.
+- `make comments` caps the length, and `make lint` runs it. An in-body comment gets two
+  lines, because it describes code that will change and the code should be saying it. A doc
+  comment gets five, being the exported contract godoc renders. Needing more usually means
+  the code under it is what wants changing; where the length is genuinely earned, keep it
+  with `//commentcap:allow -- <reason>`, which puts the exception in front of a reviewer.
 - No `Co-Authored-By` trailer and no generated-with footer, in commits or PR descriptions.
   The repo squash-merges with the PR body as the message, so anything in it lands in the
   log — write PR descriptions as prose for that reason.
