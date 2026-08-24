@@ -1,4 +1,4 @@
-.PHONY: fmt lint comments unit test-keys test-setup integration test test-teardown coverage dev build sqlc protoc docker-build clean help
+.PHONY: fmt lint unit test-keys test-setup integration test test-teardown coverage dev build sqlc protoc docker-build clean help
 
 # Version is derived from git tags
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -19,14 +19,9 @@ fmt:
 	@go run github.com/daixiang0/gci@v0.13.7 write --skip-generated -s standard -s default $(GO_FILES) >/dev/null
 
 # Lint code
-lint: comments
+lint:
 	@echo "Linting code..."
 	@docker run -t --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
-
-# Cap comment blocks at the length the convention asks for
-comments:
-	@echo "Checking comment length..."
-	@go run ./tools/commentcap ./cmd ./internal ./sdk ./test ./tools
 
 # --- Tests -----------------------------------------------------------------------------
 

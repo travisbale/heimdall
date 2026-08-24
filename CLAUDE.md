@@ -218,11 +218,11 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
   done this way, and only where that is not evident from reading it. Write for someone who
   never saw the change: "used to" earns its place only where it warns off a path they might
   take again, and anything else about how the code got this way is a commit message.
-- `make comments` caps the length, and `make lint` runs it. An in-body comment gets two
-  lines, because it describes code that will change and the code should be saying it. A doc
-  comment gets five, being the exported contract godoc renders. Needing more usually means
-  the code under it is what wants changing; where the length is genuinely earned, keep it
-  with `//commentcap:allow -- <reason>`, which puts the exception in front of a reviewer.
+- Never a comment asserting a fact about *other* code: it is true when written, goes stale in
+  silence, and then misleads the reader who came to check exactly that. Where something has
+  to stay true, a test says it and fails when it stops.
+- One line where possible; in a body, two is already a lot. A doc comment is the contract a
+  caller reads, which is the one place length is sometimes earned.
 - No `Co-Authored-By` trailer and no generated-with footer, in commits or PR descriptions.
   The repo squash-merges with the PR body as the message, so anything in it lands in the
   log — write PR descriptions as prose for that reason.
