@@ -20,8 +20,7 @@ import (
 func CompleteOAuthFlow(t *testing.T, authorizationURL string) *http.Response {
 	t.Helper()
 
-	// Intercept the redirect to the frontend callback URL (/oauth/callback)
-	// since there's no frontend running in tests
+	// Intercepted because no frontend is running to receive the callback.
 	var callbackURL string
 	httpClient := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -37,8 +36,7 @@ func CompleteOAuthFlow(t *testing.T, authorizationURL string) *http.Response {
 		Timeout: 10 * time.Second,
 	}
 
-	// The authorization URL contains the Docker-internal OIDC mock hostname, which isn't
-	// resolvable from the host. Replace it with the host-accessible URL.
+	// The Docker-internal mock hostname does not resolve from the host.
 	config := util.LoadConfig()
 	hostURL := strings.Replace(authorizationURL, config.OIDCMockInternalURL, config.OIDCMockURL, 1)
 

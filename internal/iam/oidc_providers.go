@@ -143,8 +143,7 @@ func (s *OIDCProviderService) DeleteOIDCProvider(ctx context.Context, providerID
 		return err
 	}
 
-	// Only attempt to unregister dynamically registered clients
-	// Manually registered clients must be cleaned up by the admin at the IdP
+	// Only a dynamically registered client can be unregistered from here.
 	if provider.RegistrationMethod == sdk.OIDCRegistrationMethodDynamic && provider.RegistrationClientURI != "" {
 		if err := s.RegistrationClient.Unregister(ctx, provider.RegistrationClientURI, provider.RegistrationAccessToken); err != nil {
 			s.Logger.ErrorContext(ctx, "failed to unregister OAuth client (continuing with deletion)", "error", err, "client_id", provider.ClientID)

@@ -173,8 +173,7 @@ func (r *UpdateOIDCProviderRequest) Validate(ctx context.Context) error {
 		return err
 	}
 
-	// If AllowedDomains is provided (non-nil), it must have at least one entry
-	// nil means "keep existing", empty slice means "clear" (which we don't allow)
+	// nil keeps what is there; an empty slice would mean clear, which is not allowed.
 	if r.AllowedDomains != nil && len(r.AllowedDomains) == 0 {
 		return fmt.Errorf("allowed_domains cannot be empty (at least one domain required for corporate SSO)")
 	}

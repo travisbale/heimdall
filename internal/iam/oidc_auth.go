@@ -184,8 +184,7 @@ func (s *OIDCAuthService) ProcessCallback(ctx context.Context, state, code strin
 
 // handleSSOCallback processes corporate SSO callbacks
 func (s *OIDCAuthService) handleSSOCallback(ctx context.Context, session *OIDCSession, code string) (*User, *OIDCLink, error) {
-	// SSO callback runs pre-authentication, so seed the tenant context from the
-	// session. All subsequent DB operations for this flow run scoped to the tenant.
+	// The callback runs pre-authentication, so the tenant comes from the session.
 	if session.TenantID != nil {
 		ctx = identity.WithTenant(ctx, *session.TenantID)
 	}
@@ -267,8 +266,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 	}
 
 	if existingUser != nil {
-		// Email exists but provider sub is different → likely email reassignment
-		// Require admin to manually deactivate old account before new employee can login
+		// A known email under a new sub is a reassignment: an admin must retire the old one.
 		s.Logger.ErrorContext(ctx, "SSO login blocked: email exists with different provider sub",
 			"email", userInfo.Email,
 			"existing_user_id", existingUser.ID,

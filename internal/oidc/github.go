@@ -47,8 +47,7 @@ func (g *GitHubProvider) GetAuthorizationURL(state, codeVerifier, redirectURI st
 	// Generate PKCE code challenge
 	codeChallenge := generateCodeChallenge(codeVerifier)
 
-	// Build authorization URL with PKCE
-	// Note: GitHub supports PKCE as of 2023
+	// PKCE, which GitHub has supported since 2023.
 	authURL := g.config.AuthCodeURL(
 		state,
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),

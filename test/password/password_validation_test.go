@@ -37,8 +37,7 @@ func TestPasswordStrengthIsEnforcedByTheServer(t *testing.T) {
 
 	token := mailbox.VerificationToken(t, email)
 
-	// Sent raw rather than through the SDK, whose own Validate would pass it: the contract
-	// checks length and nothing else, which is the point.
+	// Sent raw: the SDK's own Validate checks length and nothing else, which is the point.
 	status, body := request.RawRequest(t, http.MethodPost, sdk.RouteV1VerifyEmail,
 		fmt.Sprintf(`{"token":"%s","password":"qwertyuiop"}`, token), "")
 

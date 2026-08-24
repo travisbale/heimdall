@@ -113,8 +113,7 @@ func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email strin
 		return fmt.Errorf("failed to generate reset token: %w", err)
 	}
 
-	// Only the hash is stored: the token is a bearer credential, so a leaked table (or
-	// backup, or replica) must not yield working reset links. The user gets the secret.
+	// Only the hash: the token is a bearer credential, so a leaked table yields no links.
 	expiresAt := time.Now().Add(1 * time.Hour)
 	_, err = s.PasswordResetTokenDB.CreateToken(ctx, user.ID, token.Hash(resetToken), expiresAt)
 	if err != nil {

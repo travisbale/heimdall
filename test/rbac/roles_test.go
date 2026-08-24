@@ -24,8 +24,7 @@ func TestListPermissions(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, perms.Permissions, "should have seeded permissions")
 
-	// A scope constant with no seeded row can never be granted, and a seeded row with no
-	// constant is unenforceable, so the two must stay in lockstep.
+	// A constant with no seeded row cannot be granted; a row with no constant is unenforceable.
 	seeded := make([]iam.Scope, 0, len(perms.Permissions))
 	for _, p := range perms.Permissions {
 		seeded = append(seeded, iam.Scope(p.Name))

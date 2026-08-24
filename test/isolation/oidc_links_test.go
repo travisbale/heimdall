@@ -16,8 +16,7 @@ func TestTenantIsolation_OIDCLinks(t *testing.T) {
 	tenantB := createAdminUser(t, "iso-links-b")
 	ctx := context.Background()
 
-	// Each tenant creates their own OIDC provider
-	// Hardcode the Docker hostname since heimdall does OIDC discovery from inside the container
+	// The Docker hostname is hardcoded: discovery runs from inside the container.
 	providerA, err := tenantA.Client.CreateOIDCProvider(ctx, sdk.CreateOIDCProviderRequest{
 		ProviderName:    "Tenant A Azure",
 		IssuerURL:       util.LoadConfig().OIDCMockInternalURL + "/default",

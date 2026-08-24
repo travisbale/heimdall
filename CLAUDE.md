@@ -221,8 +221,11 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
 - Never a comment asserting a fact about *other* code: it is true when written, goes stale in
   silence, and then misleads the reader who came to check exactly that. Where something has
   to stay true, a test says it and fails when it stops.
-- One line where possible; in a body, two is already a lot. A doc comment is the contract a
-  caller reads, which is the one place length is sometimes earned.
+- **A comment inside a body gets one line**, two only where it is genuinely unavoidable. A
+  third is the code asking to be changed rather than explained.
+- **A doc comment gets five lines of body**, not counting the header line that opens with the
+  name of the thing, nor the blank line under it. It is the contract a caller reads, which is
+  the one place length is sometimes earned.
 - No `Co-Authored-By` trailer and no generated-with footer, in commits or PR descriptions.
   The repo squash-merges with the PR body as the message, so anything in it lands in the
   log — write PR descriptions as prose for that reason.

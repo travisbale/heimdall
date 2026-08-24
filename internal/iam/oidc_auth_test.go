@@ -185,8 +185,7 @@ func TestProcessCallback_AutoProvisioningDisabled(t *testing.T) {
 }
 
 func TestProcessCallback_EmailReassignment_Blocked(t *testing.T) {
-	// Test scenario: Old employee leaves company, email reassigned to new employee
-	// System should block login when email exists but provider sub is different
+	// An email reassigned to a new employee arrives as a known address under a new sub.
 	tenantID := uuid.New()
 
 	// New employee has SAME email but DIFFERENT provider sub
@@ -298,8 +297,7 @@ func TestProcessCallback_EmailReassignment_AllowedAfterDeactivation(t *testing.T
 }
 
 func TestProcessCallback_EmailReassignment_SameSubDifferentEmail(t *testing.T) {
-	// Test scenario: Provider updates user's email (same sub, different email)
-	// System should handle this gracefully since we track by immutable sub claim
+	// Tracking by the immutable sub is what lets a provider change the email.
 	tenantID := uuid.New()
 
 	// User logs in with SAME provider sub but DIFFERENT email (email changed at provider)
@@ -640,8 +638,7 @@ func TestProcessCallback_MissingEmailClaim(t *testing.T) {
 // OIDC Provider CRUD Tests
 
 func TestStartSSOLogin_ProviderFromDifferentTenant(t *testing.T) {
-	// Domain-based SSO discovery doesn't have tenant isolation
-	// Domains are globally unique across all tenants
+	// Domains are globally unique, so discovery by domain crosses tenants.
 	mockProvider := &mockOIDCProvider{authURL: "https://sso1.example.com/auth"}
 	f := newTestFixture(mockProvider, nil)
 

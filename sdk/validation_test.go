@@ -75,8 +75,7 @@ func TestVerifyEmailRequest_Validate(t *testing.T) {
 		assert.Error(t, req.Validate(ctx))
 	})
 
-	// Whether a password is acceptable is the server's call, and the only one — checking
-	// it here as well would judge the same field twice, in two places, on every request.
+	// Whether a password is acceptable is the server's call, and only the server's.
 	t.Run("a short password is the server's to refuse", func(t *testing.T) {
 		req := VerifyEmailRequest{Token: "abc123", Password: "short"}
 		assert.NoError(t, req.Validate(ctx))

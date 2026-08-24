@@ -165,8 +165,7 @@ func (o *OIDCProvidersDB) DeleteOIDCProviderByID(ctx context.Context, id uuid.UU
 func (o *OIDCProvidersDB) GetOIDCProvidersByDomain(ctx context.Context, domain string) ([]*iam.OIDCProviderConfig, error) {
 	var result []*iam.OIDCProviderConfig
 
-	// Domain-based lookup doesn't use tenant context (pre-authentication)
-	// Uses WithTransaction to bypass RLS and search across all tenants
+	// Pre-authentication, so this searches every tenant rather than one.
 	err := o.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		dbProviders, err := q.GetOIDCProvidersByDomain(ctx, domain)
 		if err != nil {
