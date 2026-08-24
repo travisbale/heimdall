@@ -50,8 +50,7 @@ func TestSSOFlow(t *testing.T) {
 	})
 
 	t.Run("returning SSO user authenticates successfully", func(t *testing.T) {
-		// The mock default issuer always returns mockuser@example.com
-		// but domain matching is on the SSO email, not the IdP email
+		// Domain matching is on the SSO email, not the one the IdP returns.
 		ssoEmail := fmt.Sprintf("returning-%d@acmecorp.com", time.Now().UnixNano())
 
 		// First login

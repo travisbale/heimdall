@@ -48,8 +48,7 @@ func TestLogin(t *testing.T) {
 		assertions.AssertAPIError(t, err, http.StatusUnauthorized, "login should fail with wrong password")
 	})
 
-	// The refusal must read the same either way, or the form becomes a way to discover who
-	// holds an account. This is what stops the message naming which half was wrong.
+	// The refusal must read the same either way, or the form discovers who holds an account.
 	t.Run("an unknown address and a wrong password are indistinguishable", func(t *testing.T) {
 		_, unknownErr := client.Login(context.Background(), sdk.LoginRequest{
 			Email:    fmt.Sprintf("nonexistent-%d@test.example.com", time.Now().UnixNano()),

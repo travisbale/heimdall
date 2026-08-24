@@ -73,13 +73,11 @@ func TestTokenRotation(t *testing.T) {
 		assert.NotEqual(t, oldCookie.Value, newCookie.Value, "refresh token should rotate")
 	})
 
-	// A rotation whose response never reached the client leaves it holding the spent value with
-	// no way to know, and no way back if presenting it again ends the session.
+	// A rotation whose response never arrived leaves the client holding a spent value.
 	t.Run("the client that spent a token may present it again", func(t *testing.T) {
 		const agent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"
 
-		// A token carries the user agent it was issued to, so this client has to take the session
-		// over first — the one from login belongs to the default agent, not to ours.
+		// A token carries the agent it was issued to, so this client takes the session over first.
 		client, ownJar := clientPresenting(t, setup.FindRefreshCookie(t, jar), agent)
 		_, err := client.RefreshToken(ctx)
 		require.NoError(t, err)

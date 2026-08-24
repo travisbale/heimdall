@@ -14,8 +14,7 @@ import (
 
 func writeErrorFor(t *testing.T, status int, message string) (int, string) {
 	t.Helper()
-	// Discard the log: the point under test is what reaches the wire, and these cases log
-	// on purpose.
+	// Discard the log: the point under test is what reaches the wire.
 	router := &Router{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	rec := httptest.NewRecorder()
 	router.writeError(context.Background(), rec, status, message, errors.New("the database fell over"))

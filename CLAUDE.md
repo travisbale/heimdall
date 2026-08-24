@@ -214,10 +214,18 @@ Environment variables (all have `--flag` equivalents; see `cmd/heimdall/flags.go
 
 ## Development Guidelines
 
-- Keep comments minimal and focused on *why*. The code should speak for itself; do not
-  narrate what a function does. One line where at all possible. Write for someone who
-  never saw the change: "used to" earns its place only where it warns off a path they
-  might take again, and anything else about how the code got this way is a commit message.
+- **The default is no comment.** The code says what it does; a comment is for why it was
+  done this way, and only where that is not evident from reading it. Write for someone who
+  never saw the change: "used to" earns its place only where it warns off a path they might
+  take again, and anything else about how the code got this way is a commit message.
+- Never a comment asserting a fact about *other* code: it is true when written, goes stale in
+  silence, and then misleads the reader who came to check exactly that. Where something has
+  to stay true, a test says it and fails when it stops.
+- **A comment inside a body gets one line**, two only where it is genuinely unavoidable. A
+  third is the code asking to be changed rather than explained.
+- **A doc comment gets five lines of body**, not counting the header line that opens with the
+  name of the thing, nor the blank line under it. It is the contract a caller reads, which is
+  the one place length is sometimes earned.
 - No `Co-Authored-By` trailer and no generated-with footer, in commits or PR descriptions.
   The repo squash-merges with the PR body as the message, so anything in it lands in the
   log — write PR descriptions as prose for that reason.

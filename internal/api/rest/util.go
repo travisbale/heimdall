@@ -47,8 +47,7 @@ func (r *Router) writeError(ctx context.Context, w http.ResponseWriter, status i
 		r.Logger.ErrorContext(ctx, message, "error", err, "status", status)
 		message = serverFault
 	} else if err != nil {
-		// Client errors log at Warn so a bad request or a missing resource does not
-		// pollute the error stream.
+		// Client errors log at Warn so a bad request does not pollute the error stream.
 		r.Logger.WarnContext(ctx, message, "error", err, "status", status)
 	}
 

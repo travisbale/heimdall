@@ -329,8 +329,7 @@ func TestRecordFailedLogin_WithLastLoginAt(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// The window start should be based on lastLoginAt, not the 24-hour default
-	// This is verified by the fact that the service successfully counts 4 recent failures
+	// The window starts at lastLoginAt rather than the 24-hour default.
 	if len(db.recordedAttempts) != 1 {
 		t.Errorf("expected 1 recorded attempt, got %d", len(db.recordedAttempts))
 	}
