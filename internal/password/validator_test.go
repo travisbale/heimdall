@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -130,33 +130,40 @@ func TestValidator_Validate_CommonPasswords(t *testing.T) {
 func TestValidator_Validate_Breached(t *testing.T) {
 	ctx := context.Background()
 
-	// Test with known breached password
-	t.Run("breached password", func(t *testing.T) {
-		// "password" is known to be breached
+	// A round tripper rather than a test server: HIBPURL is a const, so only intercepting the
+	// transport reaches the request. A server the validator never calls proves nothing.
+	answering := func(t *testing.T, body string) *Validator {
+		t.Helper()
+		v := NewValidator()
+		v.httpClient = &http.Client{Transport: &mockTransport{statusCode: http.StatusOK, response: body}}
+		return v
+	}
+
+	t.Run("a suffix the corpus returns is refused", func(t *testing.T) {
 		password := "MySecurePass"
 
-		// Create mock server that returns a match
-		hash := sha1.New()
-		hash.Write([]byte(password))
-		hashBytes := hash.Sum(nil)
-		hashStr := strings.ToUpper(hex.EncodeToString(hashBytes))
-		suffix := hashStr[5:]
+		if err := answering(t, hibpSuffix(password)+":12345\n").Validate(ctx, password); !errors.Is(err, ErrBreached) {
+			t.Fatalf("want ErrBreached, got %v", err)
+		}
+	})
 
-		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Return the hash suffix with a count
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(suffix + ":12345\n"))
-		}))
-		defer mockServer.Close()
+	// The prefix is all that leaves; the suffix is matched here, so a corpus answering with
+	// other hashes under the same prefix must not tar this password with them.
+	t.Run("other suffixes under the same prefix are accepted", func(t *testing.T) {
+		password := "MySecurePass"
+		body := "0000000000000000000000000000000000001:9\nFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:3\n"
 
-		validator := NewValidator()
-		validator.httpClient = mockServer.Client()
-		// Override the HIBPURL to use mock server - we'll modify the validator to allow this
+		if err := answering(t, body).Validate(ctx, password); err != nil {
+			t.Fatalf("want the password accepted, got %v", err)
+		}
+	})
 
-		err := validator.Validate(ctx, password)
-		// Note: This test demonstrates the structure, but we'd need to refactor
-		// the validator to accept a custom URL for testing
-		_ = err
+	t.Run("a count of zero is not a breach", func(t *testing.T) {
+		password := "MySecurePass"
+
+		if err := answering(t, hibpSuffix(password)+":0\n").Validate(ctx, password); err != nil {
+			t.Fatalf("want a zero count accepted, got %v", err)
+		}
 	})
 
 	t.Run("API unreachable", func(t *testing.T) {
@@ -197,6 +204,13 @@ func TestValidator_isCommonPassword(t *testing.T) {
 			}
 		})
 	}
+}
+
+// hibpSuffix is the part of a password's SHA-1 the corpus answers with — everything after the
+// five characters k-anonymity allows off the machine.
+func hibpSuffix(password string) string {
+	sum := sha1.Sum([]byte(password))
+	return strings.ToUpper(hex.EncodeToString(sum[:]))[5:]
 }
 
 type mockTransport struct {
