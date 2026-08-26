@@ -43,19 +43,16 @@ var cleanupCmd = &cli.Command{
 		}
 		fmt.Printf("Deleted old unverified users (age_days=%d)\n", unverifiedUserAgeDays)
 
-		// Remove OAuth flow sessions that expired (typically 10-15 min expiry)
 		if err := oidcSessionsDB.DeleteExpiredOIDCSessions(ctx); err != nil {
 			return fmt.Errorf("failed to delete expired OIDC sessions: %w", err)
 		}
 		fmt.Println("Deleted expired OIDC sessions")
 
-		// Remove expired email verification tokens (typically 24h expiry)
 		if err := verificationTokensDB.DeleteExpiredTokens(ctx); err != nil {
 			return fmt.Errorf("failed to delete expired verification tokens: %w", err)
 		}
 		fmt.Println("Deleted expired verification tokens")
 
-		// Remove expired password reset tokens (typically 1h expiry)
 		if err := passwordResetTokensDB.DeleteExpiredTokens(ctx); err != nil {
 			return fmt.Errorf("failed to delete expired password reset tokens: %w", err)
 		}

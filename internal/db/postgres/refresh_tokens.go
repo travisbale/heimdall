@@ -11,7 +11,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// RefreshTokensDB manages refresh token storage for session tracking
 type RefreshTokensDB struct {
 	db *DB
 }
@@ -183,7 +182,6 @@ func (r *RefreshTokensDB) RevokeByFamilyID(ctx context.Context, familyID uuid.UU
 	})
 }
 
-// toRefreshToken converts sqlc model to domain model
 func toRefreshToken(row sqlc.RefreshToken) *iam.RefreshToken {
 	return &iam.RefreshToken{
 		ID:         row.ID,

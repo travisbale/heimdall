@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// userDB provides database operations for users
 type userDB interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetUser(ctx context.Context, id uuid.UUID) (*User, error)
@@ -17,12 +16,10 @@ type userDB interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
-// tenantsDB provides database operations for tenants
 type tenantsDB interface {
 	BootstrapTenant(ctx context.Context, email, firstName, lastName string, status UserStatus) (*Tenant, *User, error)
 }
 
-// tokenDB provides database operations for email verification and password reset tokens
 type tokenDB interface {
 	CreateToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) (*UserToken, error)
 	GetToken(ctx context.Context, token string) (*UserToken, error)

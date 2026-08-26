@@ -19,7 +19,6 @@ func MigrateDown(databaseURL string) error {
 	return db.MigrateDown(migrationsFS, "migrations", databaseURL)
 }
 
-// MigrateVersion returns the current migration version
 func MigrateVersion(databaseURL string) (uint, bool, error) {
 	return db.MigrateVersion(migrationsFS, "migrations", databaseURL)
 }

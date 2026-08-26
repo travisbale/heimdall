@@ -35,7 +35,6 @@ func (s *SessionTokens) RequiresMFASetup() bool {
 	return s.MFASetupToken != ""
 }
 
-// refreshTokenDB abstracts database operations for refresh tokens
 type refreshTokenDB interface {
 	Create(ctx context.Context, token *RefreshToken) (*RefreshToken, error)
 	GetByHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
@@ -97,7 +96,7 @@ func (s *SessionService) RotateSession(ctx context.Context, refreshToken string)
 		return nil, err
 	}
 
-	// REUSE DETECTION: If token already revoked, it's being replayed (theft)
+	// A spent token is either a client repeating itself or somebody else holding a copy.
 	if storedToken.RevokedAt != nil {
 		if s.retriedRotation(ctx, storedToken) {
 			s.Logger.InfoContext(ctx, events.RotationRetried, "family_id", storedToken.FamilyID)

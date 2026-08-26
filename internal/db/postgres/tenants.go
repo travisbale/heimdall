@@ -10,7 +10,6 @@ import (
 	"github.com/travisbale/knowhere/identity"
 )
 
-// TenantsDB provides database operations for tenants
 type TenantsDB struct {
 	db *DB
 }

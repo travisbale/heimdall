@@ -8,8 +8,8 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// listSupportedProviders returns OAuth providers available for individual login (not SSO)
-// Public endpoint used by login UI to display "Login with Google" buttons
+// listSupportedProviders returns the OAuth providers configured for individual login, as
+// opposed to the tenant-scoped ones behind corporate SSO. Public: a caller has no account yet.
 func (r *Router) listSupportedProviders(w http.ResponseWriter, req *http.Request) {
 	providers := []sdk.OIDCProviderTypeInfo{
 		{

@@ -97,7 +97,6 @@ func (r *TrustedDevicesDB) DeleteExpired(ctx context.Context) error {
 	})
 }
 
-// toTrustedDevice converts sqlc model to domain model
 func toTrustedDevice(row sqlc.TrustedDevice) *iam.TrustedDevice {
 	return &iam.TrustedDevice{
 		ID:         row.ID,

@@ -22,7 +22,6 @@ type cipher interface {
 	Decrypt(ciphertext string) (string, error)
 }
 
-// MFASettingsDB provides database operations for MFA settings
 type MFASettingsDB interface {
 	Create(ctx context.Context, userID uuid.UUID, encryptedSecret string) (*iam.MFASettings, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*iam.MFASettings, error)

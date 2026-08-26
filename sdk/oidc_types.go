@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// OIDCProviderType represents an OIDC provider type
 type OIDCProviderType string
 
 const (
@@ -19,7 +18,7 @@ const (
 	OIDCProviderTypeOkta      OIDCProviderType = "okta"
 )
 
-// OIDCRegistrationMethod represents how an OIDC provider was registered
+// OIDCRegistrationMethod is whether a provider was registered by hand or discovered.
 type OIDCRegistrationMethod string
 
 const (
@@ -58,12 +57,11 @@ func (p OIDCProviderType) DisplayName() string {
 	}
 }
 
-// OIDCLoginRequest represents the individual OAuth login request body
+// OIDCLoginRequest signs in through a personal account (Google, GitHub), not corporate SSO.
 type OIDCLoginRequest struct {
 	ProviderType OIDCProviderType `json:"provider_type"`
 }
 
-// Validate validates the OIDC login request
 func (r *OIDCLoginRequest) Validate(ctx context.Context) error {
 	if !r.ProviderType.IsValid() {
 		return fmt.Errorf("invalid provider_type: must be one of google, microsoft, github, or okta")
@@ -71,22 +69,23 @@ func (r *OIDCLoginRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// SSOLoginRequest represents the corporate SSO login request body
+// SSOLoginRequest signs in through the provider configured for the address's domain. The
+// address is a hint for choosing that provider; the identity comes from the provider.
 type SSOLoginRequest struct {
 	Email string `json:"email"`
 }
 
-// Validate validates the SSO login request
 func (r *SSOLoginRequest) Validate(ctx context.Context) error {
 	return validateEmail(r.Email)
 }
 
-// OIDCAuthResponse represents the OIDC authentication response with authorization URL
+// OIDCAuthResponse is where to send the browser to begin the flow.
 type OIDCAuthResponse struct {
 	AuthorizationURL string `json:"authorization_url"`
 }
 
-// OIDCProvider represents an OIDC provider configuration (includes secrets)
+// OIDCProvider is a provider configuration including its client secret, so it is only ever
+// returned to a caller holding an OIDC read scope.
 type OIDCProvider struct {
 	ID                       uuid.UUID              `json:"id"`
 	ProviderName             string                 `json:"provider_name"`
@@ -102,7 +101,6 @@ type OIDCProvider struct {
 	ClientSecretExpiresAt    *time.Time             `json:"client_secret_expires_at,omitempty"`
 }
 
-// CreateOIDCProviderRequest represents the request to create an OIDC provider
 type CreateOIDCProviderRequest struct {
 	ProviderName             string   `json:"provider_name"`
 	IssuerURL                string   `json:"issuer_url"`
@@ -116,7 +114,6 @@ type CreateOIDCProviderRequest struct {
 	RequireEmailVerification bool     `json:"require_email_verification"`
 }
 
-// Validate validates the create OIDC provider request
 func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.ProviderName, "provider_name"); err != nil {
 		return err
@@ -144,17 +141,14 @@ func (r *CreateOIDCProviderRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// GetOIDCProviderRequest represents the request to get an OIDC provider by ID
 type GetOIDCProviderRequest struct {
 	ProviderID uuid.UUID `json:"-"` // From URL parameter
 }
 
-// Validate validates the get OIDC provider request
 func (r *GetOIDCProviderRequest) Validate(ctx context.Context) error {
 	return validateUUID(r.ProviderID, "provider_id")
 }
 
-// UpdateOIDCProviderRequest represents the request to update an OIDC provider
 // All fields are optional pointers to support partial updates
 type UpdateOIDCProviderRequest struct {
 	ProviderID               uuid.UUID `json:"-"`                                    // From URL parameter, not JSON body
@@ -167,7 +161,6 @@ type UpdateOIDCProviderRequest struct {
 	RequireEmailVerification *bool     `json:"require_email_verification,omitempty"` // Optional: update email verification requirement
 }
 
-// Validate validates the update OIDC provider request
 func (r *UpdateOIDCProviderRequest) Validate(ctx context.Context) error {
 	if err := validateUUID(r.ProviderID, "provider_id"); err != nil {
 		return err
@@ -181,28 +174,23 @@ func (r *UpdateOIDCProviderRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// DeleteOIDCProviderRequest represents the request to delete an OIDC provider
 type DeleteOIDCProviderRequest struct {
 	ProviderID uuid.UUID `json:"-"` // From URL parameter
 }
 
-// Validate validates the delete OIDC provider request
 func (r *DeleteOIDCProviderRequest) Validate(ctx context.Context) error {
 	return validateUUID(r.ProviderID, "provider_id")
 }
 
-// OIDCProvidersResponse represents the response with a list of OIDC providers
 type OIDCProvidersResponse struct {
 	Providers []OIDCProvider `json:"providers"`
 }
 
-// OIDCProviderTypeInfo represents information about a supported OAuth provider type
 type OIDCProviderTypeInfo struct {
 	Type        OIDCProviderType `json:"type"`
 	DisplayName string           `json:"display_name"`
 }
 
-// OIDCProviderTypesResponse represents the response with supported OIDC provider types
 type OIDCProviderTypesResponse struct {
 	Providers []OIDCProviderTypeInfo `json:"providers"`
 }

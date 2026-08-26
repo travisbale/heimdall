@@ -18,11 +18,10 @@ const (
 	// DeviceTokenPrefix identifies device trust tokens for secret scanning
 	DeviceTokenPrefix = "hmdl_device_"
 
-	// DeviceTrustDays is the default trust duration
+	// DeviceTrustDays is how long a device stays trusted, extended on each use.
 	DeviceTrustDays = 30
 )
 
-// trustedDeviceDB abstracts database operations for trusted devices
 type trustedDeviceDB interface {
 	Create(ctx context.Context, device *TrustedDevice) (*TrustedDevice, error)
 	GetByTokenHash(ctx context.Context, tokenHash string) (*TrustedDevice, error)
@@ -70,7 +69,7 @@ func (s *TrustedDeviceService) ValidateTrustedDevice(ctx context.Context, device
 	tokenHash := token.Hash(deviceToken)
 	device, err := s.TrustedDeviceDB.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
-		// Not found or expired = not trusted, not an error
+		// Unknown, expired or revoked: not trusted, and not an error either.
 		return false, nil
 	}
 

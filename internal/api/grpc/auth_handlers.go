@@ -10,7 +10,6 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// authService defines the interface for authentication operations
 type authService interface {
 	CreateUser(ctx context.Context, user *iam.User, roleIDs []uuid.UUID) (*iam.User, string, error)
 }

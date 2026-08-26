@@ -8,10 +8,8 @@ import (
 	"github.com/travisbale/knowhere/db/postgres"
 )
 
-// DB is the database connection for heimdall
 type DB = postgres.DB[*sqlc.Queries]
 
-// NewDB creates a new database connection pool
 func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	cfg := postgres.DefaultConfig()
 

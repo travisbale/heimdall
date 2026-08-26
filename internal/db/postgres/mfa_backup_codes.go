@@ -18,7 +18,6 @@ func NewMFABackupCodesDB(db *DB) *MFABackupCodesDB {
 	return &MFABackupCodesDB{db: db}
 }
 
-// CreateBatch creates multiple backup codes using batch insert
 func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, codeHashes []string) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		params := make([]sqlc.CreateBackupCodesParams, len(codeHashes))
@@ -37,7 +36,6 @@ func (r *MFABackupCodesDB) CreateBatch(ctx context.Context, userID uuid.UUID, co
 	})
 }
 
-// GetUnusedByUserID retrieves all unused backup codes for a user
 func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*iam.MFABackupCode, error) {
 	var result []*iam.MFABackupCode
 
@@ -63,7 +61,6 @@ func (r *MFABackupCodesDB) GetUnusedByUserID(ctx context.Context, userID uuid.UU
 	return result, err
 }
 
-// MarkUsed marks a backup code as used
 func (r *MFABackupCodesDB) MarkUsed(ctx context.Context, codeID uuid.UUID) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		err := q.MarkBackupCodeUsed(ctx, codeID)
@@ -74,7 +71,6 @@ func (r *MFABackupCodesDB) MarkUsed(ctx context.Context, codeID uuid.UUID) error
 	})
 }
 
-// DeleteByUserID deletes all backup codes for a user
 func (r *MFABackupCodesDB) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		err := q.DeleteBackupCodesByUserID(ctx, userID)
@@ -85,7 +81,6 @@ func (r *MFABackupCodesDB) DeleteByUserID(ctx context.Context, userID uuid.UUID)
 	})
 }
 
-// CountUnused counts unused backup codes for a user
 func (r *MFABackupCodesDB) CountUnused(ctx context.Context, userID uuid.UUID) (int, error) {
 	var count int64
 

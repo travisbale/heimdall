@@ -8,7 +8,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// UserPermissionsDB provides database operations for direct user permissions
 type UserPermissionsDB struct {
 	db *DB
 }
@@ -44,7 +43,6 @@ func (u *UserPermissionsDB) SetDirectPermissions(ctx context.Context, userID uui
 	})
 }
 
-// GetDirectPermissions retrieves direct permissions assigned to a user
 func (u *UserPermissionsDB) GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*iam.EffectivePermission, error) {
 	var assignments []*iam.EffectivePermission
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {

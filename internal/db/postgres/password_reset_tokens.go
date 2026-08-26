@@ -70,7 +70,6 @@ func (r *PasswordResetTokensDB) GetToken(ctx context.Context, token string) (*ia
 	return result, err
 }
 
-// DeleteToken removes reset token after successful password change
 func (r *PasswordResetTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeletePasswordResetToken(ctx, userID); err != nil {
