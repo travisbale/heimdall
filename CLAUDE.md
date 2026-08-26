@@ -51,7 +51,7 @@ internal/app/            # Lifecycle and dependency wiring
   └── setup.go, config.go, oidc_providers.go
 
 internal/api/rest/       # HTTP layer (stdlib ServeMux, method-prefixed patterns)
-internal/api/grpc/       # gRPC layer (CreateUser, GetUserByID for internal services)
+internal/api/grpc/       # gRPC layer (CreateUser, for internal services)
 internal/iam/            # Domain layer: services, models, sentinel errors, scopes
 internal/password/       # Password policy (length, common list, HIBP)
 internal/oidc/, mfa/totp/, email/, events/
