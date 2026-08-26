@@ -125,6 +125,14 @@ func (s *AuthService) AuthenticateWithMFA(ctx context.Context, challengeToken, c
 		return nil, err
 	}
 
+	user, err := s.UserService.GetUser(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load user: %w", err)
+	}
+	if err := signInAllowed(user); err != nil {
+		return nil, err
+	}
+
 	tokens, err := s.createSession(ctx, claims.TenantID, claims.UserID)
 	if err != nil {
 		return nil, err
@@ -304,9 +312,11 @@ func (s *AuthService) HandleTokenReuse(ctx context.Context, userID uuid.UUID) {
 
 // completeAuthentication checks MFA status and either issues tokens or requires MFA.
 //
-// Every way in arrives here — a password, an SSO assertion, a just-verified registration —
-// which is why the account is asked whether it may hold a session at all in this one place.
-// A provider will keep asserting an identity it has no reason to think has been withdrawn.
+// The three ways a sign-in begins arrive here — a password, an SSO assertion, a just-verified
+// registration — so the account is asked whether it may hold one at all before any of them
+// gets further. A provider will keep asserting an identity it has no reason to think has been
+// withdrawn. The two that resume a sign-in already under way, AuthenticateWithMFA and
+// RefreshSession, ask again themselves.
 func (s *AuthService) completeAuthentication(ctx context.Context, user *User, deviceToken string) (*SessionTokens, error) {
 	if err := signInAllowed(user); err != nil {
 		return nil, err

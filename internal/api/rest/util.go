@@ -154,3 +154,8 @@ func passwordRejection(err error) string {
 		return "Password does not meet the requirements"
 	}
 }
+
+// accountDeactivated is what a refused sign-in is told, wherever it was refused. Every door
+// gives the same answer because they are the same refusal, and a caller comparing two of
+// them should find nothing to tell them apart.
+const accountDeactivated = "This account is no longer active. Please contact your administrator."

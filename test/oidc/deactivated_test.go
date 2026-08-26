@@ -70,6 +70,8 @@ func TestSSORefusesADeactivatedAccount(t *testing.T) {
 	resp := CompleteOAuthFlow(t, authResp.AuthorizationURL)
 	defer func() { _ = resp.Body.Close() }()
 
-	assert.NotEqual(t, http.StatusOK, resp.StatusCode,
-		"a suspended account must not be signed in through SSO")
+	// The status, not merely "not 200": every way of failing to sign in looks alike to a
+	// NotEqual, including a 500 from a refusal nobody mapped.
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode,
+		"a suspended account must be refused through SSO, and refused as a policy decision")
 }

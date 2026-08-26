@@ -98,6 +98,9 @@ func (r *Router) oauthCallback(w http.ResponseWriter, req *http.Request) {
 		case errors.Is(err, iam.ErrProviderEmailNotVerified):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "Email must be verified by your OAuth provider", err)
 
+		case errors.Is(err, iam.ErrAccountIsInactive):
+			r.writeError(req.Context(), w, http.StatusForbidden, accountDeactivated, err)
+
 		case errors.Is(err, iam.ErrEmailConflict):
 			r.writeError(req.Context(), w, http.StatusConflict, "This email address is associated with an existing account. Please contact your administrator.", err)
 

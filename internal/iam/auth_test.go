@@ -430,6 +430,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 
 		tokens, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false)
 		if err != nil {
@@ -463,6 +464,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.mfaService.verifyCodeErr = ErrInvalidMFACode
 
 		_, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "wrong_code", false)
@@ -562,6 +564,22 @@ func TestAuthenticateWithOIDC_RefusesADeactivatedAccount(t *testing.T) {
 	f.oidcService.user = &User{ID: uuid.New(), TenantID: uuid.New(), Status: UserStatusSuspended}
 
 	if _, err := f.service.AuthenticateWithOIDC(ctx, "state", "code"); !errors.Is(err, ErrAccountIsInactive) {
+		t.Errorf("expected ErrAccountIsInactive, got %v", err)
+	}
+}
+
+// A challenge token says who passed the password half, not that they are still allowed the
+// second — the account can be deactivated between the two.
+func TestAuthenticateWithMFA_RefusesADeactivatedAccount(t *testing.T) {
+	f := newAuthServiceTestFixture()
+	ctx := context.Background()
+
+	userID := uuid.New()
+	tenantID := uuid.New()
+	f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+	f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusSuspended}
+
+	if _, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false); !errors.Is(err, ErrAccountIsInactive) {
 		t.Errorf("expected ErrAccountIsInactive, got %v", err)
 	}
 }
