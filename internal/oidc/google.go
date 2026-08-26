@@ -29,7 +29,8 @@ func NewGoogleProvider(ctx context.Context, cfg *ProviderConfig) (*GoogleProvide
 func (g *GoogleProvider) GetAuthorizationURL(state, codeVerifier, redirectURI string) (string, error) {
 	var extraParams []oauth2.AuthCodeOption
 
-	// A mock OAuth server does not support prompt=consent, and it blocks the redirect.
+	// Google itself only: a mock OAuth server does not support prompt=consent, and sending it
+	// stops the redirect coming back.
 	if g.issuerURL == "https://accounts.google.com" {
 		extraParams = []oauth2.AuthCodeOption{
 			oauth2.SetAuthURLParam("access_type", "offline"), // Request refresh token
