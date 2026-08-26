@@ -170,6 +170,8 @@ func (r *Router) mfaLogin(w http.ResponseWriter, req *http.Request) {
 			r.writeError(req.Context(), w, http.StatusUnauthorized, "Invalid backup code", err)
 		case errors.Is(err, iam.ErrBackupCodeAlreadyUsed):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "This backup code has already been used", err)
+		case errors.Is(err, iam.ErrAccountIsInactive):
+			r.writeError(req.Context(), w, http.StatusForbidden, accountDeactivated, err)
 		case errors.Is(err, iam.ErrMFANotEnabled):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "MFA is not enabled", err)
 		default:

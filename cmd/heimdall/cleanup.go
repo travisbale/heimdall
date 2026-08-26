@@ -32,6 +32,7 @@ var cleanupCmd = &cli.Command{
 		verificationTokensDB := postgres.NewVerificationTokensDB(db)
 		passwordResetTokensDB := postgres.NewPasswordResetTokensDB(db)
 		refreshTokensDB := postgres.NewRefreshTokensDB(db)
+		trustedDevicesDB := postgres.NewTrustedDevicesDB(db)
 
 		fmt.Println("Deleting expired database records...")
 
@@ -65,6 +66,12 @@ var cleanupCmd = &cli.Command{
 			return fmt.Errorf("failed to delete expired refresh tokens: %w", err)
 		}
 		fmt.Println("Deleted expired refresh tokens")
+
+		// Remove expired and old revoked trusted devices
+		if err := trustedDevicesDB.DeleteExpired(ctx); err != nil {
+			return fmt.Errorf("failed to delete expired trusted devices: %w", err)
+		}
+		fmt.Println("Deleted expired trusted devices")
 
 		fmt.Println("Database cleanup completed successfully")
 		return nil

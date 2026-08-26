@@ -106,8 +106,13 @@ const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
 FROM users
 WHERE email = $1 AND status != 'inactive'
+ORDER BY (status = 'active') DESC, created_at DESC
+LIMIT 1
 `
 
+// The index on email is partial, so a deactivated row and a live one can hold one address
+// at once — an address is handed to whoever holds the job now. Unordered, this returns
+// whichever row the scan reached first, which is the one the address used to belong to.
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User

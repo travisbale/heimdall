@@ -259,7 +259,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		// MFA disabled by default (enabled = false)
 
 		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
@@ -284,7 +284,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		f.mfaService.enabled = true
 
 		tokens, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
@@ -321,7 +321,7 @@ func TestAuthenticateWithPassword(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.mfaService.isMFAEnabledErr = errors.New("database error")
 
 		_, err := f.service.AuthenticateWithPassword(ctx, "user@example.com", "password", "")
@@ -338,7 +338,7 @@ func TestAuthenticateWithOIDC(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.oidcService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.oidcService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 
 		tokens, err := f.service.AuthenticateWithOIDC(ctx, "state", "code")
 		if err != nil {
@@ -374,7 +374,7 @@ func TestCompleteRegistration(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		// MFA disabled by default (enabled = false)
 
 		tokens, err := f.service.CompleteRegistration(ctx, "verification_token", "password")
@@ -396,7 +396,7 @@ func TestCompleteRegistration(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		f.mfaService.enabled = true
 
 		tokens, err := f.service.CompleteRegistration(ctx, "verification_token", "password")
@@ -430,6 +430,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 
 		tokens, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false)
 		if err != nil {
@@ -463,6 +464,7 @@ func TestAuthenticateWithMFA(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.mfaService.verifyCodeErr = ErrInvalidMFACode
 
 		_, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "wrong_code", false)
@@ -481,6 +483,7 @@ func TestRefreshSession(t *testing.T) {
 		tenantID := uuid.New()
 		familyID := uuid.New()
 		f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.sessionService.rotatedToken = &RefreshToken{
 			UserID:   userID,
 			FamilyID: familyID,
@@ -518,6 +521,7 @@ func TestRefreshSession(t *testing.T) {
 		userID := uuid.New()
 		tenantID := uuid.New()
 		f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.sessionService.rotateErr = ErrTokenReused
 
 		_, err := f.service.RefreshSession(ctx, "reused_token")
@@ -530,6 +534,56 @@ func TestRefreshSession(t *testing.T) {
 	})
 }
 
+// A refresh renews access for as long as it keeps being asked, so an account deactivated
+// while signed in would otherwise never lose the session it already had.
+func TestRefreshSession_RefusesADeactivatedAccount(t *testing.T) {
+	for _, status := range []UserStatus{UserStatusSuspended, UserStatusInactive} {
+		t.Run(string(status), func(t *testing.T) {
+			f := newAuthServiceTestFixture()
+			ctx := context.Background()
+
+			userID := uuid.New()
+			tenantID := uuid.New()
+			f.jwtService.refreshClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+			f.userService.user = &User{ID: userID, TenantID: tenantID, Status: status}
+			f.sessionService.rotatedToken = &RefreshToken{UserID: userID, FamilyID: uuid.New()}
+
+			if _, err := f.service.RefreshSession(ctx, "refresh_token"); !errors.Is(err, ErrAccountIsInactive) {
+				t.Errorf("expected ErrAccountIsInactive, got %v", err)
+			}
+		})
+	}
+}
+
+// Every door reaches completeAuthentication, so SSO is refused by the same rule and needs
+// no check of its own.
+func TestAuthenticateWithOIDC_RefusesADeactivatedAccount(t *testing.T) {
+	f := newAuthServiceTestFixture()
+	ctx := context.Background()
+
+	f.oidcService.user = &User{ID: uuid.New(), TenantID: uuid.New(), Status: UserStatusSuspended}
+
+	if _, err := f.service.AuthenticateWithOIDC(ctx, "state", "code"); !errors.Is(err, ErrAccountIsInactive) {
+		t.Errorf("expected ErrAccountIsInactive, got %v", err)
+	}
+}
+
+// A challenge token says who passed the password half, not that they are still allowed the
+// second — the account can be deactivated between the two.
+func TestAuthenticateWithMFA_RefusesADeactivatedAccount(t *testing.T) {
+	f := newAuthServiceTestFixture()
+	ctx := context.Background()
+
+	userID := uuid.New()
+	tenantID := uuid.New()
+	f.jwtService.mfaChallengeClaims = &JWTClaims{UserID: userID, TenantID: tenantID}
+	f.userService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusSuspended}
+
+	if _, err := f.service.AuthenticateWithMFA(ctx, "challenge_token", "123456", false); !errors.Is(err, ErrAccountIsInactive) {
+		t.Errorf("expected ErrAccountIsInactive, got %v", err)
+	}
+}
+
 func TestCreateSession_Errors(t *testing.T) {
 	t.Run("GetUserScopesError", func(t *testing.T) {
 		f := newAuthServiceTestFixture()
@@ -537,7 +591,7 @@ func TestCreateSession_Errors(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		// MFA disabled by default
 		f.rbacService.getUserScopesError = errors.New("database error")
 
@@ -553,7 +607,7 @@ func TestCreateSession_Errors(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		// MFA disabled by default
 		f.jwtService.issueAccessTokenErr = errors.New("signing error")
 
@@ -569,7 +623,7 @@ func TestCreateSession_Errors(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		// MFA disabled by default
 		f.jwtService.issueRefreshTokenErr = errors.New("signing error")
 
@@ -586,7 +640,7 @@ func TestIssueMFAChallenge_Error(t *testing.T) {
 
 	userID := uuid.New()
 	tenantID := uuid.New()
-	f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+	f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 	f.mfaService.enabled = true
 	f.jwtService.issueMFAChallengeTokenErr = errors.New("signing error")
 
@@ -603,7 +657,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		// MFA not enabled, but role requires it
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAVal = true
@@ -630,7 +684,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAErr = errors.New("database error")
 
@@ -646,7 +700,7 @@ func TestAuthenticateWithPassword_MFASetupRequired(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.passwordService.user = &User{ID: userID, TenantID: tenantID}
+		f.passwordService.user = &User{ID: userID, TenantID: tenantID, Status: UserStatusActive}
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAVal = true
 		f.jwtService.issueMFASetupTokenErr = errors.New("signing error")
@@ -665,7 +719,7 @@ func TestAuthenticateWithOIDC_MFASetupRequired(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.oidcService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.oidcService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		// MFA not enabled, but role requires it
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAVal = true
@@ -691,7 +745,7 @@ func TestCompleteRegistration_MFASetupRequired(t *testing.T) {
 
 		userID := uuid.New()
 		tenantID := uuid.New()
-		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com"}
+		f.userService.user = &User{ID: userID, TenantID: tenantID, Email: "user@example.com", Status: UserStatusActive}
 		// MFA not enabled, but role requires it
 		f.mfaService.enabled = false
 		f.rbacService.userRolesRequireMFAVal = true

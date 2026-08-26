@@ -10,7 +10,7 @@ import (
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrMismatchedHash = argon2.ErrMismatchedHash
 var ErrUserNotFound = errors.New("user not found")
-var ErrAccountIsInactive = errors.New("user account is not active")
+var ErrAccountIsInactive = errors.New("user account is suspended or inactive")
 var ErrEmailNotVerified = errors.New("email address not verified")
 var ErrDuplicateEmail = errors.New("email address is already registered")
 var ErrAccountLocked = errors.New("account is temporarily locked due to too many failed login attempts")

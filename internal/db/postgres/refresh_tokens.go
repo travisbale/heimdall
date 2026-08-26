@@ -130,12 +130,8 @@ func (r *RefreshTokensDB) RevokeAllByUserID(ctx context.Context, userID uuid.UUI
 
 // DeleteExpired cleans up expired and old revoked tokens (cleanup job: no tenant context)
 func (r *RefreshTokensDB) DeleteExpired(ctx context.Context) error {
-	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		err := q.DeleteExpiredRefreshTokens(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to delete expired refresh tokens: %w", err)
-		}
-		return nil
+	return sweepTenants(ctx, r.db, func(ctx context.Context, q *sqlc.Queries) error {
+		return q.DeleteExpiredRefreshTokens(ctx)
 	})
 }
 

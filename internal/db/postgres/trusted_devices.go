@@ -92,12 +92,8 @@ func (r *TrustedDevicesDB) RevokeAllByUserID(ctx context.Context, userID uuid.UU
 
 // DeleteExpired cleans up expired and old revoked devices (cleanup job: no tenant context)
 func (r *TrustedDevicesDB) DeleteExpired(ctx context.Context) error {
-	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		err := q.DeleteExpiredTrustedDevices(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to delete expired trusted devices: %w", err)
-		}
-		return nil
+	return sweepTenants(ctx, r.db, func(ctx context.Context, q *sqlc.Queries) error {
+		return q.DeleteExpiredTrustedDevices(ctx)
 	})
 }
 

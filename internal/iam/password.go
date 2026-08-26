@@ -53,7 +53,9 @@ func (s *PasswordService) revokeSessions(ctx context.Context, userID uuid.UUID) 
 	}
 }
 
-// VerifyCredentials verifies user credentials and returns the active user account
+// VerifyCredentials checks a password and returns the account behind it. An unverified
+// account is refused here because it has never set one; whether the account may hold a
+// session at all is decided once, for every door, in completeAuthentication.
 func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password string) (*User, error) {
 	if locked, _, err := s.LoginAttemptsService.IsAccountLocked(ctx, email); err != nil {
 		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
@@ -208,4 +210,18 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uuid.UUID, 
 	s.Logger.InfoContext(ctx, events.PasswordChanged, "user_id", userID)
 
 	return nil
+}
+
+// signInAllowed reports whether an account may hold a session. Deactivation has to reach
+// the access already granted as well as the next login, so this is asked on each refresh
+// too, not only when a session is created.
+func signInAllowed(user *User) error {
+	switch user.Status {
+	case UserStatusActive:
+		return nil
+	case UserStatusUnverified:
+		return ErrEmailNotVerified
+	default:
+		return ErrAccountIsInactive
+	}
 }

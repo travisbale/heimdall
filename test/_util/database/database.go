@@ -47,3 +47,13 @@ func QueryRow(t *testing.T, query string, args ...any) pgx.Row {
 	t.Helper()
 	return getPool(t).QueryRow(context.Background(), query, args...)
 }
+
+// ExecRows is Exec, returning the number of rows it touched. A fixture that updates nothing
+// still succeeds, so a test that has to change a specific row asserts on this rather than
+// trusting the statement ran.
+func ExecRows(t *testing.T, query string, args ...any) int64 {
+	t.Helper()
+	tag, err := getPool(t).Exec(context.Background(), query, args...)
+	require.NoError(t, err, "failed to execute query: %s", query)
+	return tag.RowsAffected()
+}
