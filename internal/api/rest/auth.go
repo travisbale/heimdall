@@ -28,6 +28,8 @@ func (r *Router) login(w http.ResponseWriter, req *http.Request) {
 			r.writeError(req.Context(), w, http.StatusUnauthorized, "Incorrect email or password", err)
 		case errors.Is(err, iam.ErrEmailNotVerified):
 			r.writeError(req.Context(), w, http.StatusForbidden, "Please verify your email address before logging in", err)
+		case errors.Is(err, iam.ErrAccountIsInactive):
+			r.writeError(req.Context(), w, http.StatusForbidden, "This account is no longer active. Please contact your administrator.", err)
 		case errors.Is(err, iam.ErrAccountLocked):
 			r.writeError(req.Context(), w, http.StatusTooManyRequests, "Too many failed login attempts. Please try again later.", err)
 		default:

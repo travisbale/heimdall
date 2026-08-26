@@ -156,6 +156,29 @@ func TestLogin(t *testing.T) {
 			t.Errorf("expected ErrEmailNotVerified, got %v", err)
 		}
 	})
+
+	// A deactivated account keeps its password hash, and 001's partial unique index lets a
+	// new employee take the address the old one is still holding. Knowing the password is
+	// not the question here; being someone who may still sign in is.
+	for _, status := range []UserStatus{UserStatusSuspended, UserStatusInactive} {
+		t.Run(string(status), func(t *testing.T) {
+			f := newPasswordServiceTestFixture()
+			ctx := context.Background()
+
+			addUserToMockDB(f.userDB, &User{
+				ID:           uuid.New(),
+				TenantID:     uuid.New(),
+				Email:        "former@example.com",
+				PasswordHash: "hashed_password",
+				Status:       status,
+			})
+
+			_, err := f.service.VerifyCredentials(ctx, "former@example.com", "password")
+			if !errors.Is(err, ErrAccountIsInactive) {
+				t.Errorf("expected ErrAccountIsInactive, got %v", err)
+			}
+		})
+	}
 }
 
 func TestInitiatePasswordReset(t *testing.T) {

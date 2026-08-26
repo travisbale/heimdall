@@ -53,7 +53,10 @@ func (s *PasswordService) revokeSessions(ctx context.Context, userID uuid.UUID) 
 	}
 }
 
-// VerifyCredentials verifies user credentials and returns the active user account
+// VerifyCredentials checks a password and returns the account behind it. Only an active
+// account may sign in: unverified is refused so an address is proved first, and suspended
+// or inactive is refused because a deactivated account keeps its password hash and may have
+// given its address up to somebody else.
 func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password string) (*User, error) {
 	if locked, _, err := s.LoginAttemptsService.IsAccountLocked(ctx, email); err != nil {
 		return nil, fmt.Errorf("failed to check account lockout status: %w", err)
@@ -96,6 +99,9 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 
 	if user.Status == UserStatusUnverified {
 		return nil, ErrEmailNotVerified
+	}
+	if user.Status != UserStatusActive {
+		return nil, ErrAccountIsInactive
 	}
 
 	return user, nil
