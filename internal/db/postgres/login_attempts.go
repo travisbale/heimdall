@@ -12,7 +12,8 @@ import (
 	"github.com/travisbale/knowhere/identity"
 )
 
-// LoginAttemptsDB tracks failed login attempts for progressive lockout and audit trail
+// LoginAttemptsDB records every failed sign-in, which is what the progressive lockout counts
+// and what an audit of an account under attack reads.
 type LoginAttemptsDB struct {
 	db *DB
 }
@@ -76,7 +77,6 @@ func (r *LoginAttemptsDB) GetMostRecentLockout(ctx context.Context, email string
 	return lockedUntil, err
 }
 
-// DeleteLoginAttempts removes all login attempts for a user after successful authentication
 func (r *LoginAttemptsDB) DeleteLoginAttempts(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		err := q.DeleteLoginAttempts(ctx, &userID)

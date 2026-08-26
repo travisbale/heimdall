@@ -76,7 +76,7 @@ func (c *RegistrationClient) Discover(ctx context.Context, issuerURL string) (*i
 	return &metadata, nil
 }
 
-// oidcRegistrationRequest represents RFC 7591 dynamic client registration
+// oidcRegistrationRequest is the RFC 7591 dynamic client registration body.
 type oidcRegistrationRequest struct {
 	RedirectURIs            []string `json:"redirect_uris"`
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`

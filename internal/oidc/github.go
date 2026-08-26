@@ -129,7 +129,6 @@ func (g *GitHubProvider) ValidateIDToken(ctx context.Context, idToken string) (*
 	return nil, fmt.Errorf("GitHub does not support OIDC ID tokens")
 }
 
-// gitHubUser represents a GitHub user profile
 type gitHubUser struct {
 	ID          int64     `json:"id"`
 	Login       string    `json:"login"`
@@ -145,7 +144,6 @@ type gitHubUser struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// gitHubEmail represents a GitHub email
 type gitHubEmail struct {
 	Email      string `json:"email"`
 	Primary    bool   `json:"primary"`

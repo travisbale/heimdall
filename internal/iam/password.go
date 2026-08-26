@@ -24,12 +24,13 @@ type sessionRevoker interface {
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID) error
 }
 
-// PasswordService handles password-based authentication operations
 // A dependency so a test can set a password without reaching the network.
 type passwordValidator interface {
 	Validate(ctx context.Context, password string) error
 }
 
+// PasswordService owns the password half of an account: proving one, changing one, and
+// resetting one through an emailed token.
 type PasswordService struct {
 	UserDB               userDB
 	PasswordValidator    passwordValidator

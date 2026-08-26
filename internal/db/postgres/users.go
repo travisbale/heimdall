@@ -12,7 +12,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// UsersDB handles user database operations with tenant isolation
 type UsersDB struct {
 	db *DB
 }
@@ -110,14 +109,12 @@ func (u *UsersDB) UpdateUser(ctx context.Context, params *iam.UpdateUserParams) 
 	return result, err
 }
 
-// UpdateLastLogin updates a user's last login timestamp
 func (u *UsersDB) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		return q.UpdateLastLogin(ctx, id)
 	})
 }
 
-// DeleteUser deletes a user with tenant isolation
 func (u *UsersDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		return q.DeleteUser(ctx, id)

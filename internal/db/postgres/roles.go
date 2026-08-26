@@ -10,7 +10,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// RolesDB provides database operations for roles
 type RolesDB struct {
 	db *DB
 }
@@ -20,7 +19,6 @@ func NewRolesDB(db *DB) *RolesDB {
 	return &RolesDB{db: db}
 }
 
-// CreateRole creates a new role
 func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error) {
 	var createdRole *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
@@ -69,7 +67,6 @@ func (r *RolesDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*iam.Role,
 	return role, err
 }
 
-// ListRoles lists all roles for a tenant
 func (r *RolesDB) ListRoles(ctx context.Context) ([]*iam.Role, error) {
 	var roles []*iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
@@ -93,7 +90,6 @@ func (r *RolesDB) ListRoles(ctx context.Context) ([]*iam.Role, error) {
 	return roles, err
 }
 
-// UpdateRole updates a role
 func (r *RolesDB) UpdateRole(ctx context.Context, params iam.UpdateRoleParams) (*iam.Role, error) {
 	var role *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
@@ -119,7 +115,6 @@ func (r *RolesDB) UpdateRole(ctx context.Context, params iam.UpdateRoleParams) (
 	return role, err
 }
 
-// DeleteRole deletes a role
 func (r *RolesDB) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
 	return r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
 		return q.DeleteRole(ctx, roleID)

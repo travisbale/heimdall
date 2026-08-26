@@ -11,7 +11,6 @@ import (
 )
 
 // RBACService handles role and permission management
-// roleDB defines database operations for roles
 type roleDB interface {
 	CreateRole(ctx context.Context, role *Role) (*Role, error)
 	GetRoleByID(ctx context.Context, roleID uuid.UUID) (*Role, error)
@@ -20,26 +19,22 @@ type roleDB interface {
 	DeleteRole(ctx context.Context, roleID uuid.UUID) error
 }
 
-// permissionDB defines database operations for permissions
 type permissionDB interface {
 	ListPermissions(ctx context.Context) ([]*Permission, error)
 	GetPermissionByID(ctx context.Context, permissionID uuid.UUID) (*Permission, error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]*EffectivePermission, error)
 }
 
-// rolePermissionDB defines database operations for role permissions
 type rolePermissionDB interface {
 	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*Permission, error)
 	SetRolePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error
 }
 
-// userRoleDB defines database operations for user roles
 type userRoleDB interface {
 	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*Role, error)
 }
 
-// userPermissionDB defines database operations for user permissions
 type userPermissionDB interface {
 	SetDirectPermissions(ctx context.Context, userID uuid.UUID, permissions []DirectPermission) error
 	GetDirectPermissions(ctx context.Context, userID uuid.UUID) ([]*EffectivePermission, error)
@@ -68,7 +63,6 @@ func (s *RBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Sc
 		if perm.Effect == sdk.PermissionDeny {
 			permMap[scope] = false
 		} else {
-			// Only set to allowed if not already denied
 			if _, exists := permMap[scope]; !exists {
 				permMap[scope] = true
 			}

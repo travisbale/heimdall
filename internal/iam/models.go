@@ -8,7 +8,6 @@ import (
 	"github.com/travisbale/heimdall/sdk"
 )
 
-// UserStatus represents the status of a user
 type UserStatus string
 
 const (
@@ -18,12 +17,10 @@ const (
 	UserStatusInactive   UserStatus = "inactive"
 )
 
-// Tenant represents a tenant in the system
 type Tenant struct {
 	ID uuid.UUID
 }
 
-// User represents a user in the system
 type User struct {
 	ID           uuid.UUID
 	TenantID     uuid.UUID
@@ -42,14 +39,15 @@ type UpdateUserParams struct {
 	Status       *UserStatus
 }
 
-// UserToken represents a temporary token (verification, password reset, etc.)
+// UserToken is a short-lived token emailed to a user: email verification, or a password reset.
 type UserToken struct {
 	UserID    uuid.UUID
 	Token     string
 	ExpiresAt time.Time
 }
 
-// OIDCProviderConfig represents tenant-specific OIDC provider for corporate SSO
+// OIDCProviderConfig is a tenant's own SSO provider, as opposed to the system-wide ones
+// behind individual OAuth login.
 type OIDCProviderConfig struct {
 	ID       uuid.UUID
 	TenantID uuid.UUID
@@ -124,7 +122,7 @@ type OIDCDiscoveryMetadata struct {
 	ScopesSupported       []string `json:"scopes_supported,omitempty"`
 }
 
-// OIDCRegistration represents RFC 7591 dynamic client registration response
+// OIDCRegistration is what a provider returns from RFC 7591 dynamic client registration.
 type OIDCRegistration struct {
 	ClientID                string   `json:"client_id"`
 	ClientSecret            string   `json:"client_secret,omitempty"`
@@ -138,7 +136,7 @@ type OIDCRegistration struct {
 	RedirectURIs            []string `json:"redirect_uris,omitempty"`
 }
 
-// OIDCTokenResponse represents tokens from an OAuth token exchange
+// OIDCTokenResponse is what an OAuth token exchange returns.
 type OIDCTokenResponse struct {
 	AccessToken  string
 	IDToken      string
@@ -167,7 +165,7 @@ func (u *OIDCUserInfo) Validate() error {
 	return nil
 }
 
-// OIDCClaims represents the claims from an ID token
+// OIDCClaims is the claim set carried by an ID token.
 type OIDCClaims struct {
 	Sub           string
 	Email         string
@@ -180,14 +178,14 @@ type OIDCClaims struct {
 	IssuedAt      time.Time
 }
 
-// Permission represents a system-wide permission
+// Permission is a permission name. They are system-wide, unlike the roles that grant them.
 type Permission struct {
 	ID          uuid.UUID
 	Name        string // e.g., "employee:create"
 	Description string
 }
 
-// Role represents a tenant-specific role
+// Role is a tenant's own grouping of permissions.
 type Role struct {
 	ID          uuid.UUID
 	Name        string
@@ -203,19 +201,18 @@ type UpdateRoleParams struct {
 	MFARequired *bool
 }
 
-// EffectivePermission represents a user permission assignment
+// EffectivePermission is a permission a user holds, whether by role or directly.
 type EffectivePermission struct {
 	Permission *Permission
 	Effect     sdk.PermissionEffect
 }
 
-// DirectPermission represents input for setting direct user permissions
+// DirectPermission is one entry in a replacement set of a user's direct permissions.
 type DirectPermission struct {
 	PermissionID uuid.UUID
 	Effect       sdk.PermissionEffect
 }
 
-// MFASettings represents user's MFA configuration
 type MFASettings struct {
 	UserID         uuid.UUID
 	TOTPSecret     string
@@ -224,7 +221,7 @@ type MFASettings struct {
 	LastUsedAt     *time.Time
 }
 
-// MFABackupCode represents a one-time recovery code
+// MFABackupCode is a recovery code, usable once.
 type MFABackupCode struct {
 	ID       uuid.UUID
 	UserID   uuid.UUID
@@ -240,13 +237,13 @@ type MFAEnrollment struct {
 	BackupCodes []string // Plain text (shown once)
 }
 
-// MFAStatus represents current MFA state for a user
+// MFAStatus is a user's MFA state and how many backup codes they have left.
 type MFAStatus struct {
 	VerifiedAt           *time.Time
 	BackupCodesRemaining int
 }
 
-// RefreshToken represents a stored session for session management
+// RefreshToken is a stored session: the row a refresh token is checked and revoked against.
 type RefreshToken struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
@@ -260,7 +257,7 @@ type RefreshToken struct {
 	RevokedAt  *time.Time
 }
 
-// TrustedDevice represents a device trusted to skip MFA
+// TrustedDevice is a device allowed to skip MFA until its trust expires.
 type TrustedDevice struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID

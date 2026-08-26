@@ -16,17 +16,14 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
-// ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// HealthResponse represents the health check response
 type HealthResponse struct {
 	Status string `json:"status"`
 }
 
-// User represents a user in API responses
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	TenantID  uuid.UUID `json:"tenant_id"`
@@ -36,13 +33,11 @@ type User struct {
 	Status    string    `json:"status"`
 }
 
-// LoginRequest represents the login request body
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// Validate validates the login request
 func (r *LoginRequest) Validate(ctx context.Context) error {
 	if err := validateEmail(r.Email); err != nil {
 		return err
@@ -50,8 +45,9 @@ func (r *LoginRequest) Validate(ctx context.Context) error {
 	return validateRequired(r.Password, "password")
 }
 
-// LoginResponse represents the login response
-// Note: refresh_token is sent via HTTP-only cookie, not in JSON body
+// LoginResponse carries whichever the sign-in reached: an access token, or the challenge
+// that has to be answered first. The refresh token is not in the body — it is set as an
+// HTTP-only cookie, so script on the page cannot read it.
 type LoginResponse struct {
 	AccessToken       string `json:"access_token,omitempty"`        // Set when login is complete
 	MFAChallengeToken string `json:"mfa_challenge_token,omitempty"` // Set when MFA verification is required
@@ -61,24 +57,21 @@ type LoginResponse struct {
 	RefreshExpiresIn  int    `json:"refresh_expires_in,omitempty"`  // Seconds until refresh token expires (extension to standard)
 }
 
-// LogoutResponse represents the logout response
 type LogoutResponse struct {
 	Message string `json:"message"`
 }
 
-// CreateUserRequest represents the request to create a user
-// Note: tenant_id is extracted from context and sent via gRPC metadata
+// CreateUserRequest creates a user. The tenant is not a field: it comes from the caller's
+// context as gRPC metadata, so a caller cannot name one it does not hold.
 type CreateUserRequest struct {
 	Email   string      `json:"email"`
 	RoleIDs []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign
 }
 
-// Validate validates the create user request
 func (r *CreateUserRequest) Validate(ctx context.Context) error {
 	return validateEmail(r.Email)
 }
 
-// CreateUserResponse represents the response from creating a user
 type CreateUserResponse struct {
 	UserID            uuid.UUID `json:"user_id"`
 	Email             string    `json:"email"`
@@ -86,15 +79,14 @@ type CreateUserResponse struct {
 	VerificationToken string    `json:"verification_token"` // Empty for SSO users, set for non-SSO users
 }
 
-// RegisterRequest represents the registration request body
-// Password is set during email verification, not during initial registration
+// RegisterRequest starts a registration. No password: one is set by following the emailed
+// link, which is the step that proves the address belongs to whoever typed it.
 type RegisterRequest struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 }
 
-// Validate validates the registration request
 func (r *RegisterRequest) Validate(ctx context.Context) error {
 	if err := validateEmail(r.Email); err != nil {
 		return err
@@ -105,21 +97,19 @@ func (r *RegisterRequest) Validate(ctx context.Context) error {
 	return validateRequired(r.LastName, "last name")
 }
 
-// RegisterResponse represents the registration response
 type RegisterResponse struct {
 	UserID  uuid.UUID `json:"user_id"`
 	Email   string    `json:"email"`
 	Message string    `json:"message"`
 }
 
-// VerifyEmailRequest represents the email verification request body
-// User proves email ownership and sets their password
+// VerifyEmailRequest completes a registration: it proves the address and sets the first
+// password together.
 type VerifyEmailRequest struct {
 	Token    string `json:"token"`
 	Password string `json:"password"`
 }
 
-// Validate validates the verify email request
 func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Token, "token"); err != nil {
 		return err
@@ -130,28 +120,23 @@ func (r *VerifyEmailRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// ForgotPasswordRequest represents the forgot password request body
 type ForgotPasswordRequest struct {
 	Email string `json:"email"`
 }
 
-// Validate validates the forgot password request
 func (r *ForgotPasswordRequest) Validate(ctx context.Context) error {
 	return validateEmail(r.Email)
 }
 
-// ForgotPasswordResponse represents the forgot password response
 type ForgotPasswordResponse struct {
 	Message string `json:"message"`
 }
 
-// ResetPasswordRequest represents the reset password request body
 type ResetPasswordRequest struct {
 	Token       string `json:"token"`
 	NewPassword string `json:"new_password"`
 }
 
-// Validate validates the reset password request
 func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Token, "token"); err != nil {
 		return err
@@ -162,7 +147,6 @@ func (r *ResetPasswordRequest) Validate(ctx context.Context) error {
 	return nil
 }
 
-// ResetPasswordResponse represents the reset password response
 type ResetPasswordResponse struct {
 	Message string `json:"message"`
 }

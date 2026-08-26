@@ -70,7 +70,6 @@ func (r *VerificationTokensDB) GetToken(ctx context.Context, token string) (*iam
 	return result, err
 }
 
-// DeleteToken removes verification token after successful email confirmation
 func (r *VerificationTokensDB) DeleteToken(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
 		if err := q.DeleteVerificationToken(ctx, userID); err != nil {

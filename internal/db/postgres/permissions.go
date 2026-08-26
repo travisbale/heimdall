@@ -8,7 +8,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// PermissionsDB provides database operations for permissions
 type PermissionsDB struct {
 	db *DB
 }

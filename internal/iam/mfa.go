@@ -19,13 +19,11 @@ type mfaVerifier interface {
 	Verify(ctx context.Context, userID uuid.UUID, code string) error
 }
 
-// mfaSettingsDB provides database operations for MFA settings
 type mfaSettingsDB interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*MFASettings, error)
 	Delete(ctx context.Context, userID uuid.UUID) error
 }
 
-// mfaBackupCodesDB provides database operations for MFA backup codes
 type mfaBackupCodesDB interface {
 	CreateBatch(ctx context.Context, userID uuid.UUID, codeHashes []string) error
 	GetUnusedByUserID(ctx context.Context, userID uuid.UUID) ([]*MFABackupCode, error)
@@ -107,7 +105,6 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uuid.UUID, password,
 		return err
 	}
 
-	// Delete MFA settings and backup codes
 	if err := s.MFASettingsDB.Delete(ctx, userID); err != nil {
 		return err
 	}
@@ -193,7 +190,6 @@ func (s *MFAService) verifyMFA(ctx context.Context, userID uuid.UUID, code strin
 		return err
 	}
 
-	// MFA code was invalid, try backup codes
 	backupCodes, err := s.BackupCodesDB.GetUnusedByUserID(ctx, userID)
 	if err != nil {
 		return err

@@ -38,7 +38,6 @@ func initializeServices(
 	cipher *aes.Cipher,
 	logger *slog.Logger,
 ) (*services, error) {
-	// JWT service for token issuance and validation
 	jwtConfig := &jwt.Config{
 		Issuer:                      config.JWTIssuer,
 		PrivateKeyPath:              config.JWTPrivateKeyPath,
@@ -57,13 +56,11 @@ func initializeServices(
 	// Use environment-appropriate Argon2 parameters
 	passwordHasher := argon2.NewHasher(getArgon2Config(config.Environment))
 
-	// Login attempts service for account lockout tracking
 	loginAttemptsService := &iam.LoginAttemptsService{
 		DB:     dbs.loginAttempts,
 		Logger: logger,
 	}
 
-	// RBAC service for roles and permissions
 	rbacService := &iam.RBACService{
 		RolesDB:           dbs.roles,
 		PermissionsDB:     dbs.permissions,
@@ -73,7 +70,6 @@ func initializeServices(
 		Logger:            logger,
 	}
 
-	// OIDC provider service for provider CRUD operations
 	oidcProviderService := &iam.OIDCProviderService{
 		OIDCProviderDB:     dbs.oidcProviders,
 		RegistrationClient: oidc.NewRegistrationClient(),
@@ -82,7 +78,6 @@ func initializeServices(
 		Logger:             logger,
 	}
 
-	// OIDC auth service for OAuth/SSO authentication flows
 	oidcAuthService := &iam.OIDCAuthService{
 		OIDCProviderService: oidcProviderService,
 		OIDCLinkDB:          dbs.oidcLinks,
@@ -109,7 +104,6 @@ func initializeServices(
 		Logger:               logger,
 	}
 
-	// User service for registration and user management
 	userService := &iam.UserService{
 		UserDB:              dbs.users,
 		PasswordValidator:   passwordValidator,
@@ -122,7 +116,6 @@ func initializeServices(
 		Logger:              logger,
 	}
 
-	// MFA service for TOTP and backup codes
 	mfaService := &iam.MFAService{
 		MFASettingsDB: dbs.mfaSettings,
 		BackupCodesDB: dbs.mfaBackupCodes,
@@ -132,7 +125,6 @@ func initializeServices(
 		Logger:        logger,
 	}
 
-	// Session service for refresh token storage and management
 	sessionService := &iam.SessionService{
 		RefreshTokenDB: dbs.refreshTokens,
 		Logger:         logger,
@@ -141,13 +133,11 @@ func initializeServices(
 	// Now that sessions exist, let a password change sign every session out.
 	passwordService.SessionRevoker = sessionService
 
-	// Trusted device service for MFA bypass on trusted devices
 	trustedDeviceService := &iam.TrustedDeviceService{
 		TrustedDeviceDB: dbs.trustedDevices,
 		Logger:          logger,
 	}
 
-	// Auth service orchestrates authentication flows
 	authService := &iam.AuthService{
 		PasswordService:       passwordService,
 		PasswordChangeService: passwordService,

@@ -8,7 +8,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// UserRolesDB provides database operations for user roles
 type UserRolesDB struct {
 	db *DB
 }
@@ -35,7 +34,6 @@ func (u *UserRolesDB) SetUserRoles(ctx context.Context, userID uuid.UUID, roleID
 	})
 }
 
-// GetUserRoles retrieves all roles for a user
 func (u *UserRolesDB) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*iam.Role, error) {
 	var roles []*iam.Role
 	err := u.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {

@@ -26,7 +26,6 @@ const (
 	lockoutDuration4 = 24 * time.Hour
 )
 
-// loginAttemptsDB defines the data access interface for login attempts
 type loginAttemptsDB interface {
 	RecordAttempt(ctx context.Context, email string, userID *uuid.UUID, lockedUntil *time.Time) error
 	GetRecentFailedAttempts(ctx context.Context, email string, since time.Time) (int64, error)
@@ -58,7 +57,7 @@ func (s *LoginAttemptsService) IsAccountLocked(ctx context.Context, email string
 
 // RecordFailedLogin records a failed login attempt and calculates the appropriate lockout expiry
 func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email string, userID *uuid.UUID, lastLoginAt *time.Time) error {
-	// Count failures since last successful login (or past 24 hours if never logged in)
+	// Since the last success, or the longest lockout back — whichever is nearer.
 	windowStart := time.Now().Add(-lockoutDuration4)
 	if lastLoginAt != nil && lastLoginAt.After(windowStart) {
 		windowStart = *lastLoginAt
@@ -95,7 +94,9 @@ func (s *LoginAttemptsService) RecordFailedLogin(ctx context.Context, email stri
 	return s.DB.RecordAttempt(ctx, email, userID, lockedUntil)
 }
 
-// RecordSuccessfulLogin clears failed login attempts for the user
+// RecordSuccessfulLogin clears the user's failed attempts. A failure here is logged and not
+// returned: the sign-in has already succeeded, and refusing it over a counter would be worse
+// than the stale lockout window this leaves behind.
 func (s *LoginAttemptsService) RecordSuccessfulLogin(ctx context.Context, userID uuid.UUID) error {
 	err := s.DB.DeleteLoginAttempts(ctx, userID)
 	if err != nil {

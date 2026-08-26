@@ -24,7 +24,6 @@ type EnableMFARequest struct {
 	Code string `json:"code"`
 }
 
-// Validate validates the enable MFA request
 func (r *EnableMFARequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Code, "code"); err != nil {
 		return err
@@ -41,7 +40,6 @@ type DisableMFARequest struct {
 	Code     string `json:"code"` // TOTP code or backup code
 }
 
-// Validate validates the disable MFA request
 func (r *DisableMFARequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.Password, "password"); err != nil {
 		return err
@@ -49,7 +47,7 @@ func (r *DisableMFARequest) Validate(ctx context.Context) error {
 	return validateRequired(r.Code, "code")
 }
 
-// MFAStatus represents current MFA state
+// MFAStatus is a user's MFA state and how many backup codes they have left.
 type MFAStatus struct {
 	VerifiedAt           *time.Time `json:"verified_at,omitempty"`
 	BackupCodesRemaining int        `json:"backup_codes_remaining"`
@@ -60,7 +58,6 @@ type RegenerateBackupCodesRequest struct {
 	Password string `json:"password"`
 }
 
-// Validate validates the regenerate backup codes request
 func (r *RegenerateBackupCodesRequest) Validate(ctx context.Context) error {
 	return validateRequired(r.Password, "password")
 }
@@ -77,7 +74,6 @@ type VerifyMFACodeRequest struct {
 	TrustDevice    bool   `json:"trust_device"`    // Optional: trust this device for 30 days (skip MFA on next login)
 }
 
-// Validate validates the verify MFA code request
 func (r *VerifyMFACodeRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.ChallengeToken, "challenge_token"); err != nil {
 		return err
@@ -96,7 +92,6 @@ type RequiredMFASetupRequest struct {
 	SetupToken string `json:"setup_token"` // Setup token from login response
 }
 
-// Validate validates the required MFA setup request
 func (r *RequiredMFASetupRequest) Validate(ctx context.Context) error {
 	return validateRequired(r.SetupToken, "setup_token")
 }
@@ -107,7 +102,6 @@ type RequiredMFAEnableRequest struct {
 	Code       string `json:"code"`        // TOTP code to verify setup
 }
 
-// Validate validates the required MFA enable request
 func (r *RequiredMFAEnableRequest) Validate(ctx context.Context) error {
 	if err := validateRequired(r.SetupToken, "setup_token"); err != nil {
 		return err

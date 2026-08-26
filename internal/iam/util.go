@@ -5,16 +5,14 @@ import (
 	"strings"
 )
 
-// extractEmailDomain extracts the domain portion from an email address
-// Returns an error if the email is invalid (missing @ symbol)
+// extractEmailDomain returns what follows the address's final @, which is the delimiter —
+// an earlier one can be part of a quoted local part.
 func extractEmailDomain(email string) (string, error) {
-	// Find the @ symbol by searching backwards (more efficient for typical email formats)
 	atIndex := strings.LastIndexByte(email, '@')
 	if atIndex == -1 {
 		return "", fmt.Errorf("invalid email format: missing @ symbol")
 	}
 
-	// Ensure there's content after the @
 	if atIndex == len(email)-1 {
 		return "", fmt.Errorf("invalid email format: missing domain")
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/travisbale/heimdall/internal/iam"
 )
 
-// RolePermissionsDB provides database operations for role permissions
 type RolePermissionsDB struct {
 	db *DB
 }
@@ -18,7 +17,6 @@ func NewRolePermissionsDB(db *DB) *RolePermissionsDB {
 	return &RolePermissionsDB{db: db}
 }
 
-// GetRolePermissions retrieves all permissions for a role
 func (r *RolePermissionsDB) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]*iam.Permission, error) {
 	var permissions []*iam.Permission
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
