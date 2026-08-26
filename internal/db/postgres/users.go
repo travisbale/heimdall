@@ -124,14 +124,11 @@ func (u *UsersDB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	})
 }
 
-// DeleteOldUnverifiedUsers deletes unverified users older than the specified number of days
-// Cross-tenant cleanup operation runs via scheduled job, not user request
+// DeleteOldUnverifiedUsers deletes unverified users older than the given number of days,
+// one tenant at a time because the DELETE policy on users requires a tenant.
 func (u *UsersDB) DeleteOldUnverifiedUsers(ctx context.Context, days int32) error {
-	return u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
-		if err := q.DeleteOldUnverifiedUsers(ctx, days); err != nil {
-			return fmt.Errorf("failed to delete old unverified users: %w", err)
-		}
-		return nil
+	return sweepTenants(ctx, u.db, func(ctx context.Context, q *sqlc.Queries) error {
+		return q.DeleteOldUnverifiedUsers(ctx, days)
 	})
 }
 
