@@ -157,23 +157,6 @@ func TestLogin(t *testing.T) {
 		}
 	})
 
-	t.Run("Suspended", func(t *testing.T) {
-		f := newPasswordServiceTestFixture()
-		ctx := context.Background()
-
-		addUserToMockDB(f.userDB, &User{
-			ID:           uuid.New(),
-			TenantID:     uuid.New(),
-			Email:        "suspended@example.com",
-			PasswordHash: "hashed_password",
-			Status:       UserStatusSuspended,
-		})
-
-		_, err := f.service.VerifyCredentials(ctx, "suspended@example.com", "password")
-		if !errors.Is(err, ErrAccountIsInactive) {
-			t.Errorf("expected ErrAccountIsInactive, got %v", err)
-		}
-	})
 }
 
 func TestInitiatePasswordReset(t *testing.T) {

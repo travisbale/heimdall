@@ -15,10 +15,15 @@ SELECT *
 FROM users
 WHERE id = $1;
 
+-- The index on email is partial, so a deactivated row and a live one can hold one address
+-- at once — an address is handed to whoever holds the job now. Unordered, this returns
+-- whichever row the scan reached first, which is the one the address used to belong to.
 -- name: GetUserByEmail :one
 SELECT *
 FROM users
-WHERE email = $1 AND status != 'inactive';
+WHERE email = $1 AND status != 'inactive'
+ORDER BY (status = 'active') DESC, created_at DESC
+LIMIT 1;
 
 -- name: UpdateUser :one
 UPDATE users

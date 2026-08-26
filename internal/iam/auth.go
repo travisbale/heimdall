@@ -190,8 +190,11 @@ func (s *AuthService) EnableRequiredMFA(ctx context.Context, setupToken, code st
 // ============================================================================
 
 // RefreshSession validates a refresh token, rotates it, and generates new session tokens.
-// Token rotation: old token is revoked, new token is issued with same family_id.
-// If a revoked token is reused, it's detected as theft and entire family is revoked.
+// The old token is revoked and its successor keeps the family_id, so a reuse of the spent
+// one is detectable — see RotateSession for the retry it forgives and the theft it does not.
+//
+// The account is re-read rather than trusted from the token: a refresh renews access
+// indefinitely, so a session deactivated mid-flight would otherwise never end.
 func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (*SessionTokens, error) {
 	claims, err := s.JWTService.ValidateToken(refreshToken)
 	if err != nil {
@@ -200,6 +203,17 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 
 	// Set tenant context from token for RLS-protected operations
 	ctx = identity.WithActor(ctx, claims.TenantID, claims.UserID)
+
+	user, err := s.UserService.GetUser(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load user: %w", err)
+	}
+	if err := signInAllowed(user); err != nil {
+		if revokeErr := s.SessionService.RevokeAllSessions(ctx, claims.UserID); revokeErr != nil {
+			s.Logger.ErrorContext(ctx, "failed to revoke sessions for a deactivated account", "error", revokeErr)
+		}
+		return nil, err
+	}
 
 	oldSession, err := s.SessionService.RotateSession(ctx, refreshToken)
 	if err != nil {
@@ -288,8 +302,16 @@ func (s *AuthService) HandleTokenReuse(ctx context.Context, userID uuid.UUID) {
 // Private helpers - Authentication flow internals
 // ============================================================================
 
-// completeAuthentication checks MFA status and either issues tokens or requires MFA
+// completeAuthentication checks MFA status and either issues tokens or requires MFA.
+//
+// Every way in arrives here — a password, an SSO assertion, a just-verified registration —
+// which is why the account is asked whether it may hold a session at all in this one place.
+// A provider will keep asserting an identity it has no reason to think has been withdrawn.
 func (s *AuthService) completeAuthentication(ctx context.Context, user *User, deviceToken string) (*SessionTokens, error) {
+	if err := signInAllowed(user); err != nil {
+		return nil, err
+	}
+
 	// Set tenant context for RLS-protected operations
 	ctx = identity.WithActor(ctx, user.TenantID, user.ID)
 
