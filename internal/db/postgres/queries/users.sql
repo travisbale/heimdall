@@ -25,6 +25,13 @@ WHERE email = $1 AND status != 'inactive'
 ORDER BY (status = 'active') DESC, created_at DESC
 LIMIT 1;
 
+-- Every tenant's, and every row rather than the one that sorts first: a caller asking whether
+-- an address is free needs the ones a LIMIT 1 would hide behind another tenant's.
+-- name: ListUsersByEmail :many
+SELECT *
+FROM users
+WHERE email = $1 AND status != 'inactive';
+
 -- name: UpdateUser :one
 UPDATE users
 SET password_hash = COALESCE(sqlc.narg('password_hash'), password_hash),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -19,6 +20,24 @@ func NewRolesDB(db *DB) *RolesDB {
 	return &RolesDB{db: db}
 }
 
+// The name is unique per tenant. Left raw it reads as a server fault to the caller who chose it.
+func convertRoleNameConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return iam.ErrDuplicateRole
+	}
+	return err
+}
+
+// An update also names a row that may not be there. A create cannot: no rows back from one
+// would be a fault, and reporting it as a missing role would send the caller looking for it.
+func convertRoleUpdateError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return iam.ErrRoleNotFound
+	}
+	return convertRoleNameConflict(err)
+}
+
 func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error) {
 	var createdRole *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
@@ -28,7 +47,7 @@ func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, er
 			MfaRequired: role.MFARequired,
 		})
 		if err != nil {
-			return err
+			return convertRoleNameConflict(err)
 		}
 
 		createdRole = &iam.Role{
@@ -100,7 +119,7 @@ func (r *RolesDB) UpdateRole(ctx context.Context, params iam.UpdateRoleParams) (
 			MfaRequired: params.MFARequired,
 		})
 		if err != nil {
-			return err
+			return convertRoleUpdateError(err)
 		}
 
 		role = &iam.Role{

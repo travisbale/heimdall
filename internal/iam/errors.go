@@ -43,6 +43,7 @@ var ErrEmailConflict = errors.New("email address conflicts with existing account
 
 // RBAC errors
 var ErrRoleNotFound = errors.New("role not found")
+var ErrDuplicateRole = errors.New("a role with this name already exists")
 var ErrPermissionNotFound = errors.New("permission not found")
 
 // MFA errors

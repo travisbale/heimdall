@@ -11,10 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	util "github.com/travisbale/heimdall/test/_util"
 	"github.com/travisbale/heimdall/test/_util/jwt"
 	"github.com/travisbale/heimdall/test/_util/mailbox"
-	"github.com/travisbale/knowhere/identity"
 )
 
 // CreateVerifiedUser registers a user, verifies email via DB token extraction, and returns an authenticated client
@@ -102,7 +100,7 @@ func CreateAdminUser(t *testing.T, name string) *UserClient {
 	return user
 }
 
-// CreateUserInTenant creates a user in an existing tenant via gRPC, verifies email, and logs in
+// CreateUserInTenant creates a user in an existing tenant, verifies email, and logs in
 func CreateUserInTenant(t *testing.T, admin *UserClient, name string) *UserClient {
 	t.Helper()
 	return createUserInTenantWithRoles(t, admin, name, nil, true)
@@ -117,16 +115,10 @@ func CreateUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, r
 func createUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, roleIDs []uuid.UUID, login bool) *UserClient {
 	t.Helper()
 
-	config := util.LoadConfig()
 	email, password := GenerateTestCredentials(t, name)
 
-	grpcClient, err := sdk.NewGRPCClient(config.HeimdallGRPCAddress)
-	require.NoError(t, err)
-	defer grpcClient.Close()
-
-	ctx := identity.WithTenant(context.Background(), admin.TenantID)
-
-	resp, err := grpcClient.CreateUser(ctx, sdk.CreateUserRequest{
+	// As the admin: the tenant is theirs by virtue of the token, so nothing here names one.
+	resp, err := admin.Client.CreateUser(context.Background(), sdk.CreateUserRequest{
 		Email:   email,
 		RoleIDs: roleIDs,
 	})

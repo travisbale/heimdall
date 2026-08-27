@@ -146,3 +146,54 @@ func TestCreateRoleValidation(t *testing.T) {
 		assert.Contains(t, body, "description")
 	})
 }
+
+// Both of these answered 500 with "Sorry, something went wrong", which reads as a server
+// fault to a caller who chose the name — and hid the conflict from anything retrying.
+func TestRoleWriteConflicts(t *testing.T) {
+	t.Parallel()
+	admin := setup.CreateAdminUser(t, "role-conflicts")
+	ctx := context.Background()
+
+	first, err := admin.Client.CreateRole(ctx, sdk.CreateRoleRequest{
+		Name:        "Duplicated",
+		Description: "The first one",
+	})
+	require.NoError(t, err)
+
+	t.Run("creating a second role with the same name conflicts", func(t *testing.T) {
+		_, err := admin.Client.CreateRole(ctx, sdk.CreateRoleRequest{
+			Name:        "Duplicated",
+			Description: "The second one",
+		})
+		assertions.AssertAPIError(t, err, http.StatusConflict, "a taken name is the caller's to fix")
+	})
+
+	t.Run("renaming a role onto a taken name conflicts", func(t *testing.T) {
+		other, err := admin.Client.CreateRole(ctx, sdk.CreateRoleRequest{
+			Name:        "Renameable",
+			Description: "Will be renamed onto the first",
+		})
+		require.NoError(t, err)
+
+		taken := first.Name
+		_, err = admin.Client.UpdateRole(ctx, sdk.UpdateRoleRequest{RoleID: other.ID, Name: &taken})
+		assertions.AssertAPIError(t, err, http.StatusConflict, "the rename collides with an existing role")
+	})
+
+	t.Run("updating a role that is not there is not found", func(t *testing.T) {
+		name := "Nowhere"
+		_, err := admin.Client.UpdateRole(ctx, sdk.UpdateRoleRequest{RoleID: uuid.New(), Name: &name})
+		assertions.AssertAPIError(t, err, http.StatusNotFound, "no row to update is a 404, not a fault")
+	})
+
+	// Tenants are separate namespaces for role names — the constraint is on the pair, and a
+	// conflict raised across tenants would be a leak as much as a bug.
+	t.Run("another tenant may still use the name", func(t *testing.T) {
+		other := setup.CreateAdminUser(t, "role-conflicts-other")
+		_, err := other.Client.CreateRole(ctx, sdk.CreateRoleRequest{
+			Name:        "Duplicated",
+			Description: "Same name, different tenant",
+		})
+		require.NoError(t, err)
+	})
+}

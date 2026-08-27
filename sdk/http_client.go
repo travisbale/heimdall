@@ -170,6 +170,16 @@ func (c *HTTPClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 	return &resp, nil
 }
 
+// CreateUser creates a user in the caller's own tenant and returns the verification token
+// for it, which is the only copy: nothing is emailed.
+func (c *HTTPClient) CreateUser(ctx context.Context, req CreateUserRequest) (*CreateUserResponse, error) {
+	var resp CreateUserResponse
+	if err := c.doRequest(ctx, http.MethodPost, RouteV1Users, &req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // VerifyEmail verifies a user's email address using the verification token
 // The access token is automatically set on the client for subsequent authenticated requests
 // Returns a LoginResponse with access token on successful verification
