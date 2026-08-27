@@ -3,7 +3,6 @@
 </p>
 <p align="center">
   <a href="https://github.com/travisbale/heimdall/actions/workflows/ci.yml"><img src="https://github.com/travisbale/heimdall/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://goreportcard.com/report/github.com/travisbale/heimdall"><img src="https://goreportcard.com/badge/github.com/travisbale/heimdall" alt="Go Report Card" /></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/go-1.26-blue.svg" alt="Go Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
@@ -21,7 +20,10 @@ Heimdall is an authentication and authorization service written in Go. Handles u
 - **Refresh Token Rotation** - Family-based tracking with automatic theft detection
 - **Email Verification** - Registration flow with pluggable email delivery (webhook, mailman, or console logging)
 - **Password Reset** - Secure token-based password reset via email
-- **Account Lockout** - Progressive lockout after failed login attempts (5, 10, 15, 20 thresholds)
+- **Account Lockout** - Progressive lockout after failed login attempts: 5 minutes at 5
+  failures, 15 at 10, an hour at 15, a day at 20
+- **Rate Limiting** - Per-IP limits on the unauthenticated routes: 10/minute on sign-in and
+  password reset, 30/minute on registration
 - **OAuth/OIDC Login** - Support for Google, Microsoft, GitHub, and custom OIDC providers
 - **Corporate SSO** - Enterprise SSO with auto-provisioning and domain restrictions
 - **RBAC** - Role-based access control with permissions, roles, and user assignments
@@ -33,8 +35,10 @@ Heimdall is an authentication and authorization service written in Go. Handles u
 
 ## Architecture
 
-- **HTTP API** (port 8080) - Login/logout endpoints for user authentication
-- **gRPC API** (port 9090) - User creation for internal services
+- **HTTP API** (port 8080) - Everything a browser reaches: registration, sign-in, MFA,
+  sessions, RBAC and OIDC provider administration
+- **gRPC API** (port 9090) - User creation for internal services, with the tenant taken
+  from request metadata
 - **Database Layer** - Context-based tenant isolation with RLS policies
 - **Password Hashing** - Argon2id with secure parameters
 - **JWT Tokens** - RSA signatures with configurable expiration
@@ -133,7 +137,7 @@ docker run -p 8080:8080 -p 9090:9090 \
 
 **Public Endpoints:**
 
-- `HEAD /health` - Health check (returns 200 OK if healthy, 503 if database unavailable)
+- `GET /health` - Health check (200 if the database is reachable, 503 if not)
 - `GET /v1/oauth/supported-types` - List supported OAuth provider types
 
 **Authentication:**
@@ -148,23 +152,27 @@ docker run -p 8080:8080 -p 9090:9090 \
 
 - `GET /v1/sessions` - List active sessions with metadata (IP, user agent, timestamps)
 - `DELETE /v1/sessions` - Revoke all sessions (sign out everywhere)
-- `DELETE /v1/sessions/{id}` - Revoke specific session
+- `DELETE /v1/sessions/{sessionID}` - Revoke specific session
 
 **Password Reset:**
 
 - `POST /v1/forgot-password` - Request password reset (sends email)
 - `POST /v1/reset-password` - Reset password with token
 
-**Multi-Factor Authentication (MFA):**
+**Multi-Factor Authentication (MFA)** — these carry a token from the login response rather
+than a session, because the caller is part-way through signing in:
 
 - `POST /v1/mfa/verify` - Verify MFA code during login (can trust device)
+- `POST /v1/mfa/required-setup` - Start MFA setup when a role requires it (uses the setup token)
+- `POST /v1/mfa/required-enable` - Enable MFA and complete the login
+
+**MFA management** (requires a session):
+
 - `POST /v1/mfa/setup` - Initiate MFA setup (returns QR code and backup codes)
 - `POST /v1/mfa/enable` - Enable MFA after validating TOTP code
 - `DELETE /v1/mfa/disable` - Disable MFA (requires password and TOTP/backup code)
 - `POST /v1/mfa/backup-codes/regenerate` - Regenerate backup codes (requires password)
 - `GET /v1/mfa/status` - Get MFA status and remaining backup codes
-- `POST /v1/mfa/required-setup` - Start MFA setup when role requires it (uses setup token)
-- `POST /v1/mfa/required-enable` - Enable MFA and complete login flow
 
 **OAuth/OIDC Authentication:**
 
@@ -172,32 +180,32 @@ docker run -p 8080:8080 -p 9090:9090 \
 - `POST /v1/sso/login` - Start corporate SSO login by email domain
 - `GET /v1/oauth/callback` - OAuth callback endpoint (handles both flows)
 
-**OIDC Provider Management** (requires authentication):
+**OIDC Provider Management** (each requires the matching `heimdall:oidc:*` scope):
 
 - `POST /v1/oauth/providers` - Create OIDC provider with dynamic registration
 - `GET /v1/oauth/providers` - List all OIDC providers for tenant
-- `GET /v1/oauth/providers/{id}` - Get OIDC provider details
-- `PUT /v1/oauth/providers/{id}` - Update OIDC provider configuration
-- `DELETE /v1/oauth/providers/{id}` - Delete OIDC provider
+- `GET /v1/oauth/providers/{providerID}` - Get OIDC provider details
+- `PUT /v1/oauth/providers/{providerID}` - Update OIDC provider configuration
+- `DELETE /v1/oauth/providers/{providerID}` - Delete OIDC provider
 
 **User Profile:**
 
 - `GET /v1/users/me` - Get current user profile
 
-**RBAC** (requires authentication):
+**RBAC** (each requires the matching `heimdall:role:*` or `heimdall:user:*` scope):
 
 - `GET /v1/permissions` - List all system permissions
 - `POST /v1/roles` - Create role
 - `GET /v1/roles` - List roles for tenant
-- `GET /v1/roles/{id}` - Get role details
-- `PUT /v1/roles/{id}` - Update role
-- `DELETE /v1/roles/{id}` - Delete role
-- `GET /v1/roles/{id}/permissions` - Get role permissions
-- `PUT /v1/roles/{id}/permissions` - Set role permissions
-- `GET /v1/users/{id}/roles` - Get user roles
-- `PUT /v1/users/{id}/roles` - Set user roles
-- `GET /v1/users/{id}/permissions` - Get user direct permissions
-- `PUT /v1/users/{id}/permissions` - Set user direct permissions
+- `GET /v1/roles/{roleID}` - Get role details
+- `PUT /v1/roles/{roleID}` - Update role
+- `DELETE /v1/roles/{roleID}` - Delete role
+- `GET /v1/roles/{roleID}/permissions` - Get role permissions
+- `PUT /v1/roles/{roleID}/permissions` - Set role permissions
+- `GET /v1/users/{userID}/roles` - Get user roles
+- `PUT /v1/users/{userID}/roles` - Set user roles
+- `GET /v1/users/{userID}/permissions` - Get user direct permissions
+- `PUT /v1/users/{userID}/permissions` - Set user direct permissions
 
 ### Permission naming
 
@@ -224,9 +232,9 @@ Scope checks are exact string comparisons. There is no wildcard or prefix matchi
 
 ### gRPC (Port 9090)
 
-- `CreateUser(email, tenant_id, role_ids)` - Create user in tenant with roles
-  - Returns: user_id, email, tenant_id, verification_token
-- `GetUserByID(user_id)` - Retrieve user by ID (used by other services)
+- `CreateUser(email, role_ids)` - Create a user, returning its id and a verification token.
+  The tenant is not a parameter: it is read from gRPC metadata, which the SDK client's
+  interceptor sets from the caller's context.
 
 ## Testing
 
@@ -236,7 +244,7 @@ The project has both unit tests and integration tests:
 - **Integration tests** (`make integration`) - Full end-to-end tests against docker-compose infrastructure (PostgreSQL + mock OIDC server + heimdall). Requires Docker.
 - **All tests** (`make test`) - Runs unit + integration tests, starts infrastructure automatically
 
-The integration test suite covers authentication, RBAC, MFA, sessions, OIDC/SSO flows, tenant isolation, and server-side input validation. Tests are organized by feature in `test/` subdirectories (password, rbac, session, mfa, oidc, isolation).
+The integration test suite covers authentication, RBAC, MFA, sessions, OIDC/SSO flows, tenant isolation, and server-side input validation. Tests are organized by feature in `test/` subdirectories (password, rbac, session, mfa, oidc, isolation, postgres).
 
 ## CI/CD Pipeline
 
@@ -244,13 +252,14 @@ The project uses GitHub Actions for continuous integration:
 
 ### Automated Checks
 
-1. **Linting** - `golangci-lint`
-2. **Build** - Compile and verify binary works
-3. **Tests** - Unit and integration tests with docker-compose infrastructure
-4. **Security** - `govulncheck` for known vulnerabilities
-5. **Code Generation** - Verify sqlc/protobuf are up-to-date
-6. **Docker Build** - Validate Dockerfile builds
-7. **Migrations** - Test SQL migrations against PostgreSQL
+1. **Format** - `make fmt` must leave no diff; it runs goimports and gci, not just gofmt
+2. **Linting** - `golangci-lint`
+3. **Build** - Compile and verify binary works
+4. **Tests** - Unit and integration tests with docker-compose infrastructure
+5. **Security** - `govulncheck` for known vulnerabilities
+6. **Code Generation** - Verify sqlc/protobuf are up-to-date
+7. **Docker Build** - Validate Dockerfile builds
+8. **Migrations** - Test SQL migrations against PostgreSQL
 
 ### Dependabot
 
@@ -264,7 +273,9 @@ Automated dependency updates run weekly for:
 
 ### Authentication & Cryptography
 
-- **Argon2id** - Memory-hard password hashing (64MB, 2 iterations, 4 threads)
+- **Argon2id** - Memory-hard password hashing. Staging and production use 64MB and 2
+  iterations over 4 threads; development and test drop to 8MB and 1 iteration so a test
+  suite that hashes hundreds of passwords stays quick
 - **JWT RSA signatures** - Asymmetric keys for token signing/verification
 - **Constant-time comparison** - Prevents timing attacks on passwords
 - **HTTPS recommended** - For production deployments
@@ -275,7 +286,9 @@ Refresh tokens use family-based rotation to detect and respond to token theft:
 
 1. Each login creates a new token family (UUID)
 2. On refresh, the old token is revoked and a new one is issued with the same family ID
-3. If a revoked token is replayed (theft attempt), the entire token family is revoked
+3. A replayed token that is already spent revokes the whole family — unless it arrives
+   within ten seconds, from the user agent it was issued to, while the family still has a
+   live token, which is a client repeating a request whose answer it never received
 4. Separate logins create independent families, so one compromised session doesn't affect others
 
 This provides defense-in-depth: even if an attacker steals a refresh token, using it after the legitimate user refreshes will invalidate all tokens in that family.
@@ -330,6 +343,10 @@ Environment variables:
 - `PUBLIC_URL` - Base URL for email verification and password reset links (default: `http://localhost:8080`)
 - `ENVIRONMENT` - Environment name: `development`, `staging`, `production` (default: `development`)
 - `TRUSTED_PROXY_MODE` - Enable IP extraction from X-Forwarded-For headers (default: `false`)
+- `PROXY_SECRET` - When set, every request must carry a matching `X-Proxy-Secret` header, so
+  only traffic through the trusted edge is served. Empty disables the check
+- `DEBUG` - Debug logging (default: `false`)
+- `LOG_FORMAT` - `json` (default) or `text`
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 - `ENCRYPTION_KEY` - 32-byte hex key for encrypting sensitive data (OIDC client secrets, MFA TOTP secrets)
 - `TOTP_PERIOD` - TOTP time window in seconds (default: `30`)
@@ -342,6 +359,9 @@ Environment variables:
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - Google OAuth credentials
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` - Microsoft OAuth credentials
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth credentials
+- `GOOGLE_ISSUER_URL`, `MICROSOFT_ISSUER_URL`, `GITHUB_AUTH_URL`, `GITHUB_TOKEN_URL`,
+  `GITHUB_API_BASE` - Endpoint overrides, so the integration suite can point a provider at
+  its mock
 
 ## License
 
