@@ -100,7 +100,7 @@ func CreateAdminUser(t *testing.T, name string) *UserClient {
 	return user
 }
 
-// CreateUserInTenant creates a user in an existing tenant via gRPC, verifies email, and logs in
+// CreateUserInTenant creates a user in an existing tenant, verifies email, and logs in
 func CreateUserInTenant(t *testing.T, admin *UserClient, name string) *UserClient {
 	t.Helper()
 	return createUserInTenantWithRoles(t, admin, name, nil, true)
@@ -117,8 +117,7 @@ func createUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, r
 
 	email, password := GenerateTestCredentials(t, name)
 
-	// Over REST, as the admin: the tenant is theirs by virtue of the token, so nothing here
-	// names one. Reached for gRPC before, which meant a second dial and an asserted tenant.
+	// As the admin: the tenant is theirs by virtue of the token, so nothing here names one.
 	resp, err := admin.Client.CreateUser(context.Background(), sdk.CreateUserRequest{
 		Email:   email,
 		RoleIDs: roleIDs,

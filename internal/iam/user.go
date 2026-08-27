@@ -37,15 +37,12 @@ type UserService struct {
 	Logger              *slog.Logger
 }
 
-// A lookup by address reaches every tenant, because logging in has to find an account before
-// it knows which one it is in. Only the caller's own is theirs to be told about; for anyone
-// else's the insert answers, and only for an address already in use.
+// Two ways an address is spoken for. Active anywhere: idx_users_email_unique_active spans every
+// tenant, so a token issued here could never be redeemed. Anything at all in this tenant: the
+// index ignores unverified rows, so the database would take a second one and strand its token.
 func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string) error {
-	existing, err := s.UserDB.GetUserByEmail(ctx, email)
+	existing, err := s.UserDB.ListUsersByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return nil
-		}
 		return fmt.Errorf("failed to check existing user: %w", err)
 	}
 
@@ -53,8 +50,22 @@ func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string
 	if err != nil {
 		return err
 	}
-	if existing.TenantID == tenantID {
-		return ErrDuplicateEmail
+
+	for _, user := range existing {
+		if user.Status == UserStatusActive || user.TenantID == tenantID {
+			return ErrDuplicateEmail
+		}
+	}
+	return nil
+}
+
+// Before the user row, not after: the row commits in its own transaction, so a role the caller
+// cannot use failed once the account already existed and left it stranded and unredeemable.
+func (s *UserService) refuseUnknownRoles(ctx context.Context, roleIDs []uuid.UUID) error {
+	for _, roleID := range roleIDs {
+		if _, err := s.RBACService.GetRole(ctx, roleID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -66,9 +77,13 @@ func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid
 		return nil, "", fmt.Errorf("failed to check SSO requirement: %w", err)
 	}
 
-	// The unique index covers active rows only, so nothing in the database stops a second
-	// pending account for one address — and the token for the loser can never be redeemed.
+	// Checked rather than left to the database, which has no constraint on an unverified row —
+	// so two of these racing still both pass. Enough for a route only an administrator reaches.
 	if err := s.refuseAddressAlreadyHeld(ctx, user.Email); err != nil {
+		return nil, "", err
+	}
+
+	if err := s.refuseUnknownRoles(ctx, roleIDs); err != nil {
 		return nil, "", err
 	}
 

@@ -31,7 +31,7 @@ func (r *Router) getMe(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// CreateUser creates a user in the caller's tenant. Unlike registration it neither emails nor
+// createUser creates a user in the caller's tenant. Unlike registration it neither emails nor
 // bootstraps a tenant: the verification token comes back in the response for the caller to
 // deliver, which is what lets a service enrol its own people.
 func (r *Router) createUser(w http.ResponseWriter, req *http.Request) {
@@ -47,9 +47,6 @@ func (r *Router) createUser(w http.ResponseWriter, req *http.Request) {
 		switch {
 		case errors.Is(err, iam.ErrDuplicateEmail):
 			r.writeError(req.Context(), w, http.StatusConflict, "Email address is already registered", err)
-
-		case errors.Is(err, iam.ErrSSORequired):
-			r.writeError(req.Context(), w, http.StatusBadRequest, "This email domain requires SSO login", err)
 
 		case errors.Is(err, iam.ErrRoleNotFound):
 			r.writeError(req.Context(), w, http.StatusBadRequest, "One of the roles does not exist", err)

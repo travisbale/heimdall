@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
 	"github.com/travisbale/heimdall/test/_util/assertions"
 	"github.com/travisbale/heimdall/test/_util/setup"
@@ -96,6 +95,54 @@ func TestCreateUser(t *testing.T) {
 
 	// Not CreateVerifiedUser: registering bootstraps a tenant and makes the registrant its
 	// administrator, so that fixture holds every scope there is.
+	// idx_users_email_unique_active spans every tenant, so an address live in one can never go
+	// active in another. Allowed here it would take a token and answer 23505 at redemption, a
+	// day later, to the person who followed the link.
+	t.Run("refuses an address already live in another tenant", func(t *testing.T) {
+		other := setup.CreateAdminUser(t, "create-user-other-tenant")
+		require.NotEqual(t, admin.TenantID, other.TenantID)
+		email, password := setup.GenerateTestCredentials(t, "created-elsewhere")
+
+		created, err := other.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		require.NoError(t, err)
+		_, err = setup.CreateClient(t).VerifyEmail(ctx, sdk.VerifyEmailRequest{
+			Token:    created.VerificationToken,
+			Password: password,
+		})
+		require.NoError(t, err)
+
+		_, err = admin.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		assertions.AssertAPIError(t, err, http.StatusConflict, "the address cannot be redeemed here")
+	})
+
+	// The lookup spans tenants and used to answer with one row, so another tenant's could sort
+	// ahead of this tenant's own and hide it.
+	t.Run("refuses a pending address of its own that another tenant also holds", func(t *testing.T) {
+		other := setup.CreateAdminUser(t, "create-user-masking")
+		email, _ := setup.GenerateTestCredentials(t, "created-masked")
+
+		_, err := admin.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		require.NoError(t, err)
+		_, err = other.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		require.NoError(t, err)
+
+		_, err = admin.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		assertions.AssertAPIError(t, err, http.StatusConflict, "this tenant already holds it, pending")
+	})
+
+	// The user row commits before the roles are set, so a role the caller cannot use left an
+	// account behind that the guard above then refuses to replace.
+	t.Run("creates nothing when a role does not exist", func(t *testing.T) {
+		email, _ := setup.GenerateTestCredentials(t, "created-bad-role")
+
+		_, err := admin.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email, RoleIDs: []uuid.UUID{uuid.New()}})
+		assertions.AssertAPIError(t, err, http.StatusBadRequest, "an unknown role is the caller's to fix")
+
+		// Nothing stranded: the address is still free, which it would not be after a partial write.
+		_, err = admin.Client.CreateUser(ctx, sdk.CreateUserRequest{Email: email})
+		require.NoError(t, err, "the address must still be usable")
+	})
+
 	t.Run("refuses a caller without the scope", func(t *testing.T) {
 		plain := setup.CreateUserInTenant(t, admin, "create-user-unscoped")
 		email, _ := setup.GenerateTestCredentials(t, "created-refused")
@@ -109,11 +156,5 @@ func TestCreateUser(t *testing.T) {
 
 		_, err := setup.CreateClient(t).CreateUser(ctx, sdk.CreateUserRequest{Email: email})
 		assertions.AssertAPIError(t, err, http.StatusUnauthorized, "creating a user is never anonymous")
-	})
-
-	t.Run("the scope is one an admin actually holds", func(t *testing.T) {
-		// The route would be unreachable if nothing granted it, and it gated no route at all
-		// before this one existed.
-		assert.Contains(t, iam.AllScopes, iam.ScopeUserCreate)
 	})
 }

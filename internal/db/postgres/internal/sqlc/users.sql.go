@@ -131,6 +131,45 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const listUsersByEmail = `-- name: ListUsersByEmail :many
+SELECT id, tenant_id, email, password_hash, first_name, last_name, status, created_at, updated_at, last_login_at
+FROM users
+WHERE email = $1 AND status != 'inactive'
+`
+
+// Every tenant's, and every row rather than the one that sorts first: a caller asking whether
+// an address is free needs the ones a LIMIT 1 would hide behind another tenant's.
+func (q *Queries) ListUsersByEmail(ctx context.Context, email string) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByEmail, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.FirstName,
+			&i.LastName,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateLastLogin = `-- name: UpdateLastLogin :exec
 UPDATE users
 SET last_login_at = now()
