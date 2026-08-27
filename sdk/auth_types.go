@@ -61,8 +61,8 @@ type LogoutResponse struct {
 	Message string `json:"message"`
 }
 
-// CreateUserRequest creates a user. The tenant is not a field: it comes from the caller's
-// context as gRPC metadata, so a caller cannot name one it does not hold.
+// CreateUserRequest creates a user. The tenant is not a field: it is the caller's own, read
+// from gRPC metadata or a bearer token, so a caller cannot name one it does not hold.
 type CreateUserRequest struct {
 	Email   string      `json:"email"`
 	RoleIDs []uuid.UUID `json:"role_ids,omitempty"` // Optional list of role IDs to assign

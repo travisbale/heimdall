@@ -11,10 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/travisbale/heimdall/internal/iam"
 	"github.com/travisbale/heimdall/sdk"
-	util "github.com/travisbale/heimdall/test/_util"
 	"github.com/travisbale/heimdall/test/_util/jwt"
 	"github.com/travisbale/heimdall/test/_util/mailbox"
-	"github.com/travisbale/knowhere/identity"
 )
 
 // CreateVerifiedUser registers a user, verifies email via DB token extraction, and returns an authenticated client
@@ -117,16 +115,11 @@ func CreateUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, r
 func createUserInTenantWithRoles(t *testing.T, admin *UserClient, name string, roleIDs []uuid.UUID, login bool) *UserClient {
 	t.Helper()
 
-	config := util.LoadConfig()
 	email, password := GenerateTestCredentials(t, name)
 
-	grpcClient, err := sdk.NewGRPCClient(config.HeimdallGRPCAddress)
-	require.NoError(t, err)
-	defer grpcClient.Close()
-
-	ctx := identity.WithTenant(context.Background(), admin.TenantID)
-
-	resp, err := grpcClient.CreateUser(ctx, sdk.CreateUserRequest{
+	// Over REST, as the admin: the tenant is theirs by virtue of the token, so nothing here
+	// names one. Reached for gRPC before, which meant a second dial and an asserted tenant.
+	resp, err := admin.Client.CreateUser(context.Background(), sdk.CreateUserRequest{
 		Email:   email,
 		RoleIDs: roleIDs,
 	})

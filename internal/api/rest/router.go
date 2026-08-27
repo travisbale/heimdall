@@ -125,6 +125,9 @@ func (r *Router) registerRoutes(mux *http.ServeMux) {
 	require("GET", sdk.RouteV1UserPermissions, iam.ScopeUserRead, r.getDirectPermissions)
 	require("PUT", sdk.RouteV1UserPermissions, iam.ScopeUserAssign, r.setDirectPermissions)
 
+	// Users
+	require("POST", sdk.RouteV1Users, iam.ScopeUserCreate, r.createUser)
+
 	// User profile
 	auth("GET", sdk.RouteV1Me, r.getMe)
 

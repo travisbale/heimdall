@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/heimdall/internal/events"
 	"github.com/travisbale/knowhere/crypto/token"
+	"github.com/travisbale/knowhere/identity"
 )
 
 const registrationTokenExpiration = 24 * time.Hour
@@ -36,11 +37,39 @@ type UserService struct {
 	Logger              *slog.Logger
 }
 
+// A lookup by address reaches every tenant, because logging in has to find an account before
+// it knows which one it is in. Only the caller's own is theirs to be told about; for anyone
+// else's the insert answers, and only for an address already in use.
+func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string) error {
+	existing, err := s.UserDB.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil
+		}
+		return fmt.Errorf("failed to check existing user: %w", err)
+	}
+
+	tenantID, err := identity.GetTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if existing.TenantID == tenantID {
+		return ErrDuplicateEmail
+	}
+	return nil
+}
+
 // CreateUser creates a new user and assigns specified roles
 func (s *UserService) CreateUser(ctx context.Context, user *User, roleIDs []uuid.UUID) (*User, string, error) {
 	ssoRequired, err := s.OIDCService.IsSSORequired(ctx, user.Email)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to check SSO requirement: %w", err)
+	}
+
+	// The unique index covers active rows only, so nothing in the database stops a second
+	// pending account for one address — and the token for the loser can never be redeemed.
+	if err := s.refuseAddressAlreadyHeld(ctx, user.Email); err != nil {
+		return nil, "", err
 	}
 
 	// Set status based on SSO requirement

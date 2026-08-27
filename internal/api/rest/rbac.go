@@ -41,7 +41,13 @@ func (r *Router) createRole(w http.ResponseWriter, req *http.Request) {
 
 	role, err := r.RBACService.CreateRole(req.Context(), role)
 	if err != nil {
-		r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to create role", err)
+		switch {
+		case errors.Is(err, iam.ErrDuplicateRole):
+			r.writeError(req.Context(), w, http.StatusConflict, "A role with this name already exists", err)
+
+		default:
+			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to create role", err)
+		}
 		return
 	}
 
@@ -118,6 +124,10 @@ func (r *Router) updateRole(w http.ResponseWriter, req *http.Request) {
 		switch {
 		case errors.Is(err, iam.ErrRoleNotFound):
 			r.writeError(req.Context(), w, http.StatusNotFound, "Role not found", err)
+
+		case errors.Is(err, iam.ErrDuplicateRole):
+			r.writeError(req.Context(), w, http.StatusConflict, "A role with this name already exists", err)
+
 		default:
 			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to update role", err)
 		}

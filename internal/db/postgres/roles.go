@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -19,6 +20,19 @@ func NewRolesDB(db *DB) *RolesDB {
 	return &RolesDB{db: db}
 }
 
+// The name is unique per tenant, and an update names a row that may not be there. Left raw
+// both read as a server fault to the caller who chose the name.
+func convertRoleWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return iam.ErrDuplicateRole
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return iam.ErrRoleNotFound
+	}
+	return err
+}
+
 func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, error) {
 	var createdRole *iam.Role
 	err := r.db.WithTenantContext(ctx, func(q *sqlc.Queries) error {
@@ -28,7 +42,7 @@ func (r *RolesDB) CreateRole(ctx context.Context, role *iam.Role) (*iam.Role, er
 			MfaRequired: role.MFARequired,
 		})
 		if err != nil {
-			return err
+			return convertRoleWriteError(err)
 		}
 
 		createdRole = &iam.Role{
@@ -100,7 +114,7 @@ func (r *RolesDB) UpdateRole(ctx context.Context, params iam.UpdateRoleParams) (
 			MfaRequired: params.MFARequired,
 		})
 		if err != nil {
-			return err
+			return convertRoleWriteError(err)
 		}
 
 		role = &iam.Role{

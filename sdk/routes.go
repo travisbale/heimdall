@@ -35,7 +35,8 @@ const (
 	RouteV1RolePermission  = "/v1/roles/{roleID}/permissions/{permissionID}"
 
 	// User endpoints
-	RouteV1Me = "/v1/users/me"
+	RouteV1Users = "/v1/users"
+	RouteV1Me    = "/v1/users/me"
 
 	// User roles
 	RouteV1UserRoles = "/v1/users/{userID}/roles"
