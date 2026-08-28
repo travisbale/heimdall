@@ -291,8 +291,6 @@ func TestVerifyEmailAndSetPassword(t *testing.T) {
 }
 
 func TestCreateUserRoleLookup(t *testing.T) {
-	// The handler tells these apart by sentinel, so a role that is not there has to arrive
-	// unwrapped — and anything else has to say where it came from on its way to a 500.
 	t.Run("a missing role stays matchable", func(t *testing.T) {
 		f := newUserServiceTestFixture()
 		roleID := uuid.New()

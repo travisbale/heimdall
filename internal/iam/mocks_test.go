@@ -236,7 +236,7 @@ func (m *mockUserDB) GetUserByEmail(ctx context.Context, email string) (*User, e
 	return user, nil
 }
 
-// The map is keyed by address, so it holds one row per email — enough for the tests here.
+// One row per address: a test needing two for one email wants more than this map.
 func (m *mockUserDB) ListUsersByEmail(ctx context.Context, email string) ([]*User, error) {
 	user, ok := m.emails[email]
 	if !ok {

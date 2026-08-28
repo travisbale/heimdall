@@ -64,8 +64,6 @@ func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string
 func (s *UserService) refuseUnknownRoles(ctx context.Context, roleIDs []uuid.UUID) error {
 	for _, roleID := range roleIDs {
 		if _, err := s.RBACService.GetRole(ctx, roleID); err != nil {
-			// Bare, so the handler can still tell a role that is not there from one it could
-			// not look up — which reaches the caller as a 500 and needs to say where from.
 			if errors.Is(err, ErrRoleNotFound) {
 				return err
 			}
