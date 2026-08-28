@@ -64,7 +64,10 @@ func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string
 func (s *UserService) refuseUnknownRoles(ctx context.Context, roleIDs []uuid.UUID) error {
 	for _, roleID := range roleIDs {
 		if _, err := s.RBACService.GetRole(ctx, roleID); err != nil {
-			return err
+			if errors.Is(err, ErrRoleNotFound) {
+				return err
+			}
+			return fmt.Errorf("failed to look up role %s: %w", roleID, err)
 		}
 	}
 	return nil

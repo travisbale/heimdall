@@ -236,8 +236,7 @@ func (m *mockUserDB) GetUserByEmail(ctx context.Context, email string) (*User, e
 	return user, nil
 }
 
-// The map is keyed by address, so it holds one row per email — enough for the tests here,
-// which is the shape the real query deliberately is not.
+// One row per address: a test needing two for one email wants more than this map.
 func (m *mockUserDB) ListUsersByEmail(ctx context.Context, email string) ([]*User, error) {
 	user, ok := m.emails[email]
 	if !ok {
@@ -716,6 +715,7 @@ type mockRBACService struct {
 	userRolesRequireMFAErr error
 	userScopes             map[uuid.UUID][]Scope
 	missingRoles           map[uuid.UUID]bool
+	getRoleError           error
 	userRolesRequireMFAVal bool
 }
 
@@ -727,6 +727,9 @@ func newMockRBACService() *mockRBACService {
 }
 
 func (m *mockRBACService) GetRole(ctx context.Context, roleID uuid.UUID) (*Role, error) {
+	if m.getRoleError != nil {
+		return nil, m.getRoleError
+	}
 	if m.missingRoles[roleID] {
 		return nil, ErrRoleNotFound
 	}

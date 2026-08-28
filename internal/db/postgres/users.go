@@ -66,8 +66,6 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*iam.User, error) 
 	return result, err
 }
 
-// GetUserByEmail retrieves a user by email without tenant isolation
-// Pre-authentication operation: emails are globally unique for password users, but may duplicate for SSO users
 // Unscoped like GetUserByEmail: an active address is unique across every tenant, so deciding
 // whether one is free is a question no single tenant's rows can answer.
 func (u *UsersDB) ListUsersByEmail(ctx context.Context, email string) ([]*iam.User, error) {
@@ -93,6 +91,8 @@ func (u *UsersDB) ListUsersByEmail(ctx context.Context, email string) ([]*iam.Us
 	return result, err
 }
 
+// GetUserByEmail retrieves a user by email without tenant isolation
+// Pre-authentication operation: emails are globally unique for password users, but may duplicate for SSO users
 func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*iam.User, error) {
 	var result *iam.User
 
