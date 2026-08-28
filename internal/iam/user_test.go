@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ type userServiceTestFixture struct {
 	emailClient         *mockEmailClient
 	verificationTokenDB *mockTokenDB
 	oidcService         *mockOIDCServiceForUser
+	rbacService         *mockRBACService
 }
 
 func newUserServiceTestFixture() *userServiceTestFixture {
@@ -53,6 +55,7 @@ func newUserServiceTestFixture() *userServiceTestFixture {
 		emailClient:         emailClient,
 		verificationTokenDB: verificationTokenDB,
 		oidcService:         oidcService,
+		rbacService:         rbacService,
 	}
 }
 
@@ -283,6 +286,39 @@ func TestVerifyEmailAndSetPassword(t *testing.T) {
 		_, err := f.service.VerifyEmailAndSetPassword(ctx, "nonexistent_token", "password123")
 		if err == nil {
 			t.Error("expected error for invalid token")
+		}
+	})
+}
+
+func TestCreateUserRoleLookup(t *testing.T) {
+	// The handler tells these apart by sentinel, so a role that is not there has to arrive
+	// unwrapped — and anything else has to say where it came from on its way to a 500.
+	t.Run("a missing role stays matchable", func(t *testing.T) {
+		f := newUserServiceTestFixture()
+		roleID := uuid.New()
+		f.rbacService.missingRoles[roleID] = true
+		ctx := identity.WithTenant(context.Background(), uuid.New())
+
+		_, _, err := f.service.CreateUser(ctx, &User{Email: "missing-role@example.com"}, []uuid.UUID{roleID})
+
+		if !errors.Is(err, ErrRoleNotFound) {
+			t.Fatalf("expected ErrRoleNotFound, got %v", err)
+		}
+	})
+
+	t.Run("a lookup that failed says where it failed", func(t *testing.T) {
+		f := newUserServiceTestFixture()
+		f.rbacService.getRoleError = errors.New("connection refused")
+		roleID := uuid.New()
+		ctx := identity.WithTenant(context.Background(), uuid.New())
+
+		_, _, err := f.service.CreateUser(ctx, &User{Email: "bad-lookup@example.com"}, []uuid.UUID{roleID})
+
+		if errors.Is(err, ErrRoleNotFound) {
+			t.Fatalf("a failed lookup must not read as a missing role: %v", err)
+		}
+		if !strings.Contains(err.Error(), "look up role") || !strings.Contains(err.Error(), roleID.String()) {
+			t.Fatalf("expected the role lookup and its id named, got %v", err)
 		}
 	})
 }
