@@ -43,7 +43,7 @@ func (r *Router) createRole(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, iam.ErrDuplicateRole):
-			r.writeError(req.Context(), w, http.StatusConflict, "A role with this name already exists", err)
+			r.writeError(req.Context(), w, http.StatusConflict, roleNameTaken, err)
 
 		default:
 			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to create role", err)
@@ -126,7 +126,7 @@ func (r *Router) updateRole(w http.ResponseWriter, req *http.Request) {
 			r.writeError(req.Context(), w, http.StatusNotFound, "Role not found", err)
 
 		case errors.Is(err, iam.ErrDuplicateRole):
-			r.writeError(req.Context(), w, http.StatusConflict, "A role with this name already exists", err)
+			r.writeError(req.Context(), w, http.StatusConflict, roleNameTaken, err)
 
 		default:
 			r.writeError(req.Context(), w, http.StatusInternalServerError, "Failed to update role", err)

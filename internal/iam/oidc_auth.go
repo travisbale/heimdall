@@ -260,7 +260,7 @@ func (s *OIDCAuthService) autoProvisionSSOUser(ctx context.Context, providerConf
 		}
 	}
 
-	existingUser, err := s.UserDB.GetUserByEmail(ctx, userInfo.Email)
+	existingUser, err := s.UserDB.GetUserByEmailAcrossTenants(ctx, userInfo.Email)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
 		return nil, nil, fmt.Errorf("failed to check existing user: %w", err)
 	}
@@ -324,7 +324,7 @@ func (s *OIDCAuthService) handleIndividualOAuthCallback(ctx context.Context, ses
 	}
 
 	// Check if user already exists by email
-	existingUser, err := s.UserDB.GetUserByEmail(ctx, userInfo.Email)
+	existingUser, err := s.UserDB.GetUserByEmailAcrossTenants(ctx, userInfo.Email)
 	if err != nil && err != ErrUserNotFound {
 		return nil, fmt.Errorf("failed to check existing user: %w", err)
 	}

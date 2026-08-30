@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -32,9 +31,7 @@ func (u *UsersDB) CreateUser(ctx context.Context, user *iam.User) (*iam.User, er
 			Status:       user.Status,
 		})
 		if err != nil {
-			// Convert PostgreSQL unique constraint violation to domain error
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if _, ok := uniqueViolation(err); ok {
 				return iam.ErrDuplicateEmail
 			}
 			return err
@@ -66,9 +63,10 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*iam.User, error) 
 	return result, err
 }
 
-// Unscoped like GetUserByEmail: an active address is unique across every tenant, so deciding
-// whether one is free is a question no single tenant's rows can answer.
-func (u *UsersDB) ListUsersByEmail(ctx context.Context, email string) ([]*iam.User, error) {
+// An active address is unique across every tenant, so whether one is free is a question no
+// single tenant's rows can answer. The name carries that: the interface is where a caller
+// chooses, and a comment here is not where they are looking.
+func (u *UsersDB) ListUsersByEmailAcrossTenants(ctx context.Context, email string) ([]*iam.User, error) {
 	var result []*iam.User
 
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {
@@ -91,9 +89,9 @@ func (u *UsersDB) ListUsersByEmail(ctx context.Context, email string) ([]*iam.Us
 	return result, err
 }
 
-// GetUserByEmail retrieves a user by email without tenant isolation
+// Unscoped, and named so: login is keyed on an address, which no tenant is known for yet.
 // Pre-authentication operation: emails are globally unique for password users, but may duplicate for SSO users
-func (u *UsersDB) GetUserByEmail(ctx context.Context, email string) (*iam.User, error) {
+func (u *UsersDB) GetUserByEmailAcrossTenants(ctx context.Context, email string) (*iam.User, error) {
 	var result *iam.User
 
 	err := u.db.WithTransaction(ctx, func(q *sqlc.Queries) error {

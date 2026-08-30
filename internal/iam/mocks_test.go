@@ -228,7 +228,7 @@ func (m *mockUserDB) GetUserByID(ctx context.Context, id uuid.UUID) (*User, erro
 	return user, nil
 }
 
-func (m *mockUserDB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+func (m *mockUserDB) GetUserByEmailAcrossTenants(ctx context.Context, email string) (*User, error) {
 	user, ok := m.emails[email]
 	if !ok {
 		return nil, ErrUserNotFound
@@ -237,7 +237,7 @@ func (m *mockUserDB) GetUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 // One row per address: a test needing two for one email wants more than this map.
-func (m *mockUserDB) ListUsersByEmail(ctx context.Context, email string) ([]*User, error) {
+func (m *mockUserDB) ListUsersByEmailAcrossTenants(ctx context.Context, email string) ([]*User, error) {
 	user, ok := m.emails[email]
 	if !ok {
 		return nil, nil
@@ -714,26 +714,26 @@ type mockRBACService struct {
 	getUserScopesError     error
 	userRolesRequireMFAErr error
 	userScopes             map[uuid.UUID][]Scope
-	missingRoles           map[uuid.UUID]bool
-	getRoleError           error
+	existingRoles          []uuid.UUID
+	listRolesError         error
 	userRolesRequireMFAVal bool
 }
 
 func newMockRBACService() *mockRBACService {
 	return &mockRBACService{
-		userScopes:   make(map[uuid.UUID][]Scope),
-		missingRoles: make(map[uuid.UUID]bool),
+		userScopes: make(map[uuid.UUID][]Scope),
 	}
 }
 
-func (m *mockRBACService) GetRole(ctx context.Context, roleID uuid.UUID) (*Role, error) {
-	if m.getRoleError != nil {
-		return nil, m.getRoleError
+func (m *mockRBACService) ListRoles(ctx context.Context) ([]*Role, error) {
+	if m.listRolesError != nil {
+		return nil, m.listRolesError
 	}
-	if m.missingRoles[roleID] {
-		return nil, ErrRoleNotFound
+	roles := make([]*Role, 0, len(m.existingRoles))
+	for _, id := range m.existingRoles {
+		roles = append(roles, &Role{ID: id})
 	}
-	return &Role{ID: roleID}, nil
+	return roles, nil
 }
 
 func (m *mockRBACService) GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error) {

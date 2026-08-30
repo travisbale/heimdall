@@ -294,7 +294,7 @@ func TestCreateUserRoleLookup(t *testing.T) {
 	t.Run("a missing role stays matchable", func(t *testing.T) {
 		f := newUserServiceTestFixture()
 		roleID := uuid.New()
-		f.rbacService.missingRoles[roleID] = true
+		f.rbacService.existingRoles = []uuid.UUID{uuid.New()}
 		ctx := identity.WithTenant(context.Background(), uuid.New())
 
 		_, _, err := f.service.CreateUser(ctx, &User{Email: "missing-role@example.com"}, []uuid.UUID{roleID})
@@ -306,7 +306,7 @@ func TestCreateUserRoleLookup(t *testing.T) {
 
 	t.Run("a lookup that failed says where it failed", func(t *testing.T) {
 		f := newUserServiceTestFixture()
-		f.rbacService.getRoleError = errors.New("connection refused")
+		f.rbacService.listRolesError = errors.New("connection refused")
 		roleID := uuid.New()
 		ctx := identity.WithTenant(context.Background(), uuid.New())
 
@@ -315,8 +315,8 @@ func TestCreateUserRoleLookup(t *testing.T) {
 		if errors.Is(err, ErrRoleNotFound) {
 			t.Fatalf("a failed lookup must not read as a missing role: %v", err)
 		}
-		if !strings.Contains(err.Error(), "look up role") || !strings.Contains(err.Error(), roleID.String()) {
-			t.Fatalf("expected the role lookup and its id named, got %v", err)
+		if !strings.Contains(err.Error(), "list roles") {
+			t.Fatalf("expected the failed read named, got %v", err)
 		}
 	})
 }

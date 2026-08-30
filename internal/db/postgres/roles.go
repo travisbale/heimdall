@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -22,8 +21,7 @@ func NewRolesDB(db *DB) *RolesDB {
 
 // The name is unique per tenant. Left raw it reads as a server fault to the caller who chose it.
 func convertRoleNameConflict(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if _, ok := uniqueViolation(err); ok {
 		return iam.ErrDuplicateRole
 	}
 	return err

@@ -15,7 +15,7 @@ type hasher interface {
 // rbacService provides role-based access control operations
 type rbacService interface {
 	GetUserScopes(ctx context.Context, userID uuid.UUID) ([]Scope, error)
-	GetRole(ctx context.Context, roleID uuid.UUID) (*Role, error)
+	ListRoles(ctx context.Context) ([]*Role, error)
 	SetUserRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 	UserRolesRequireMFA(ctx context.Context, userID uuid.UUID) (bool, error)
 }

@@ -10,8 +10,8 @@ import (
 type userDB interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetUser(ctx context.Context, id uuid.UUID) (*User, error)
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	ListUsersByEmail(ctx context.Context, email string) ([]*User, error)
+	GetUserByEmailAcrossTenants(ctx context.Context, email string) (*User, error)
+	ListUsersByEmailAcrossTenants(ctx context.Context, email string) ([]*User, error)
 	UpdateUser(ctx context.Context, params *UpdateUserParams) (*User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error

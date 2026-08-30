@@ -156,7 +156,6 @@ func TestLogin(t *testing.T) {
 			t.Errorf("expected ErrEmailNotVerified, got %v", err)
 		}
 	})
-
 }
 
 func TestInitiatePasswordReset(t *testing.T) {
