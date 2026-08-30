@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/knowhere/db/postgres"
 )
@@ -25,4 +27,14 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	}
 
 	return postgres.NewDB(ctx, databaseURL, queries, cfg)
+}
+
+// uniqueViolation reports whether err is Postgres refusing a duplicate, and hands back the
+// driver error so a caller with more than one unique index can tell which one refused.
+func uniqueViolation(err error) (*pgconn.PgError, bool) {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr, true
+	}
+	return nil, false
 }

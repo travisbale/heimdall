@@ -2,27 +2,19 @@ package postgres
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	util "github.com/travisbale/heimdall/test/_util"
 	"github.com/travisbale/heimdall/test/_util/database"
 	"github.com/travisbale/heimdall/test/_util/setup"
 )
 
-// container is the heimdall test container the cleanup command is run inside.
-func container() string {
-	if c := os.Getenv("HEIMDALL_TEST_CONTAINER"); c != "" {
-		return c
-	}
-	return "heimdall-test"
-}
-
 func runCleanup(t *testing.T) {
 	t.Helper()
-	out, err := exec.Command("docker", "exec", container(), "./heimdall", "cleanup").CombinedOutput()
+	out, err := exec.Command("docker", "exec", util.LoadConfig().HeimdallContainer, "./heimdall", "cleanup").CombinedOutput()
 	require.NoError(t, err, "cleanup command failed: %s", out)
 }
 

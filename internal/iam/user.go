@@ -41,7 +41,7 @@ type UserService struct {
 // tenant, so a token issued here could never be redeemed. Anything at all in this tenant: the
 // index ignores unverified rows, so the database would take a second one and strand its token.
 func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string) error {
-	existing, err := s.UserDB.ListUsersByEmail(ctx, email)
+	existing, err := s.UserDB.ListUsersByEmailAcrossTenants(ctx, email)
 	if err != nil {
 		return fmt.Errorf("failed to check existing user: %w", err)
 	}
@@ -62,12 +62,20 @@ func (s *UserService) refuseAddressAlreadyHeld(ctx context.Context, email string
 // Before the user row, not after: the row commits in its own transaction, so a role the caller
 // cannot use failed once the account already existed and left it stranded and unredeemable.
 func (s *UserService) refuseUnknownRoles(ctx context.Context, roleIDs []uuid.UUID) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	roles, err := s.RBACService.ListRoles(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list roles: %w", err)
+	}
+	known := make(map[uuid.UUID]struct{}, len(roles))
+	for _, role := range roles {
+		known[role.ID] = struct{}{}
+	}
 	for _, roleID := range roleIDs {
-		if _, err := s.RBACService.GetRole(ctx, roleID); err != nil {
-			if errors.Is(err, ErrRoleNotFound) {
-				return err
-			}
-			return fmt.Errorf("failed to look up role %s: %w", roleID, err)
+		if _, ok := known[roleID]; !ok {
+			return ErrRoleNotFound
 		}
 	}
 	return nil
@@ -134,7 +142,7 @@ func (s *UserService) Register(ctx context.Context, email, firstName, lastName s
 	var user *User
 
 	// Check if user already exists
-	user, err := s.UserDB.GetUserByEmail(ctx, email)
+	user, err := s.UserDB.GetUserByEmailAcrossTenants(ctx, email)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):

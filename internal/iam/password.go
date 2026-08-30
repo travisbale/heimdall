@@ -64,7 +64,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 		return nil, ErrAccountLocked
 	}
 
-	user, err := s.UserDB.GetUserByEmail(ctx, email)
+	user, err := s.UserDB.GetUserByEmailAcrossTenants(ctx, email)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
@@ -106,7 +106,7 @@ func (s *PasswordService) VerifyCredentials(ctx context.Context, email, password
 
 // InitiatePasswordReset generates a password reset token and sends a reset email
 func (s *PasswordService) InitiatePasswordReset(ctx context.Context, email string) error {
-	user, err := s.UserDB.GetUserByEmail(ctx, email)
+	user, err := s.UserDB.GetUserByEmailAcrossTenants(ctx, email)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}

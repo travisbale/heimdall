@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/travisbale/heimdall/internal/db/postgres/internal/sqlc"
 	"github.com/travisbale/heimdall/internal/iam"
 )
@@ -40,9 +39,7 @@ func (o *OIDCLinksDB) CreateOIDCLink(ctx context.Context, link *iam.OIDCLink) (*
 			ProviderMetadata: metadataJSON,
 		})
 		if err != nil {
-			// Convert unique constraint violations to domain errors
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if pgErr, ok := uniqueViolation(err); ok {
 				if pgErr.ConstraintName == "oidc_links_user_id_oidc_provider_id_key" {
 					return iam.ErrOIDCLinkAlreadyExists
 				}

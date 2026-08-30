@@ -27,8 +27,7 @@ func TestMFARefusesADeactivatedAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, loginResp.MFAChallengeToken, "the password half must have been accepted")
 
-	rows := database.ExecRows(t, "UPDATE users SET status = 'suspended' WHERE email = $1", user.Email)
-	require.EqualValues(t, 1, rows, "the account under test must be the one deactivated")
+	database.SetUserStatus(t, user.Email, "suspended")
 
 	_, err = client.VerifyMFACode(ctx, sdk.VerifyMFACodeRequest{
 		ChallengeToken: loginResp.MFAChallengeToken,
