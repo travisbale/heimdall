@@ -160,6 +160,7 @@ func passwordRejection(err error) string {
 // them should find nothing to tell them apart.
 const accountDeactivated = "This account is no longer active. Please contact your administrator."
 
-// roleNameTaken is what both doors that name a role say, for the same reason accountDeactivated
-// is one constant: the same refusal should not be able to drift into two sentences.
+// roleNameTaken is the refusal a duplicate role name gets, for the same reason
+// accountDeactivated is one constant: the same refusal should not be able to drift into two
+// sentences.
 const roleNameTaken = "A role with this name already exists"

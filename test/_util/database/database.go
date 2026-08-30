@@ -57,9 +57,9 @@ func ExecRows(t *testing.T, query string, args ...any) int64 {
 	return tag.RowsAffected()
 }
 
-// SetUserStatus is the fixture behind every "and then the account was deactivated" test. It
-// asserts it moved the row: a WHERE that matches nothing succeeds, and a test whose subject
-// was never deactivated goes green having proved the opposite of what it says.
+// SetUserStatus moves an account's status, and asserts it moved a row: a WHERE that matches
+// nothing succeeds, and a test whose subject was never deactivated goes green having proved
+// the opposite of what it says.
 func SetUserStatus(t *testing.T, email, status string) {
 	t.Helper()
 	rows := ExecRows(t, "UPDATE users SET status = $1 WHERE email = $2", status, email)

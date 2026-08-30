@@ -63,9 +63,9 @@ func (u *UsersDB) GetUser(ctx context.Context, id uuid.UUID) (*iam.User, error) 
 	return result, err
 }
 
-// An active address is unique across every tenant, so whether one is free is a question no
-// single tenant's rows can answer. The name carries that: the interface is where a caller
-// chooses, and a comment here is not where they are looking.
+// ListUsersByEmailAcrossTenants is unscoped, and named so: an active address is unique across
+// every tenant, so whether one is free is a question no single tenant's rows can answer. The
+// interface is where a caller chooses, and a comment here is not where they are looking.
 func (u *UsersDB) ListUsersByEmailAcrossTenants(ctx context.Context, email string) ([]*iam.User, error) {
 	var result []*iam.User
 
@@ -89,8 +89,9 @@ func (u *UsersDB) ListUsersByEmailAcrossTenants(ctx context.Context, email strin
 	return result, err
 }
 
-// Unscoped, and named so: login is keyed on an address, which no tenant is known for yet.
-// Pre-authentication operation: emails are globally unique for password users, but may duplicate for SSO users
+// GetUserByEmailAcrossTenants is unscoped, and named so: login is keyed on an address, which
+// no tenant is known for yet. Emails are globally unique for password users, but may
+// duplicate for SSO users.
 func (u *UsersDB) GetUserByEmailAcrossTenants(ctx context.Context, email string) (*iam.User, error) {
 	var result *iam.User
 

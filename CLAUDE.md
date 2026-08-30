@@ -82,9 +82,9 @@ load-bearing** — Postgres exempts a table's owner from its own policies, and t
 role owns every table because it runs the migrations.
 
 The distinction that makes this service different from the ones behind it: **authentication
-resolves the tenant, so the login path cannot assume one.** `GetUserByEmail` and `GetUser`
-run under `WithTransaction` (no tenant context) because at that point the tenant is the
-*output* of the query. Tenant-scoped administration — `CreateUser`, `DeleteUser`, roles,
+resolves the tenant, so the login path cannot assume one.** `GetUserByEmailAcrossTenants` and
+`GetUser` run under `WithTransaction` (no tenant context) because at that point the tenant is
+the *output* of the query. Tenant-scoped administration — `CreateUser`, `DeleteUser`, roles,
 providers — uses `WithTenantContext`. Choosing the wrong one either leaks across tenants or
 makes login impossible, and neither fails loudly.
 
