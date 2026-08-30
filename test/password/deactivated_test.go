@@ -33,7 +33,7 @@ func TestLoginRefusesADeactivatedAccount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.status, func(t *testing.T) {
 			user := setup.CreateVerifiedUser(t, "deactivated-"+tt.status)
-			database.Exec(t, "UPDATE users SET status = $1 WHERE email = $2", tt.status, user.Email)
+			database.SetUserStatus(t, user.Email, tt.status)
 
 			_, err := setup.CreateClient(t).Login(context.Background(), sdk.LoginRequest{
 				Email:    user.Email,

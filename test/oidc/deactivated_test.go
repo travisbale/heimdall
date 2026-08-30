@@ -61,8 +61,7 @@ func TestSSORefusesADeactivatedAccount(t *testing.T) {
 	require.NotEmpty(t, FollowOAuthFlow(t, authResp.AuthorizationURL).AccessToken,
 		"the account must sign in before deactivation, or the refusal below proves nothing")
 
-	rows := database.ExecRows(t, "UPDATE users SET status = 'suspended' WHERE email = $1", ssoAccount)
-	require.EqualValues(t, 1, rows, "the account the issuer asserts must be the one deactivated")
+	database.SetUserStatus(t, ssoAccount, "suspended")
 
 	authResp, err = admin.Client.SSOLogin(ctx, sdk.SSOLoginRequest{Email: hint})
 	require.NoError(t, err)

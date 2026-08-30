@@ -25,7 +25,7 @@ func TestRefreshEndsWhenTheAccountIsDeactivated(t *testing.T) {
 	require.NoError(t, err, "refresh should work before deactivation")
 	require.NotNil(t, setup.FindRefreshCookie(t, jar))
 
-	database.Exec(t, "UPDATE users SET status = 'suspended' WHERE email = $1", user.Email)
+	database.SetUserStatus(t, user.Email, "suspended")
 
 	_, err = user.Client.RefreshToken(ctx)
 	assert.Error(t, err, "a suspended account must not be able to refresh its session")

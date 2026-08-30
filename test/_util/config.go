@@ -9,7 +9,7 @@ import (
 // Config holds test infrastructure connection details
 type Config struct {
 	HeimdallBaseURL     string
-	HeimdallGRPCAddress string
+	HeimdallContainer   string
 	OIDCMockURL         string // Reachable from tests (host network)
 	OIDCMockInternalURL string // Reachable from heimdall (Docker network), used as issuer URL when creating providers
 	JWTPublicKeyPath    string
@@ -20,7 +20,7 @@ type Config struct {
 func LoadConfig() *Config {
 	return &Config{
 		HeimdallBaseURL:     getEnv("HEIMDALL_BASE_URL", "http://localhost:8080"),
-		HeimdallGRPCAddress: getEnv("HEIMDALL_GRPC_ADDRESS", "localhost:9090"),
+		HeimdallContainer:   getEnv("HEIMDALL_TEST_CONTAINER", "heimdall-test"),
 		OIDCMockURL:         getEnv("OIDC_MOCK_URL", "http://localhost:8082"),
 		OIDCMockInternalURL: getEnv("OIDC_MOCK_INTERNAL_URL", "http://heimdall-oidc-mock-test:8082"),
 		JWTPublicKeyPath:    getEnv("JWT_PUBLIC_KEY_PATH", jwtPublicKeyPath()),

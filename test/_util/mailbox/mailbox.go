@@ -9,21 +9,13 @@ package mailbox
 import (
 	"encoding/json"
 	"net/url"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	util "github.com/travisbale/heimdall/test/_util"
 )
-
-// container is the heimdall test container whose logs stand in for an inbox.
-func container() string {
-	if c := os.Getenv("HEIMDALL_TEST_CONTAINER"); c != "" {
-		return c
-	}
-	return "heimdall-test"
-}
 
 type emailLine struct {
 	Msg             string `json:"msg"`
@@ -49,8 +41,8 @@ func PasswordResetToken(t *testing.T, email string) string {
 func latestToken(t *testing.T, email string, urlOf func(emailLine) string) string {
 	t.Helper()
 
-	out, err := exec.Command("docker", "logs", container()).CombinedOutput()
-	require.NoError(t, err, "failed to read %s logs (is the test stack running?)", container())
+	out, err := exec.Command("docker", "logs", util.LoadConfig().HeimdallContainer).CombinedOutput()
+	require.NoError(t, err, "failed to read %s logs (is the test stack running?)", util.LoadConfig().HeimdallContainer)
 
 	// Last match wins: a test may request several tokens for one address.
 	var found string

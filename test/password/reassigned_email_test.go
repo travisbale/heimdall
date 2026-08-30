@@ -28,7 +28,7 @@ func TestLoginResolvesToTheLiveAccountWhenAnAddressWasReassigned(t *testing.T) {
 	require.NoError(t, database.QueryRow(t,
 		"SELECT password_hash, tenant_id::text FROM users WHERE email = $1", former.Email).Scan(&hash, &tenantID))
 
-	database.Exec(t, "UPDATE users SET status = 'suspended' WHERE email = $1", former.Email)
+	database.SetUserStatus(t, former.Email, "suspended")
 
 	database.Exec(t, `INSERT INTO users
 		(id, tenant_id, email, password_hash, first_name, last_name, status)

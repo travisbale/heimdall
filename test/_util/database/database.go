@@ -38,8 +38,7 @@ func getPool(t *testing.T) *pgxpool.Pool {
 // Exec executes a SQL statement and fails the test on error
 func Exec(t *testing.T, query string, args ...any) {
 	t.Helper()
-	_, err := getPool(t).Exec(context.Background(), query, args...)
-	require.NoError(t, err, "failed to execute query: %s", query)
+	ExecRows(t, query, args...)
 }
 
 // QueryRow executes a query that returns a single row
@@ -56,4 +55,13 @@ func ExecRows(t *testing.T, query string, args ...any) int64 {
 	tag, err := getPool(t).Exec(context.Background(), query, args...)
 	require.NoError(t, err, "failed to execute query: %s", query)
 	return tag.RowsAffected()
+}
+
+// SetUserStatus is the fixture behind every "and then the account was deactivated" test. It
+// asserts it moved the row: a WHERE that matches nothing succeeds, and a test whose subject
+// was never deactivated goes green having proved the opposite of what it says.
+func SetUserStatus(t *testing.T, email, status string) {
+	t.Helper()
+	rows := ExecRows(t, "UPDATE users SET status = $1 WHERE email = $2", status, email)
+	require.EqualValues(t, 1, rows, "the account under test must be the one whose status moved")
 }

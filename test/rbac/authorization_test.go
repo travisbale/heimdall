@@ -12,11 +12,10 @@ import (
 
 func TestUnauthorizedRBACAccess(t *testing.T) {
 	t.Parallel()
-	// BootstrapTenant grants System Admin; a user made through gRPC gets no roles at all.
+	// BootstrapTenant grants System Admin; a user created into an existing tenant gets none.
 	admin := setup.CreateAdminUser(t, "rbac-admin")
 	ctx := context.Background()
 
-	// Create a second user in the admin's tenant via gRPC (no roles assigned)
 	unprivileged := setup.CreateUserInTenant(t, admin, "unprivileged")
 
 	t.Run("cannot list permissions without role:read", func(t *testing.T) {
