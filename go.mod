@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/pquerna/otp v1.5.0
 	github.com/stretchr/testify v1.12.1
-	github.com/travisbale/knowhere v0.2.0
+	github.com/travisbale/knowhere v0.3.0
 	github.com/travisbale/mailman v0.0.0-20260417021656-d54a50ea675d
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/urfave/cli/v2 v2.27.7

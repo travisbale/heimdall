@@ -53,12 +53,12 @@ test-setup: test-keys
 	@docker compose -f test/docker-compose.yml up -d --wait postgres oidc-mock
 	@echo "Waiting for OIDC mock to be ready..."
 	@until curl -sf http://localhost:8082/.well-known/openid-configuration > /dev/null 2>&1; do sleep 1; done
+	@echo "Running migrations..."
+	@docker compose -f test/docker-compose.yml run --rm heimdall migrate up
 	@echo "Starting heimdall..."
 	@docker compose -f test/docker-compose.yml up -d --wait heimdall || \
 		(echo "Heimdall failed to start. Logs:" && \
 		docker compose -f test/docker-compose.yml logs heimdall && exit 1)
-	@echo "Running migrations..."
-	@docker compose -f test/docker-compose.yml exec -T heimdall ./heimdall migrate up > /dev/null
 	@echo "Test infrastructure ready"
 
 # Run integration tests only (requires test infrastructure to be running)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/travisbale/heimdall/internal/api/grpc"
 	"github.com/travisbale/heimdall/internal/api/rest"
+	"github.com/travisbale/heimdall/internal/db/postgres"
 	"github.com/travisbale/heimdall/internal/email/console"
 	"github.com/travisbale/heimdall/internal/email/mailman"
 	"github.com/travisbale/heimdall/internal/email/webhook"
@@ -42,10 +43,9 @@ type Server struct {
 
 // NewServer creates a new server instance with all dependencies
 func NewServer(ctx context.Context, config *Config) (*Server, error) {
-	// Setup database connection and run migrations
-	db, err := setupDatabase(ctx, config.DatabaseURL)
+	db, err := postgres.NewDB(ctx, config.DatabaseURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build the database pool: %w", err)
 	}
 
 	// Setup email client based on configuration
