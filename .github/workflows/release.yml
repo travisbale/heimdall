@@ -101,6 +101,16 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v3
 
+      # The schema moves first, and a failure stops the release here with the revision that is
+      # serving left alone. The job itself is defined in the infrastructure repo, as the service is.
+      - name: Migrate the database
+        run: |
+          gcloud run jobs update "${SERVICE}-migrate" \
+            --project "$PROJECT" --region "$REGION" \
+            --image "${IMAGE}:${GITHUB_REF_NAME}"
+          gcloud run jobs execute "${SERVICE}-migrate" \
+            --project "$PROJECT" --region "$REGION" --wait
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
